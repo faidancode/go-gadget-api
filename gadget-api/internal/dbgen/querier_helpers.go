@@ -1,0 +1,27 @@
+package dbgen
+
+import (
+	"database/sql"
+)
+
+// NewNullString mengonversi string menjadi sql.NullString yang valid
+func NewNullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{
+			String: "",
+			Valid:  false,
+		}
+	}
+	return sql.NullString{
+		String: s,
+		Valid:  true,
+	}
+}
+
+// NewNullInt32 mengonversi int32 menjadi sql.NullInt32
+func NewNullInt32(i int32) sql.NullInt32 {
+	return sql.NullInt32{
+		Int32: i,
+		Valid: true,
+	}
+}

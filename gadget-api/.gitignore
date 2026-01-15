@@ -1,0 +1,25 @@
+# Ignore Environment Variables (Sangat Penting)
+**/.env
+gadget-api/.env
+
+# Ignore Go Binaries
+**/bin/
+gadget-api/gadget-api
+gadget-api/seed
+gadget-api/main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Ignore IDE settings
+.vscode/
+.idea/
+
+# Ignore log files
+*.log
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
