@@ -25,3 +25,7 @@ func NewNullInt32(i int32) sql.NullInt32 {
 		Valid: true,
 	}
 }
+
+func NewNullBool(v bool) sql.NullBool {
+	return sql.NullBool{Bool: v, Valid: true}
+}

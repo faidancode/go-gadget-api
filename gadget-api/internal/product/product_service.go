@@ -12,19 +12,29 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
+type Service interface {
+	ListPublic(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error)
+	ListAdmin(ctx context.Context, page, limit int, search, sortCol, categoryID string) ([]ProductAdminResponse, int64, error)
+	Create(ctx context.Context, req CreateProductRequest) (ProductAdminResponse, error)
+	GetByIDAdmin(ctx context.Context, id string) (ProductAdminResponse, error)
+	Update(ctx context.Context, id string, req UpdateProductRequest) (ProductAdminResponse, error)
+	Delete(ctx context.Context, id string) error
+	Restore(ctx context.Context, id string) (ProductAdminResponse, error)
+}
+
+type service struct {
 	repo    Repository
 	catRepo category.Repository
 }
 
-func NewService(repo Repository, catRepo category.Repository) *Service {
-	return &Service{
+func NewService(repo Repository, catRepo category.Repository) Service {
+	return &service{
 		repo:    repo,
 		catRepo: catRepo,
 	}
 }
 
-func (s *Service) ListPublic(ctx context.Context, req ListPublicRequest) ([]ProductResponse, int64, error) {
+func (s *service) ListPublic(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error) {
 	offset := (req.Page - 1) * req.Limit
 
 	if req.MaxPrice == 0 {
@@ -55,7 +65,7 @@ func (s *Service) ListPublic(ctx context.Context, req ListPublicRequest) ([]Prod
 	return s.mapToPublicResponse(rows)
 }
 
-func (s *Service) ListAdmin(ctx context.Context, page, limit int, search, sortCol, categoryID string) ([]ProductAdminResponse, int64, error) {
+func (s *service) ListAdmin(ctx context.Context, page, limit int, search, sortCol, categoryID string) ([]ProductAdminResponse, int64, error) {
 	offset := (page - 1) * limit
 
 	params := dbgen.ListProductsAdminParams{
@@ -80,7 +90,7 @@ func (s *Service) ListAdmin(ctx context.Context, page, limit int, search, sortCo
 	return s.mapToAdminResponse(rows)
 }
 
-func (s *Service) Create(ctx context.Context, req CreateProductRequest) (ProductAdminResponse, error) {
+func (s *service) Create(ctx context.Context, req CreateProductRequest) (ProductAdminResponse, error) {
 	catID, err := uuid.Parse(req.CategoryID)
 	if err != nil {
 		return ProductAdminResponse{}, fmt.Errorf("invalid category id")
@@ -112,7 +122,7 @@ func (s *Service) Create(ctx context.Context, req CreateProductRequest) (Product
 	return s.GetByIDAdmin(ctx, p.ID.String())
 }
 
-func (s *Service) GetByIDAdmin(ctx context.Context, idStr string) (ProductAdminResponse, error) {
+func (s *service) GetByIDAdmin(ctx context.Context, idStr string) (ProductAdminResponse, error) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		return ProductAdminResponse{}, fmt.Errorf("invalid product id")
@@ -137,7 +147,7 @@ func (s *Service) GetByIDAdmin(ctx context.Context, idStr string) (ProductAdminR
 	}, nil
 }
 
-func (s *Service) Update(ctx context.Context, idStr string, req UpdateProductRequest) (ProductAdminResponse, error) {
+func (s *service) Update(ctx context.Context, idStr string, req UpdateProductRequest) (ProductAdminResponse, error) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		return ProductAdminResponse{}, fmt.Errorf("invalid product id")
@@ -198,7 +208,7 @@ func (s *Service) Update(ctx context.Context, idStr string, req UpdateProductReq
 	return s.GetByIDAdmin(ctx, idStr)
 }
 
-func (s *Service) Delete(ctx context.Context, idStr string) error {
+func (s *service) Delete(ctx context.Context, idStr string) error {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		return fmt.Errorf("invalid product id")
@@ -206,7 +216,7 @@ func (s *Service) Delete(ctx context.Context, idStr string) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *Service) Restore(ctx context.Context, idStr string) (ProductAdminResponse, error) {
+func (s *service) Restore(ctx context.Context, idStr string) (ProductAdminResponse, error) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		return ProductAdminResponse{}, fmt.Errorf("invalid product id")
@@ -220,15 +230,15 @@ func (s *Service) Restore(ctx context.Context, idStr string) (ProductAdminRespon
 	return s.GetByIDAdmin(ctx, idStr)
 }
 
-func (s *Service) mapToPublicResponse(rows []dbgen.ListProductsPublicRow) ([]ProductResponse, int64, error) {
+func (s *service) mapToPublicResponse(rows []dbgen.ListProductsPublicRow) ([]ProductPublicResponse, int64, error) {
 	var total int64
-	res := make([]ProductResponse, 0)
+	res := make([]ProductPublicResponse, 0)
 	for _, row := range rows {
 		if total == 0 {
 			total = row.TotalCount
 		}
 		priceFloat, _ := strconv.ParseFloat(row.Price, 64)
-		res = append(res, ProductResponse{
+		res = append(res, ProductPublicResponse{
 			ID:           row.ID.String(),
 			CategoryName: row.CategoryName,
 			Name:         row.Name,
@@ -239,7 +249,7 @@ func (s *Service) mapToPublicResponse(rows []dbgen.ListProductsPublicRow) ([]Pro
 	return res, total, nil
 }
 
-func (s *Service) mapToAdminResponse(rows []dbgen.ListProductsAdminRow) ([]ProductAdminResponse, int64, error) {
+func (s *service) mapToAdminResponse(rows []dbgen.ListProductsAdminRow) ([]ProductAdminResponse, int64, error) {
 	var total int64
 	res := make([]ProductAdminResponse, 0)
 	for _, row := range rows {

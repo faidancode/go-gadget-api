@@ -23,10 +23,10 @@ func (ctrl *Controller) Login(c *gin.Context) {
 		return
 	}
 
-	token, userResp, err := ctrl.service.Login(c.Request.Context(), req.Username, req.Password)
+	token, userResp, err := ctrl.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		// Response Error Seragam
-		response.Error(c, http.StatusUnauthorized, "AUTH_FAILED", "Username atau password salah", nil)
+		response.Error(c, http.StatusUnauthorized, "AUTH_FAILED", "Email atau password salah", nil)
 		return
 	}
 
@@ -42,8 +42,8 @@ func (ctrl *Controller) Login(c *gin.Context) {
 	)
 
 	// Response Success Seragam
-	// Data yang dikirim adalah struct AuthResponse (Username & Role)
-	response.Success(c, http.StatusOK, "Login berhasil", userResp)
+	// Data yang dikirim adalah struct AuthResponse (Email & Role)
+	response.Success(c, http.StatusOK, userResp, nil)
 }
 
 func (ctrl *Controller) Logout(c *gin.Context) {
@@ -51,4 +51,20 @@ func (ctrl *Controller) Logout(c *gin.Context) {
 
 	// Response Success Seragam
 	response.Success(c, http.StatusOK, "Logout berhasil", nil)
+}
+
+func (ctrl *Controller) Register(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
+		return
+	}
+
+	res, err := ctrl.service.Register(c.Request.Context(), req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "REGISTER_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.Success(c, http.StatusCreated, res, nil)
 }

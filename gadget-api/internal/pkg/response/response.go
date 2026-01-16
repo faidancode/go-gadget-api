@@ -1,74 +1,41 @@
 package response
 
 import (
-	"time"
-
 	"github.com/gin-gonic/gin"
 )
 
-type Pagination struct {
-	Page            int   `json:"page"`
-	PageSize        int   `json:"pageSize"`
-	TotalItems      int64 `json:"totalItems"`
-	TotalPages      int   `json:"totalPages"`
-	HasNextPage     bool  `json:"hasNextPage"`
-	HasPreviousPage bool  `json:"hasPreviousPage"`
+type PaginationMeta struct {
+	Total      int64 `json:"total,omitempty"`
+	TotalPages int   `json:"totalPages,omitempty"`
+	Page       int   `json:"page,omitempty"`
+	PageSize   int   `json:"pageSize,omitempty"`
 }
 
-type APIResponse struct {
-	Success    bool         `json:"success"`
-	Data       interface{}  `json:"data"`
-	Pagination *Pagination  `json:"pagination,omitempty"` // omitempty agar tidak muncul jika nil
-	Error      *ErrorDetail `json:"error"`
-	Message    string       `json:"message"`
-	RequestID  string       `json:"requestId"`
-	Timestamp  string       `json:"timestamp"`
+type ApiEnvelope struct {
+	Success bool                   `json:"success"`
+	Data    interface{}            `json:"data"`
+	Meta    *PaginationMeta        `json:"meta"`
+	Error   map[string]interface{} `json:"error"`
 }
 
-type ErrorDetail struct {
-	Code    string      `json:"code"`
-	Message string      `json:"message"`
-	Details interface{} `json:"details"`
-}
-
-// Success untuk data tunggal (tanpa pagination)
-func Success(c *gin.Context, status int, message string, data interface{}) {
-	requestId := c.GetString("X-Request-ID")
-	c.JSON(status, APIResponse{
-		Success:   true,
-		Data:      data,
-		Message:   message,
-		RequestID: requestId,
-		Timestamp: time.Now().Format(time.RFC3339),
+func Success(c *gin.Context, status int, data interface{}, meta *PaginationMeta) {
+	c.JSON(status, ApiEnvelope{
+		Success: true,
+		Data:    data,
+		Meta:    meta,
+		Error:   nil,
 	})
 }
 
-// SuccessWithPagination untuk data list/array
-func SuccessWithPagination(c *gin.Context, status int, message string, data interface{}, pag Pagination) {
-	requestId := c.GetString("X-Request-ID")
-	c.JSON(status, APIResponse{
-		Success:    true,
-		Data:       data,
-		Pagination: &pag,
-		Message:    message,
-		RequestID:  requestId,
-		Timestamp:  time.Now().Format(time.RFC3339),
-	})
-}
-
-// Error untuk response gagal
-func Error(c *gin.Context, status int, errCode string, message string, details interface{}) {
-	requestId := c.GetString("X-Request-ID")
-	c.JSON(status, APIResponse{
+func Error(c *gin.Context, status int, errorCode string, message string, details interface{}) {
+	c.JSON(status, ApiEnvelope{
 		Success: false,
 		Data:    nil,
-		Error: &ErrorDetail{
-			Code:    errCode,
-			Message: message,
-			Details: details,
+		Meta:    nil,
+		Error: map[string]interface{}{
+			"code":    errorCode,
+			"message": message,
+			"details": details,
 		},
-		Message:   message,
-		RequestID: requestId,
-		Timestamp: time.Now().Format(time.RFC3339),
 	})
 }

@@ -14,7 +14,7 @@ type ListPublicRequest struct {
 }
 
 // ProductResponse adalah output ringkas untuk Customer
-type ProductResponse struct {
+type ProductPublicResponse struct {
 	ID           string  `json:"id"`
 	CategoryName string  `json:"category_name"`
 	Name         string  `json:"name"`

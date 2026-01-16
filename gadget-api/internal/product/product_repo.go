@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:generate mockgen -source=product_repo.go -destination=mock/product_repo_mock.go -package=mock
 type Repository interface {
 	Create(ctx context.Context, arg dbgen.CreateProductParams) (dbgen.Product, error)
 	// Pisahkan List menjadi Public dan Admin sesuai query.sql terbaru

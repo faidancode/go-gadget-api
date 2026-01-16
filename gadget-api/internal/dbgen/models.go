@@ -41,7 +41,8 @@ type Product struct {
 
 type User struct {
 	ID        uuid.UUID      `json:"id"`
-	Username  string         `json:"username"`
+	Email     string         `json:"email"`
+	Name      string         `json:"name"`
 	Password  string         `json:"password"`
 	Role      sql.NullString `json:"role"`
 	CreatedAt time.Time      `json:"created_at"`

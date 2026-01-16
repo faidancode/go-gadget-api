@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"gadget-api/internal/dbgen"
 	"os"
 	"time"
 
@@ -18,17 +20,17 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) Login(ctx context.Context, username, password string) (string, AuthResponse, error) {
+func (s *Service) Login(ctx context.Context, email, password string) (string, AuthResponse, error) {
 	// 1. Cari user di database
-	user, err := s.repo.GetByUsername(ctx, username)
+	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
-		return "", AuthResponse{}, fmt.Errorf("invalid username or password")
+		return "", AuthResponse{}, fmt.Errorf("invalid email or password")
 	}
 
 	// 2. Verifikasi Password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return "", AuthResponse{}, fmt.Errorf("invalid username or password")
+		return "", AuthResponse{}, fmt.Errorf("invalid email or password")
 	}
 
 	// 3. Generate JWT Token
@@ -38,8 +40,8 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 	}
 
 	return tokenString, AuthResponse{
-		Username: user.Username,
-		Role:     user.Role.String,
+		Email: user.Email,
+		Role:  user.Role.String,
 	}, nil
 }
 
@@ -52,4 +54,31 @@ func (s *Service) generateToken(userID, role string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+}
+
+func (s *Service) Register(ctx context.Context, req RegisterRequest) (AuthResponse, error) {
+	// 1. Hash password
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return AuthResponse{}, fmt.Errorf("failed to hash password")
+	}
+
+	// 2. Simpan user
+	user, err := s.repo.Create(ctx, dbgen.CreateUserParams{
+		Email:    req.Email,
+		Name:     req.Name,
+		Password: string(hashed),
+		Role: sql.NullString{
+			String: "customer",
+			Valid:  true,
+		},
+	})
+	if err != nil {
+		return AuthResponse{}, fmt.Errorf("email already registered")
+	}
+
+	return AuthResponse{
+		Email: user.Email,
+		Role:  user.Role.String,
+	}, nil
 }

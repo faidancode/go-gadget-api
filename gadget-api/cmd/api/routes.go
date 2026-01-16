@@ -27,6 +27,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		{
 			auth.POST("/login", reg.Auth.Login)
 			auth.POST("/logout", reg.Auth.Logout)
+			auth.POST("/register", reg.Auth.Register)
 		}
 		// Modul Category
 		// Category Routes

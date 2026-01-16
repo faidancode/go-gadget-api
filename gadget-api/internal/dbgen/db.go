@@ -30,14 +30,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createProductStmt, err = db.PrepareContext(ctx, createProduct); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateProduct: %w", err)
 	}
+	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
+	}
 	if q.getCategoryByIDStmt, err = db.PrepareContext(ctx, getCategoryByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoryByID: %w", err)
 	}
 	if q.getProductByIDStmt, err = db.PrepareContext(ctx, getProductByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductByID: %w", err)
 	}
-	if q.getUserByUsernameStmt, err = db.PrepareContext(ctx, getUserByUsername); err != nil {
-		return nil, fmt.Errorf("error preparing query GetUserByUsername: %w", err)
+	if q.getUserByEmailStmt, err = db.PrepareContext(ctx, getUserByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByEmail: %w", err)
 	}
 	if q.listCategoriesStmt, err = db.PrepareContext(ctx, listCategories); err != nil {
 		return nil, fmt.Errorf("error preparing query ListCategories: %w", err)
@@ -81,6 +84,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createProductStmt: %w", cerr)
 		}
 	}
+	if q.createUserStmt != nil {
+		if cerr := q.createUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
+		}
+	}
 	if q.getCategoryByIDStmt != nil {
 		if cerr := q.getCategoryByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCategoryByIDStmt: %w", cerr)
@@ -91,9 +99,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getProductByIDStmt: %w", cerr)
 		}
 	}
-	if q.getUserByUsernameStmt != nil {
-		if cerr := q.getUserByUsernameStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getUserByUsernameStmt: %w", cerr)
+	if q.getUserByEmailStmt != nil {
+		if cerr := q.getUserByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByEmailStmt: %w", cerr)
 		}
 	}
 	if q.listCategoriesStmt != nil {
@@ -182,9 +190,10 @@ type Queries struct {
 	tx                     *sql.Tx
 	createCategoryStmt     *sql.Stmt
 	createProductStmt      *sql.Stmt
+	createUserStmt         *sql.Stmt
 	getCategoryByIDStmt    *sql.Stmt
 	getProductByIDStmt     *sql.Stmt
-	getUserByUsernameStmt  *sql.Stmt
+	getUserByEmailStmt     *sql.Stmt
 	listCategoriesStmt     *sql.Stmt
 	listProductsAdminStmt  *sql.Stmt
 	listProductsPublicStmt *sql.Stmt
@@ -202,9 +211,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		tx:                     tx,
 		createCategoryStmt:     q.createCategoryStmt,
 		createProductStmt:      q.createProductStmt,
+		createUserStmt:         q.createUserStmt,
 		getCategoryByIDStmt:    q.getCategoryByIDStmt,
 		getProductByIDStmt:     q.getProductByIDStmt,
-		getUserByUsernameStmt:  q.getUserByUsernameStmt,
+		getUserByEmailStmt:     q.getUserByEmailStmt,
 		listCategoriesStmt:     q.listCategoriesStmt,
 		listProductsAdminStmt:  q.listProductsAdminStmt,
 		listProductsPublicStmt: q.listProductsPublicStmt,

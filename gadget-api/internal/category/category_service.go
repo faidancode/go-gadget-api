@@ -8,15 +8,25 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
+//go:generate mockgen -source=category_service.go -destination=mock/category_service_mock.go -package=mock
+type Service interface {
+	Create(ctx context.Context, req CreateCategoryRequest) (CategoryResponse, error)
+	GetAll(ctx context.Context, page, limit int) ([]CategoryResponse, int64, error)
+	GetByID(ctx context.Context, id string) (CategoryResponse, error)
+	Update(ctx context.Context, id string, req CreateCategoryRequest) (CategoryResponse, error)
+	Delete(ctx context.Context, id string) error
+	Restore(ctx context.Context, id string) (CategoryResponse, error)
+}
+
+type service struct {
 	repo Repository
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo Repository) Service {
+	return &service{repo: repo}
 }
 
-func (s *Service) Create(ctx context.Context, req CreateCategoryRequest) (CategoryResponse, error) {
+func (s *service) Create(ctx context.Context, req CreateCategoryRequest) (CategoryResponse, error) {
 	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
 	cat, err := s.repo.Create(ctx, dbgen.CreateCategoryParams{
 		Name:        req.Name,
@@ -27,14 +37,14 @@ func (s *Service) Create(ctx context.Context, req CreateCategoryRequest) (Catego
 	return mapToResponse(cat), err
 }
 
-func (s *Service) GetAll(ctx context.Context, page, limit int) ([]CategoryResponse, int64, error) {
+func (s *service) GetAll(ctx context.Context, page, limit int) ([]CategoryResponse, int64, error) {
 	offset := (page - 1) * limit
 	rows, err := s.repo.List(ctx, int32(limit), int32(offset))
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var total int64 = 0
+	var total int64
 	res := make([]CategoryResponse, 0)
 	for _, row := range rows {
 		if total == 0 {
@@ -49,14 +59,21 @@ func (s *Service) GetAll(ctx context.Context, page, limit int) ([]CategoryRespon
 	return res, total, nil
 }
 
-func (s *Service) GetByID(ctx context.Context, idStr string) (CategoryResponse, error) {
-	id, _ := uuid.Parse(idStr)
+func (s *service) GetByID(ctx context.Context, idStr string) (CategoryResponse, error) {
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return CategoryResponse{}, err
+	}
 	cat, err := s.repo.GetByID(ctx, id)
 	return mapToResponse(cat), err
 }
 
-func (s *Service) Update(ctx context.Context, idStr string, req CreateCategoryRequest) (CategoryResponse, error) {
-	id, _ := uuid.Parse(idStr)
+func (s *service) Update(ctx context.Context, idStr string, req CreateCategoryRequest) (CategoryResponse, error) {
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return CategoryResponse{}, err
+	}
+
 	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
 	cat, err := s.repo.Update(ctx, dbgen.UpdateCategoryParams{
 		ID:          id,
@@ -68,18 +85,23 @@ func (s *Service) Update(ctx context.Context, idStr string, req CreateCategoryRe
 	return mapToResponse(cat), err
 }
 
-func (s *Service) Delete(ctx context.Context, idStr string) error {
-	id, _ := uuid.Parse(idStr)
+func (s *service) Delete(ctx context.Context, idStr string) error {
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return err
+	}
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *Service) Restore(ctx context.Context, idStr string) (CategoryResponse, error) {
-	id, _ := uuid.Parse(idStr)
+func (s *service) Restore(ctx context.Context, idStr string) (CategoryResponse, error) {
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return CategoryResponse{}, err
+	}
 	cat, err := s.repo.Restore(ctx, id)
 	return mapToResponse(cat), err
 }
 
-// Helper Mapper
 func mapToResponse(cat dbgen.Category) CategoryResponse {
 	return CategoryResponse{
 		ID:        cat.ID.String(),

@@ -95,6 +95,53 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 	return i, err
 }
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (
+    email,
+    name,
+    password,
+    role
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, name, email, password, role, created_at
+`
+
+type CreateUserParams struct {
+	Email    string         `json:"email"`
+	Name     string         `json:"name"`
+	Password string         `json:"password"`
+	Role     sql.NullString `json:"role"`
+}
+
+type CreateUserRow struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      string         `json:"name"`
+	Email     string         `json:"email"`
+	Password  string         `json:"password"`
+	Role      sql.NullString `json:"role"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
+	row := q.queryRow(ctx, q.createUserStmt, createUser,
+		arg.Email,
+		arg.Name,
+		arg.Password,
+		arg.Role,
+	)
+	var i CreateUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Password,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCategoryByID = `-- name: GetCategoryByID :one
 SELECT id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at FROM categories WHERE id = $1 AND deleted_at IS NULL LIMIT 1
 `
@@ -162,19 +209,27 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 	return i, err
 }
 
-const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password, role, created_at 
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, email, password, role, created_at 
 FROM users 
-WHERE username = $1 
+WHERE email = $1 
 LIMIT 1
 `
 
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
-	row := q.queryRow(ctx, q.getUserByUsernameStmt, getUserByUsername, username)
-	var i User
+type GetUserByEmailRow struct {
+	ID        uuid.UUID      `json:"id"`
+	Email     string         `json:"email"`
+	Password  string         `json:"password"`
+	Role      sql.NullString `json:"role"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+	row := q.queryRow(ctx, q.getUserByEmailStmt, getUserByEmail, email)
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
+		&i.Email,
 		&i.Password,
 		&i.Role,
 		&i.CreatedAt,
