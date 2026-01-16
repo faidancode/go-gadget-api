@@ -2,6 +2,7 @@ package main
 
 import (
 	"gadget-api/internal/auth"
+	"gadget-api/internal/cart"
 	"gadget-api/internal/category"
 	"gadget-api/internal/middleware"
 	"gadget-api/internal/product"
@@ -13,7 +14,7 @@ type ControllerRegistry struct {
 	Auth     *auth.Controller
 	Category *category.Controller
 	Product  *product.Controller
-	// Cart     *cart.Controller
+	Cart     *cart.Controller
 	// Order    *order.Controller
 }
 
@@ -62,6 +63,26 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 				adminProd.PUT("/:id", reg.Product.Update)
 				adminProd.DELETE("/:id", reg.Product.Delete)
 				adminProd.PATCH("/:id/restore", reg.Product.Restore)
+			}
+		}
+
+		// Cart Routes (Protected)
+		// Semua operasi cart membutuhkan user login
+		cart := v1.Group("/cart/:userId")
+		cart.Use(middleware.AuthMiddleware())
+		{
+			cart.POST("", reg.Cart.Create)
+			cart.GET("", reg.Cart.Detail)
+			cart.GET("/count", reg.Cart.Count)
+			cart.DELETE("", reg.Cart.Delete)
+
+			// Item management dalam cart
+			items := cart.Group("/items/:productId")
+			{
+				items.PUT("", reg.Cart.UpdateQty)
+				items.POST("/increment", reg.Cart.Increment)
+				items.POST("/decrement", reg.Cart.Decrement)
+				items.DELETE("", reg.Cart.DeleteItem)
 			}
 		}
 

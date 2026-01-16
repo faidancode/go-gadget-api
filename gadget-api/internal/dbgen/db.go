@@ -24,6 +24,15 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.countCartItemsStmt, err = db.PrepareContext(ctx, countCartItems); err != nil {
+		return nil, fmt.Errorf("error preparing query CountCartItems: %w", err)
+	}
+	if q.createCartStmt, err = db.PrepareContext(ctx, createCart); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCart: %w", err)
+	}
+	if q.createCartItemStmt, err = db.PrepareContext(ctx, createCartItem); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCartItem: %w", err)
+	}
 	if q.createCategoryStmt, err = db.PrepareContext(ctx, createCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCategory: %w", err)
 	}
@@ -32,6 +41,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
+	}
+	if q.deleteCartStmt, err = db.PrepareContext(ctx, deleteCart); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCart: %w", err)
+	}
+	if q.deleteCartItemStmt, err = db.PrepareContext(ctx, deleteCartItem); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCartItem: %w", err)
+	}
+	if q.getCartByUserIDStmt, err = db.PrepareContext(ctx, getCartByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCartByUserID: %w", err)
+	}
+	if q.getCartDetailStmt, err = db.PrepareContext(ctx, getCartDetail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCartDetail: %w", err)
 	}
 	if q.getCategoryByIDStmt, err = db.PrepareContext(ctx, getCategoryByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoryByID: %w", err)
@@ -63,6 +84,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.softDeleteProductStmt, err = db.PrepareContext(ctx, softDeleteProduct); err != nil {
 		return nil, fmt.Errorf("error preparing query SoftDeleteProduct: %w", err)
 	}
+	if q.updateCartItemQtyStmt, err = db.PrepareContext(ctx, updateCartItemQty); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCartItemQty: %w", err)
+	}
 	if q.updateCategoryStmt, err = db.PrepareContext(ctx, updateCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCategory: %w", err)
 	}
@@ -74,6 +98,21 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.countCartItemsStmt != nil {
+		if cerr := q.countCartItemsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countCartItemsStmt: %w", cerr)
+		}
+	}
+	if q.createCartStmt != nil {
+		if cerr := q.createCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCartStmt: %w", cerr)
+		}
+	}
+	if q.createCartItemStmt != nil {
+		if cerr := q.createCartItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCartItemStmt: %w", cerr)
+		}
+	}
 	if q.createCategoryStmt != nil {
 		if cerr := q.createCategoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCategoryStmt: %w", cerr)
@@ -87,6 +126,26 @@ func (q *Queries) Close() error {
 	if q.createUserStmt != nil {
 		if cerr := q.createUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
+		}
+	}
+	if q.deleteCartStmt != nil {
+		if cerr := q.deleteCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCartStmt: %w", cerr)
+		}
+	}
+	if q.deleteCartItemStmt != nil {
+		if cerr := q.deleteCartItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCartItemStmt: %w", cerr)
+		}
+	}
+	if q.getCartByUserIDStmt != nil {
+		if cerr := q.getCartByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getCartDetailStmt != nil {
+		if cerr := q.getCartDetailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartDetailStmt: %w", cerr)
 		}
 	}
 	if q.getCategoryByIDStmt != nil {
@@ -139,6 +198,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing softDeleteProductStmt: %w", cerr)
 		}
 	}
+	if q.updateCartItemQtyStmt != nil {
+		if cerr := q.updateCartItemQtyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCartItemQtyStmt: %w", cerr)
+		}
+	}
 	if q.updateCategoryStmt != nil {
 		if cerr := q.updateCategoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCategoryStmt: %w", cerr)
@@ -188,9 +252,16 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                     DBTX
 	tx                     *sql.Tx
+	countCartItemsStmt     *sql.Stmt
+	createCartStmt         *sql.Stmt
+	createCartItemStmt     *sql.Stmt
 	createCategoryStmt     *sql.Stmt
 	createProductStmt      *sql.Stmt
 	createUserStmt         *sql.Stmt
+	deleteCartStmt         *sql.Stmt
+	deleteCartItemStmt     *sql.Stmt
+	getCartByUserIDStmt    *sql.Stmt
+	getCartDetailStmt      *sql.Stmt
 	getCategoryByIDStmt    *sql.Stmt
 	getProductByIDStmt     *sql.Stmt
 	getUserByEmailStmt     *sql.Stmt
@@ -201,6 +272,7 @@ type Queries struct {
 	restoreProductStmt     *sql.Stmt
 	softDeleteCategoryStmt *sql.Stmt
 	softDeleteProductStmt  *sql.Stmt
+	updateCartItemQtyStmt  *sql.Stmt
 	updateCategoryStmt     *sql.Stmt
 	updateProductStmt      *sql.Stmt
 }
@@ -209,9 +281,16 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                     tx,
 		tx:                     tx,
+		countCartItemsStmt:     q.countCartItemsStmt,
+		createCartStmt:         q.createCartStmt,
+		createCartItemStmt:     q.createCartItemStmt,
 		createCategoryStmt:     q.createCategoryStmt,
 		createProductStmt:      q.createProductStmt,
 		createUserStmt:         q.createUserStmt,
+		deleteCartStmt:         q.deleteCartStmt,
+		deleteCartItemStmt:     q.deleteCartItemStmt,
+		getCartByUserIDStmt:    q.getCartByUserIDStmt,
+		getCartDetailStmt:      q.getCartDetailStmt,
 		getCategoryByIDStmt:    q.getCategoryByIDStmt,
 		getProductByIDStmt:     q.getProductByIDStmt,
 		getUserByEmailStmt:     q.getUserByEmailStmt,
@@ -222,6 +301,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		restoreProductStmt:     q.restoreProductStmt,
 		softDeleteCategoryStmt: q.softDeleteCategoryStmt,
 		softDeleteProductStmt:  q.softDeleteProductStmt,
+		updateCartItemQtyStmt:  q.updateCartItemQtyStmt,
 		updateCategoryStmt:     q.updateCategoryStmt,
 		updateProductStmt:      q.updateProductStmt,
 	}

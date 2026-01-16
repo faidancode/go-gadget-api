@@ -1,29 +1,3 @@
--- name: ListCategories :many
-SELECT *, count(*) OVER() AS total_count
-FROM categories
-WHERE deleted_at IS NULL
-ORDER BY created_at DESC
-LIMIT $1 OFFSET $2;
-
--- name: GetCategoryByID :one
-SELECT * FROM categories WHERE id = $1 AND deleted_at IS NULL LIMIT 1;
-
--- name: CreateCategory :one
-INSERT INTO categories (name, slug, description, image_url)
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
--- name: UpdateCategory :one
-UPDATE categories 
-SET name = $2, slug = $3, description = $4, image_url = $5, updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL
-RETURNING *;
-
--- name: SoftDeleteCategory :exec
-UPDATE categories SET deleted_at = NOW() WHERE id = $1;
-
--- name: RestoreCategory :one
-UPDATE categories SET deleted_at = NULL WHERE id = $1 RETURNING *;
 
 -- name: ListProductsPublic :many
 SELECT p.*, c.name as category_name, count(*) OVER() AS total_count
@@ -87,29 +61,3 @@ UPDATE products SET deleted_at = NOW() WHERE id = $1;
 
 -- name: RestoreProduct :one
 UPDATE products SET deleted_at = NULL WHERE id = $1 RETURNING *;
-
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(50) NOT NULL UNIQUE,
-    name VARCHAR(50) NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    role VARCHAR(20) DEFAULT 'admin',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- name: CreateUser :one
-INSERT INTO users (
-    email,
-    name,
-    password,
-    role
-) VALUES (
-    $1, $2, $3, $4
-)
-RETURNING id, name, email, password, role, created_at;
-
--- name: GetUserByEmail :one
-SELECT id, email, password, role, created_at 
-FROM users 
-WHERE email = $1 
-LIMIT 1;
