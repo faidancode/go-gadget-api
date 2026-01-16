@@ -38,3 +38,11 @@ type Product struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   sql.NullTime   `json:"deleted_at"`
 }
+
+type User struct {
+	ID        uuid.UUID      `json:"id"`
+	Username  string         `json:"username"`
+	Password  string         `json:"password"`
+	Role      sql.NullString `json:"role"`
+	CreatedAt time.Time      `json:"created_at"`
+}

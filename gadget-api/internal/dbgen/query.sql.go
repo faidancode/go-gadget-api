@@ -162,6 +162,26 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 	return i, err
 }
 
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, username, password, role, created_at 
+FROM users 
+WHERE username = $1 
+LIMIT 1
+`
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	row := q.queryRow(ctx, q.getUserByUsernameStmt, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Password,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listCategories = `-- name: ListCategories :many
 SELECT id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at, count(*) OVER() AS total_count
 FROM categories
@@ -222,25 +242,28 @@ func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) 
 	return items, nil
 }
 
-const listProducts = `-- name: ListProducts :many
+const listProductsAdmin = `-- name: ListProductsAdmin :many
 SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, c.name as category_name, count(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
-WHERE p.deleted_at IS NULL
-  AND ($3::text IS NULL OR p.name ILIKE '%' || $3::text || '%')
-  AND ($4::uuid IS NULL OR p.category_id = $4::uuid)
-ORDER BY p.created_at DESC
+WHERE ($3::uuid IS NULL OR p.category_id = $3::uuid)
+  AND ($4::text IS NULL OR p.name ILIKE '%' || $4::text || '%' OR p.sku ILIKE '%' || $4::text || '%')
+ORDER BY 
+    CASE WHEN $5::text = 'stock' THEN p.stock END ASC,
+    CASE WHEN $5::text = 'name' THEN p.name END ASC,
+    p.created_at DESC
 LIMIT $1 OFFSET $2
 `
 
-type ListProductsParams struct {
+type ListProductsAdminParams struct {
 	Limit      int32          `json:"limit"`
 	Offset     int32          `json:"offset"`
-	Search     sql.NullString `json:"search"`
 	CategoryID uuid.NullUUID  `json:"category_id"`
+	Search     sql.NullString `json:"search"`
+	SortCol    string         `json:"sort_col"`
 }
 
-type ListProductsRow struct {
+type ListProductsAdminRow struct {
 	ID           uuid.UUID      `json:"id"`
 	CategoryID   uuid.UUID      `json:"category_id"`
 	Name         string         `json:"name"`
@@ -258,20 +281,116 @@ type ListProductsRow struct {
 	TotalCount   int64          `json:"total_count"`
 }
 
-func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error) {
-	rows, err := q.query(ctx, q.listProductsStmt, listProducts,
+func (q *Queries) ListProductsAdmin(ctx context.Context, arg ListProductsAdminParams) ([]ListProductsAdminRow, error) {
+	rows, err := q.query(ctx, q.listProductsAdminStmt, listProductsAdmin,
 		arg.Limit,
 		arg.Offset,
-		arg.Search,
 		arg.CategoryID,
+		arg.Search,
+		arg.SortCol,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListProductsRow
+	var items []ListProductsAdminRow
 	for rows.Next() {
-		var i ListProductsRow
+		var i ListProductsAdminRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CategoryID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.Sku,
+			&i.ImageUrl,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.CategoryName,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProductsPublic = `-- name: ListProductsPublic :many
+SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, c.name as category_name, count(*) OVER() AS total_count
+FROM products p
+JOIN categories c ON p.category_id = c.id
+WHERE p.deleted_at IS NULL 
+  AND p.is_active = true
+  -- Gunakan sintaks ini agar sqlc membuat field CategoryID (NullUUID)
+  AND ($3::uuid IS NULL OR p.category_id = $3::uuid)
+  AND ($4::text IS NULL OR p.name ILIKE '%' || $4::text || '%')
+  AND (p.price >= $5::decimal)
+  AND (p.price <= $6::decimal)
+ORDER BY 
+    CASE WHEN $7::text = 'newest' THEN p.created_at END DESC,
+    CASE WHEN $7::text = 'oldest' THEN p.created_at END ASC,
+    CASE WHEN $7::text = 'price_high' THEN p.price END DESC,
+    CASE WHEN $7::text = 'price_low' THEN p.price END ASC,
+    p.created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListProductsPublicParams struct {
+	Limit      int32          `json:"limit"`
+	Offset     int32          `json:"offset"`
+	CategoryID uuid.NullUUID  `json:"category_id"`
+	Search     sql.NullString `json:"search"`
+	MinPrice   string         `json:"min_price"`
+	MaxPrice   string         `json:"max_price"`
+	SortBy     string         `json:"sort_by"`
+}
+
+type ListProductsPublicRow struct {
+	ID           uuid.UUID      `json:"id"`
+	CategoryID   uuid.UUID      `json:"category_id"`
+	Name         string         `json:"name"`
+	Slug         string         `json:"slug"`
+	Description  sql.NullString `json:"description"`
+	Price        string         `json:"price"`
+	Stock        int32          `json:"stock"`
+	Sku          sql.NullString `json:"sku"`
+	ImageUrl     sql.NullString `json:"image_url"`
+	IsActive     sql.NullBool   `json:"is_active"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    sql.NullTime   `json:"deleted_at"`
+	CategoryName string         `json:"category_name"`
+	TotalCount   int64          `json:"total_count"`
+}
+
+func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublicParams) ([]ListProductsPublicRow, error) {
+	rows, err := q.query(ctx, q.listProductsPublicStmt, listProductsPublic,
+		arg.Limit,
+		arg.Offset,
+		arg.CategoryID,
+		arg.Search,
+		arg.MinPrice,
+		arg.MaxPrice,
+		arg.SortBy,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProductsPublicRow
+	for rows.Next() {
+		var i ListProductsPublicRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CategoryID,
@@ -405,21 +524,31 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 }
 
 const updateProduct = `-- name: UpdateProduct :one
-UPDATE products 
-SET category_id = $2, name = $3, slug = $4, description = $5, price = $6, stock = $7, sku = $8, image_url = $9, updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at
+UPDATE products
+SET 
+    category_id = $2,
+    name = $3,
+    description = $4,
+    price = $5,
+    stock = $6,
+    sku = $7,
+    image_url = $8,
+    is_active = $9,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at
 `
 
 type UpdateProductParams struct {
 	ID          uuid.UUID      `json:"id"`
 	CategoryID  uuid.UUID      `json:"category_id"`
 	Name        string         `json:"name"`
-	Slug        string         `json:"slug"`
 	Description sql.NullString `json:"description"`
 	Price       string         `json:"price"`
 	Stock       int32          `json:"stock"`
 	Sku         sql.NullString `json:"sku"`
 	ImageUrl    sql.NullString `json:"image_url"`
+	IsActive    sql.NullBool   `json:"is_active"`
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
@@ -427,12 +556,12 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		arg.ID,
 		arg.CategoryID,
 		arg.Name,
-		arg.Slug,
 		arg.Description,
 		arg.Price,
 		arg.Stock,
 		arg.Sku,
 		arg.ImageUrl,
+		arg.IsActive,
 	)
 	var i Product
 	err := row.Scan(

@@ -9,7 +9,10 @@ import (
 
 type Repository interface {
 	Create(ctx context.Context, arg dbgen.CreateProductParams) (dbgen.Product, error)
-	List(ctx context.Context, arg dbgen.ListProductsParams) ([]dbgen.ListProductsRow, error)
+	// Pisahkan List menjadi Public dan Admin sesuai query.sql terbaru
+	ListPublic(ctx context.Context, arg dbgen.ListProductsPublicParams) ([]dbgen.ListProductsPublicRow, error)
+	ListAdmin(ctx context.Context, arg dbgen.ListProductsAdminParams) ([]dbgen.ListProductsAdminRow, error)
+
 	GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetProductByIDRow, error)
 	Update(ctx context.Context, arg dbgen.UpdateProductParams) (dbgen.Product, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -28,8 +31,14 @@ func (r *repository) Create(ctx context.Context, arg dbgen.CreateProductParams) 
 	return r.queries.CreateProduct(ctx, arg)
 }
 
-func (r *repository) List(ctx context.Context, arg dbgen.ListProductsParams) ([]dbgen.ListProductsRow, error) {
-	return r.queries.ListProducts(ctx, arg)
+// Implementasi List untuk Customer (Hanya barang aktif & filter harga/sort)
+func (r *repository) ListPublic(ctx context.Context, arg dbgen.ListProductsPublicParams) ([]dbgen.ListProductsPublicRow, error) {
+	return r.queries.ListProductsPublic(ctx, arg)
+}
+
+// Implementasi List untuk Admin (Semua barang & filter dashboard)
+func (r *repository) ListAdmin(ctx context.Context, arg dbgen.ListProductsAdminParams) ([]dbgen.ListProductsAdminRow, error) {
+	return r.queries.ListProductsAdmin(ctx, arg)
 }
 
 func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetProductByIDRow, error) {

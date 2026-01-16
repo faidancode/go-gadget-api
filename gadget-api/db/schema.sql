@@ -26,6 +26,14 @@ CREATE TABLE products (
     deleted_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    role VARCHAR(20) DEFAULT 'admin',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Indexing for performance
 CREATE INDEX idx_products_category ON products(category_id);
 CREATE INDEX idx_products_slug ON products(slug);

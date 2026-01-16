@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"gadget-api/internal/auth"
 	"gadget-api/internal/category"
 	"gadget-api/internal/dbgen"
 	"gadget-api/internal/product"
@@ -31,15 +32,21 @@ func main() {
 	queries := dbgen.New(db)
 
 	// 4. Initialize Modules (Dependency Injection)
+
+	authRepo := auth.NewRepository(queries)
+	authService := auth.NewService(authRepo)
+	authController := auth.NewController(authService)
+
 	catRepo := category.NewRepository(queries)
 	catService := category.NewService(catRepo)
 	catController := category.NewController(catService)
 
 	prodRepo := product.NewRepository(queries)
-	prodService := product.NewService(prodRepo)
+	prodService := product.NewService(prodRepo, catRepo)
 	prodController := product.NewController(prodService)
 
 	registry := ControllerRegistry{
+		Auth:     authController,
 		Category: catController,
 		Product:  prodController,
 	}

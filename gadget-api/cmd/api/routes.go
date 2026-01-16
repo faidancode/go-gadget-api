@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gadget-api/internal/auth"
 	"gadget-api/internal/category"
 	"gadget-api/internal/middleware"
 	"gadget-api/internal/product"
@@ -8,12 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ControllerRegistry mempermudah DI saat jumlah controller bertambah
 type ControllerRegistry struct {
+	Auth     *auth.Controller
 	Category *category.Controller
 	Product  *product.Controller
-	// Nanti tinggal tambah di bawah sini:
-	// Auth     *auth.Controller
 	// Cart     *cart.Controller
 	// Order    *order.Controller
 }
@@ -23,22 +22,47 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 
 	v1 := r.Group("/api/v1")
 	{
+		// Auth Routes (Public)
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/login", reg.Auth.Login)
+			auth.POST("/logout", reg.Auth.Logout)
+		}
 		// Modul Category
-		catGroup := v1.Group("/categories")
+		// Category Routes
+		cat := v1.Group("/categories")
 		{
-			catGroup.GET("", reg.Category.GetAll)
-			catGroup.POST("", reg.Category.Create)
-			catGroup.GET("/:id", reg.Category.GetByID)
+			cat.GET("", reg.Category.GetAll)
+			cat.GET("/:id", reg.Category.GetByID)
+
+			// Protected Admin Routes
+			adminCat := cat.Group("")
+			adminCat.Use(middleware.AuthMiddleware())
+			{
+				adminCat.POST("", reg.Category.Create)
+				adminCat.PUT("/:id", reg.Category.Update)
+				adminCat.DELETE("/:id", reg.Category.Delete)
+				adminCat.PATCH("/:id/restore", reg.Category.Restore)
+			}
 		}
 
-		// Modul Product
-		prodGroup := v1.Group("/products")
+		// Product Routes
+		prod := v1.Group("/products")
 		{
-			prodGroup.GET("", reg.Product.GetAll)
-			prodGroup.POST("", reg.Product.Create)
-			prodGroup.GET("/:id", reg.Product.GetByID)
+			prod.GET("", reg.Product.GetPublicList)
+			prod.GET("/:id", reg.Product.GetByID)
+
+			// Protected Admin Routes
+			adminProd := prod.Group("")
+			adminProd.Use(middleware.AuthMiddleware())
+			{
+				prod.GET("", reg.Product.GetAdminList)
+				adminProd.POST("", reg.Product.Create)
+				adminProd.PUT("/:id", reg.Product.Update)
+				adminProd.DELETE("/:id", reg.Product.Delete)
+				adminProd.PATCH("/:id/restore", reg.Product.Restore)
+			}
 		}
 
-		// Modul lainnya menyusul dengan pola yang sama...
 	}
 }

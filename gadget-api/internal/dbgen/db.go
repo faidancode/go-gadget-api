@@ -36,11 +36,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getProductByIDStmt, err = db.PrepareContext(ctx, getProductByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductByID: %w", err)
 	}
+	if q.getUserByUsernameStmt, err = db.PrepareContext(ctx, getUserByUsername); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByUsername: %w", err)
+	}
 	if q.listCategoriesStmt, err = db.PrepareContext(ctx, listCategories); err != nil {
 		return nil, fmt.Errorf("error preparing query ListCategories: %w", err)
 	}
-	if q.listProductsStmt, err = db.PrepareContext(ctx, listProducts); err != nil {
-		return nil, fmt.Errorf("error preparing query ListProducts: %w", err)
+	if q.listProductsAdminStmt, err = db.PrepareContext(ctx, listProductsAdmin); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductsAdmin: %w", err)
+	}
+	if q.listProductsPublicStmt, err = db.PrepareContext(ctx, listProductsPublic); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductsPublic: %w", err)
 	}
 	if q.restoreCategoryStmt, err = db.PrepareContext(ctx, restoreCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query RestoreCategory: %w", err)
@@ -85,14 +91,24 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getProductByIDStmt: %w", cerr)
 		}
 	}
+	if q.getUserByUsernameStmt != nil {
+		if cerr := q.getUserByUsernameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByUsernameStmt: %w", cerr)
+		}
+	}
 	if q.listCategoriesStmt != nil {
 		if cerr := q.listCategoriesStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listCategoriesStmt: %w", cerr)
 		}
 	}
-	if q.listProductsStmt != nil {
-		if cerr := q.listProductsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing listProductsStmt: %w", cerr)
+	if q.listProductsAdminStmt != nil {
+		if cerr := q.listProductsAdminStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductsAdminStmt: %w", cerr)
+		}
+	}
+	if q.listProductsPublicStmt != nil {
+		if cerr := q.listProductsPublicStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductsPublicStmt: %w", cerr)
 		}
 	}
 	if q.restoreCategoryStmt != nil {
@@ -168,8 +184,10 @@ type Queries struct {
 	createProductStmt      *sql.Stmt
 	getCategoryByIDStmt    *sql.Stmt
 	getProductByIDStmt     *sql.Stmt
+	getUserByUsernameStmt  *sql.Stmt
 	listCategoriesStmt     *sql.Stmt
-	listProductsStmt       *sql.Stmt
+	listProductsAdminStmt  *sql.Stmt
+	listProductsPublicStmt *sql.Stmt
 	restoreCategoryStmt    *sql.Stmt
 	restoreProductStmt     *sql.Stmt
 	softDeleteCategoryStmt *sql.Stmt
@@ -186,8 +204,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createProductStmt:      q.createProductStmt,
 		getCategoryByIDStmt:    q.getCategoryByIDStmt,
 		getProductByIDStmt:     q.getProductByIDStmt,
+		getUserByUsernameStmt:  q.getUserByUsernameStmt,
 		listCategoriesStmt:     q.listCategoriesStmt,
-		listProductsStmt:       q.listProductsStmt,
+		listProductsAdminStmt:  q.listProductsAdminStmt,
+		listProductsPublicStmt: q.listProductsPublicStmt,
 		restoreCategoryStmt:    q.restoreCategoryStmt,
 		restoreProductStmt:     q.restoreProductStmt,
 		softDeleteCategoryStmt: q.softDeleteCategoryStmt,
