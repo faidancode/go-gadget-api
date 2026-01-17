@@ -6,6 +6,7 @@ package dbgen
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,6 +41,44 @@ type Category struct {
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   sql.NullTime   `json:"deleted_at"`
+}
+
+type Order struct {
+	ID              uuid.UUID       `json:"id"`
+	OrderNumber     string          `json:"order_number"`
+	UserID          uuid.UUID       `json:"user_id"`
+	Status          string          `json:"status"`
+	PaymentMethod   sql.NullString  `json:"payment_method"`
+	PaymentStatus   string          `json:"payment_status"`
+	AddressSnapshot json.RawMessage `json:"address_snapshot"`
+	SubtotalPrice   string          `json:"subtotal_price"`
+	DiscountPrice   string          `json:"discount_price"`
+	ShippingPrice   string          `json:"shipping_price"`
+	TotalPrice      string          `json:"total_price"`
+	Note            sql.NullString  `json:"note"`
+	PlacedAt        time.Time       `json:"placed_at"`
+	PaidAt          sql.NullTime    `json:"paid_at"`
+	CancelledAt     sql.NullTime    `json:"cancelled_at"`
+	CancelReason    sql.NullString  `json:"cancel_reason"`
+	CompletedAt     sql.NullTime    `json:"completed_at"`
+	ReceiptNo       sql.NullString  `json:"receipt_no"`
+	SnapToken       sql.NullString  `json:"snap_token"`
+	SnapRedirectUrl sql.NullString  `json:"snap_redirect_url"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+	DeletedAt       sql.NullTime    `json:"deleted_at"`
+}
+
+type OrderItem struct {
+	ID           uuid.UUID `json:"id"`
+	OrderID      uuid.UUID `json:"order_id"`
+	ProductID    uuid.UUID `json:"product_id"`
+	NameSnapshot string    `json:"name_snapshot"`
+	UnitPrice    string    `json:"unit_price"`
+	Quantity     int32     `json:"quantity"`
+	TotalPrice   string    `json:"total_price"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Product struct {

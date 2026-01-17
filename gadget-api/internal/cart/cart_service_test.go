@@ -1,8 +1,9 @@
-package cart
+package cart_test
 
 import (
 	"context"
 	"errors"
+	"gadget-api/internal/cart"
 	"gadget-api/internal/cart/mock"
 	"gadget-api/internal/dbgen"
 	"testing"
@@ -18,7 +19,7 @@ func TestCart_Create(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
-	svc := NewService(repo)
+	svc := cart.NewService(repo)
 	ctx := context.Background()
 
 	t.Run("success_already_exists", func(t *testing.T) {
@@ -81,7 +82,7 @@ func TestCart_Count(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
-	svc := NewService(repo)
+	svc := cart.NewService(repo)
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -109,7 +110,7 @@ func TestCart_Detail(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
-	svc := NewService(repo)
+	svc := cart.NewService(repo)
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -151,7 +152,7 @@ func TestCart_UpdateQty(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
-	svc := NewService(repo)
+	svc := cart.NewService(repo)
 	ctx := context.Background()
 
 	t.Run("success_increment", func(t *testing.T) {
@@ -187,7 +188,7 @@ func TestCart_GetCart_Logic(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
-	svc := NewService(repo)
+	svc := cart.NewService(repo)
 	ctx := context.Background()
 
 	t.Run("create_cart_if_not_exists", func(t *testing.T) {
@@ -220,7 +221,7 @@ func TestCart_DeleteOperations(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
-	svc := NewService(repo)
+	svc := cart.NewService(repo)
 	ctx := context.Background()
 
 	t.Run("delete_item_success", func(t *testing.T) {

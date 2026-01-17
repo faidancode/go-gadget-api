@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:generate mockgen -source=cart_service.go -destination=mock/cart_service_mock.go -package=mock
 type Service interface {
 	Create(ctx context.Context, userID string) error
 	Count(ctx context.Context, userID string) (int64, error)
