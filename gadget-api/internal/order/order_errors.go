@@ -26,13 +26,19 @@ var (
 
 	ErrCartEmpty = apperror.New(
 		apperror.CodeInvalidState,
-		"keranjang kosong",
+		"Your shopping cart is empty",
 		http.StatusBadRequest,
 	)
 
 	ErrCannotCancel = apperror.New(
 		apperror.CodeInvalidState,
-		"order cannot be cancelled",
+		"Order cannot be cancelled",
 		http.StatusBadRequest,
+	)
+
+	ErrOrderFailed = apperror.New(
+		apperror.CodeInternalError,
+		"Failed to process order, please try again",
+		http.StatusInternalServerError,
 	)
 )

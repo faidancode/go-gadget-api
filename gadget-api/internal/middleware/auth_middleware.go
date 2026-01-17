@@ -2,9 +2,10 @@ package middleware
 
 import (
 	"fmt"
+	"gadget-api/internal/auth"
 	"gadget-api/internal/pkg/response"
-	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -15,7 +16,8 @@ func AuthMiddleware() gin.HandlerFunc {
 		// 1. Ambil token dari cookie
 		tokenString, err := c.Cookie("access_token")
 		if err != nil {
-			response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Missing authentication token", nil)
+			// Menggunakan ErrUnauthorized
+			response.Error(c, auth.ErrUnauthorized.HTTPStatus, auth.ErrUnauthorized.Code, auth.ErrUnauthorized.Message, nil)
 			c.Abort()
 			return
 		}
@@ -29,15 +31,48 @@ func AuthMiddleware() gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", "Token is invalid or expired", nil)
+			// Cek jika error spesifik expired, jika tidak gunakan InvalidToken
+			errObj := auth.ErrInvalidToken
+			if strings.Contains(err.Error(), "expired") {
+				errObj = auth.ErrTokenExpired
+			}
+
+			response.Error(c, errObj.HTTPStatus, errObj.Code, errObj.Message, nil)
 			c.Abort()
 			return
 		}
 
-		// 3. Set data user ke context jika diperlukan
 		claims, _ := token.Claims.(jwt.MapClaims)
-		c.Set("user_id", claims["user_id"])
 		c.Set("role", claims["role"])
+		c.Next()
+	}
+}
+
+func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Ambil role dari context
+		userRole, exists := c.Get("role")
+		if !exists {
+			response.Error(c, auth.ErrForbidden.HTTPStatus, auth.ErrForbidden.Code, auth.ErrForbidden.Message, nil)
+			c.Abort()
+			return
+		}
+
+		// Validasi role
+		isAllowed := false
+		for _, role := range allowedRoles {
+			if userRole == role {
+				isAllowed = true
+				break
+			}
+		}
+
+		if !isAllowed {
+			// Menggunakan ErrForbidden
+			response.Error(c, auth.ErrForbidden.HTTPStatus, auth.ErrForbidden.Code, auth.ErrForbidden.Message, nil)
+			c.Abort()
+			return
+		}
 
 		c.Next()
 	}

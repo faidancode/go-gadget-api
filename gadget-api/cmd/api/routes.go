@@ -40,6 +40,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 			// Protected Admin Routes
 			adminCat := cat.Group("")
 			adminCat.Use(middleware.AuthMiddleware())
+			adminCat.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
 			{
 				adminCat.POST("", reg.Category.Create)
 				adminCat.PUT("/:id", reg.Category.Update)
@@ -57,6 +58,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 			// Protected Admin Routes
 			adminProd := prod.Group("")
 			adminProd.Use(middleware.AuthMiddleware())
+			adminProd.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
 			{
 				prod.GET("", reg.Product.GetAdminList)
 				adminProd.POST("", reg.Product.Create)

@@ -2,13 +2,15 @@ package order
 
 import (
 	"context"
+	"database/sql"
 	"gadget-api/internal/dbgen"
 
 	"github.com/google/uuid"
 )
 
-//go:generate mockgen -source=order_repo.go -destination=../mocks/order/order_repo_mock.go -package=mock
+//go:generate mockgen -source=order_repo.go -destination=../mock/order/order_repo_mock.go -package=mock
 type Repository interface {
+	WithTx(tx dbgen.DBTX) Repository
 	CreateOrder(ctx context.Context, arg dbgen.CreateOrderParams) (dbgen.Order, error)
 	CreateOrderItem(ctx context.Context, arg dbgen.CreateOrderItemParams) error
 	GetByID(ctx context.Context, id uuid.UUID) (dbgen.Order, error)
@@ -24,6 +26,20 @@ type repository struct {
 
 func NewRepository(q *dbgen.Queries) Repository {
 	return &repository{queries: q}
+}
+
+func (r *repository) WithTx(tx dbgen.DBTX) Repository {
+	// Lakukan type assertion dari interface dbgen.DBTX ke *sql.Tx
+	// Karena s.db.BeginTx(ctx, nil) di service menghasilkan *sql.Tx
+	if sqlTx, ok := tx.(*sql.Tx); ok {
+		return &repository{
+			queries: r.queries.WithTx(sqlTx),
+		}
+	}
+
+	// Jika gagal (misal yang dipassing adalah *sql.DB),
+	// Anda bisa mengembalikan repository standar atau menangani error-nya
+	return r
 }
 
 func (r *repository) CreateOrder(ctx context.Context, arg dbgen.CreateOrderParams) (dbgen.Order, error) {

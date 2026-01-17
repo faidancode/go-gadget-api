@@ -7,6 +7,7 @@ package mock
 import (
 	context "context"
 	dbgen "gadget-api/internal/dbgen"
+	order "gadget-api/internal/order"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -138,4 +139,18 @@ func (m *MockRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status 
 func (mr *MockRepositoryMockRecorder) UpdateStatus(ctx, id, status interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockRepository)(nil).UpdateStatus), ctx, id, status)
+}
+
+// WithTx mocks base method.
+func (m *MockRepository) WithTx(tx dbgen.DBTX) order.Repository {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithTx", tx)
+	ret0, _ := ret[0].(order.Repository)
+	return ret0
+}
+
+// WithTx indicates an expected call of WithTx.
+func (mr *MockRepositoryMockRecorder) WithTx(tx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTx", reflect.TypeOf((*MockRepository)(nil).WithTx), tx)
 }
