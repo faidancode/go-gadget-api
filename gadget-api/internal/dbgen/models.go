@@ -12,6 +12,24 @@ import (
 	"github.com/google/uuid"
 )
 
+type Address struct {
+	ID             uuid.UUID      `json:"id"`
+	UserID         uuid.UUID      `json:"user_id"`
+	Label          string         `json:"label"`
+	RecipientName  string         `json:"recipient_name"`
+	RecipientPhone string         `json:"recipient_phone"`
+	Street         string         `json:"street"`
+	Subdistrict    sql.NullString `json:"subdistrict"`
+	District       sql.NullString `json:"district"`
+	City           sql.NullString `json:"city"`
+	Province       sql.NullString `json:"province"`
+	PostalCode     sql.NullString `json:"postal_code"`
+	IsPrimary      bool           `json:"is_primary"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      sql.NullTime   `json:"deleted_at"`
+}
+
 type Cart struct {
 	ID        uuid.UUID    `json:"id"`
 	UserID    uuid.UUID    `json:"user_id"`

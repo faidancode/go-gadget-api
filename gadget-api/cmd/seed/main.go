@@ -20,7 +20,7 @@ func main() {
 	}
 
 	// Database connection
-	db, err := sql.Open("postgres", os.Getenv("DB_URL"))
+	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
