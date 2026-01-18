@@ -123,3 +123,18 @@ type User struct {
 	Role      sql.NullString `json:"role"`
 	CreatedAt time.Time      `json:"created_at"`
 }
+
+type Wishlist struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type WishlistItem struct {
+	ID         uuid.UUID `json:"id"`
+	WishlistID uuid.UUID `json:"wishlist_id"`
+	ProductID  uuid.UUID `json:"product_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
