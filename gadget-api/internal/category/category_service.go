@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:generate mockgen -source=category_service.go -destination=mock/category_service_mock.go -package=mock
+//go:generate mockgen -source=category_service.go -destination=../mock/category/category_service_mock.go -package=mock
 type Service interface {
 	Create(ctx context.Context, req CreateCategoryRequest) (CategoryResponse, error)
 	GetAll(ctx context.Context, page, limit int) ([]CategoryResponse, int64, error)

@@ -1,11 +1,12 @@
-package auth
+package auth_test
 
 import (
 	"context"
 	"database/sql"
 	"errors"
-	"gadget-api/internal/auth/mock" // folder hasil generate mock
+	"gadget-api/internal/auth"
 	"gadget-api/internal/dbgen"
+	authMock "gadget-api/internal/mock/auth"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -17,8 +18,8 @@ func TestService_Login(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockRepo := mock.NewMockRepository(ctrl)
-	service := NewService(mockRepo)
+	mockRepo := authMock.NewMockRepository(ctrl)
+	service := auth.NewService(mockRepo)
 	ctx := context.Background()
 
 	pw, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
@@ -26,7 +27,7 @@ func TestService_Login(t *testing.T) {
 	t.Run("Success Login", func(t *testing.T) {
 		mockRepo.EXPECT().
 			GetByEmail(ctx, "admin").
-			Return(dbgen.User{Email: "admin", Password: string(pw)}, nil)
+			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw)}, nil)
 
 		token, resp, err := service.Login(ctx, "admin", "password123")
 
@@ -38,7 +39,7 @@ func TestService_Login(t *testing.T) {
 	t.Run("Wrong Password", func(t *testing.T) {
 		mockRepo.EXPECT().
 			GetByEmail(ctx, "admin").
-			Return(dbgen.User{Email: "admin", Password: string(pw)}, nil)
+			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw)}, nil)
 
 		_, _, err := service.Login(ctx, "admin", "wrongpass")
 		assert.Error(t, err)
@@ -49,12 +50,12 @@ func TestService_Register(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockRepo := mock.NewMockRepository(ctrl)
-	service := NewService(mockRepo)
+	mockRepo := authMock.NewMockRepository(ctrl)
+	service := auth.NewService(mockRepo)
 	ctx := context.Background()
 
 	t.Run("Success Register", func(t *testing.T) {
-		req := RegisterRequest{
+		req := auth.RegisterRequest{
 			Email:    "user@example.com",
 			Password: "password123",
 		}
@@ -74,7 +75,7 @@ func TestService_Register(t *testing.T) {
 	})
 
 	t.Run("Error Register", func(t *testing.T) {
-		req := RegisterRequest{
+		req := auth.RegisterRequest{
 			Email:    "user@example.com",
 			Password: "password123",
 		}

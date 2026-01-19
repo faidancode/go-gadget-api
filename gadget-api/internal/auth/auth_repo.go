@@ -5,7 +5,7 @@ import (
 	"gadget-api/internal/dbgen"
 )
 
-//go:generate mockgen -source=auth_repo.go -destination=mock/auth_repo_mock.go -package=mock
+//go:generate mockgen -source=auth_repo.go -destination=../mock/auth/auth_repo_mock.go -package=mock
 type Repository interface {
 	Create(ctx context.Context, params dbgen.CreateUserParams) (dbgen.CreateUserRow, error)
 	GetByEmail(ctx context.Context, email string) (dbgen.GetUserByEmailRow, error)

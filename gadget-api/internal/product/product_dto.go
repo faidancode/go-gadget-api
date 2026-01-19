@@ -2,6 +2,8 @@ package product
 
 import "time"
 
+// ==================== REQUEST STRUCTS ====================
+
 // ListPublicRequest digunakan untuk menampung query params dari Customer
 type ListPublicRequest struct {
 	Page       int
@@ -13,26 +15,13 @@ type ListPublicRequest struct {
 	SortBy     string
 }
 
-// ProductResponse adalah output ringkas untuk Customer
-type ProductPublicResponse struct {
-	ID           string  `json:"id"`
-	CategoryName string  `json:"category_name"`
-	Name         string  `json:"name"`
-	Slug         string  `json:"slug"`
-	Price        float64 `json:"price"`
-}
-
-// ProductAdminResponse adalah output detail untuk Dashboard Admin (Ini yang menyebabkan error)
-type ProductAdminResponse struct {
-	ID           string    `json:"id"`
-	CategoryName string    `json:"category_name"`
-	Name         string    `json:"name"`
-	Slug         string    `json:"slug"`
-	Price        float64   `json:"price"`
-	Stock        int32     `json:"stock"`
-	SKU          string    `json:"sku"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
+type ListProductAdminRequest struct {
+	Page     int
+	Limit    int
+	Search   string
+	Category string
+	SortBy   string
+	SortDir  string // asc | desc
 }
 
 // CreateProductRequest digunakan untuk input Admin saat membuat produk baru
@@ -55,4 +44,65 @@ type UpdateProductRequest struct {
 	SKU         string  `json:"sku"`
 	ImageUrl    string  `json:"image_url"`
 	IsActive    *bool   `json:"is_active"` // Gunakan pointer agar bisa membedakan false (bool) dan nil (tidak dikirim)
+}
+
+// ==================== RESPONSE STRUCTS ====================
+
+// ProductPublicResponse untuk list produk (ringkas)
+type ProductPublicResponse struct {
+	ID           string  `json:"id"`
+	CategoryName string  `json:"category_name"`
+	Name         string  `json:"name"`
+	Slug         string  `json:"slug"`
+	Price        float64 `json:"price"`
+	ImageURL     string  `json:"image_url,omitempty"`
+}
+
+// ProductDetailResponse untuk detail produk dengan reviews
+type ProductDetailResponse struct {
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Slug           string            `json:"slug"`
+	Description    string            `json:"description"`
+	Price          float64           `json:"price"`
+	Stock          int32             `json:"stock"`
+	CategoryID     string            `json:"category_id,omitempty"`
+	CategoryName   string            `json:"category_name,omitempty"`
+	BrandID        string            `json:"brand_id,omitempty"`
+	BrandName      string            `json:"brand_name,omitempty"`
+	ImageURL       string            `json:"image_url,omitempty"`
+	SKU            string            `json:"sku,omitempty"`
+	Specifications map[string]string `json:"specifications,omitempty"`
+
+	// Review fields
+	Reviews       []ReviewSummary `json:"reviews"`
+	AverageRating float64         `json:"average_rating"`
+	TotalReviews  int64           `json:"total_reviews"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ReviewSummary for product detail (5 reviews terbaru)
+type ReviewSummary struct {
+	ID        string    `json:"id"`
+	UserName  string    `json:"user_name"`
+	Rating    int32     `json:"rating"`
+	Comment   string    `json:"comment"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ProductAdminResponse untuk dashboard admin
+type ProductAdminResponse struct {
+	ID           string    `json:"id"`
+	CategoryName string    `json:"category_name"`
+	Name         string    `json:"name"`
+	Slug         string    `json:"slug"`
+	Price        float64   `json:"price"`
+	Stock        int32     `json:"stock"`
+	SKU          string    `json:"sku"`
+	ImageURL     string    `json:"image_url,omitempty"`
+	IsActive     bool      `json:"is_active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

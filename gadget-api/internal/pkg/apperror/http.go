@@ -1,6 +1,9 @@
 package apperror
 
-import "net/http"
+import (
+	"errors"
+	"net/http"
+)
 
 type HTTPError struct {
 	Status  int
@@ -19,7 +22,9 @@ func ToHTTP(err error) *HTTPError {
 		}
 	}
 
-	if appErr, ok := err.(*AppError); ok {
+	var appErr *AppError
+	// errors.As akan mencari AppError di dalam chain error
+	if errors.As(err, &appErr) {
 		return &HTTPError{
 			Status:  appErr.HTTPStatus,
 			Code:    appErr.Code,

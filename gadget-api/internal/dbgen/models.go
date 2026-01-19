@@ -115,6 +115,19 @@ type Product struct {
 	DeletedAt   sql.NullTime   `json:"deleted_at"`
 }
 
+type Review struct {
+	ID                 uuid.UUID    `json:"id"`
+	UserID             uuid.UUID    `json:"user_id"`
+	ProductID          uuid.UUID    `json:"product_id"`
+	OrderID            uuid.UUID    `json:"order_id"`
+	Rating             int32        `json:"rating"`
+	Comment            string       `json:"comment"`
+	IsVerifiedPurchase bool         `json:"is_verified_purchase"`
+	CreatedAt          time.Time    `json:"created_at"`
+	UpdatedAt          time.Time    `json:"updated_at"`
+	DeletedAt          sql.NullTime `json:"deleted_at"`
+}
+
 type User struct {
 	ID        uuid.UUID      `json:"id"`
 	Email     string         `json:"email"`

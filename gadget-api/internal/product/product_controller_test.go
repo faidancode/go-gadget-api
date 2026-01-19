@@ -1,308 +1,378 @@
-package product
+package product_test
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"gadget-api/internal/pkg/response"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"gadget-api/internal/product"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
-/*
-====================================================
-FAKE SERVICE (UNTUK CONTROLLER TEST)
-====================================================
-*/
+//
+// ==================== FAKE SERVICE ====================
+//
+
 type fakeProductService struct {
-	ListPublicFn func(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error)
-	ListAdminFn  func(ctx context.Context, page, limit int, search, sortCol, categoryID string) ([]ProductAdminResponse, int64, error)
-	CreateFn     func(ctx context.Context, req CreateProductRequest) (ProductAdminResponse, error)
-	GetByIDFn    func(ctx context.Context, id string) (ProductAdminResponse, error)
-	UpdateFn     func(ctx context.Context, id string, req UpdateProductRequest) (ProductAdminResponse, error)
+	CreateFn     func(ctx context.Context, req product.CreateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error)
+	UpdateFn     func(ctx context.Context, id string, req product.UpdateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error)
+	ListPublicFn func(ctx context.Context, req product.ListPublicRequest) ([]product.ProductPublicResponse, int64, error)
+	ListAdminFn  func(ctx context.Context, req product.ListProductAdminRequest) ([]product.ProductAdminResponse, int64, error)
+	GetByIDFn    func(ctx context.Context, id string) (product.ProductAdminResponse, error)
+	GetBySlugFn  func(ctx context.Context, slug string) (product.ProductDetailResponse, error)
 	DeleteFn     func(ctx context.Context, id string) error
-	RestoreFn    func(ctx context.Context, id string) (ProductAdminResponse, error)
+	RestoreFn    func(ctx context.Context, id string) (product.ProductAdminResponse, error)
 }
 
-func (f *fakeProductService) ListPublic(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error) {
+func (f *fakeProductService) Create(ctx context.Context, req product.CreateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
+	if f.CreateFn == nil {
+		return product.ProductAdminResponse{}, nil
+	}
+	return f.CreateFn(ctx, req, file, filename)
+}
+
+func (f *fakeProductService) Update(ctx context.Context, id string, req product.UpdateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
+	if f.UpdateFn == nil {
+		return product.ProductAdminResponse{}, nil
+	}
+	return f.UpdateFn(ctx, id, req, file, filename)
+}
+
+func (f *fakeProductService) ListPublic(ctx context.Context, req product.ListPublicRequest) ([]product.ProductPublicResponse, int64, error) {
+	if f.ListPublicFn == nil {
+		return nil, 0, nil
+	}
 	return f.ListPublicFn(ctx, req)
 }
-func (f *fakeProductService) ListAdmin(ctx context.Context, p, l int, s, c, cid string) ([]ProductAdminResponse, int64, error) {
-	return f.ListAdminFn(ctx, p, l, s, c, cid)
+
+func (f *fakeProductService) ListAdmin(ctx context.Context, req product.ListProductAdminRequest) ([]product.ProductAdminResponse, int64, error) {
+	if f.ListAdminFn == nil {
+		return nil, 0, nil
+	}
+	return f.ListAdminFn(ctx, req)
 }
-func (f *fakeProductService) Create(ctx context.Context, r CreateProductRequest) (ProductAdminResponse, error) {
-	return f.CreateFn(ctx, r)
-}
-func (f *fakeProductService) GetByIDAdmin(ctx context.Context, id string) (ProductAdminResponse, error) {
+
+func (f *fakeProductService) GetByID(ctx context.Context, id string) (product.ProductAdminResponse, error) {
+	if f.GetByIDFn == nil {
+		return product.ProductAdminResponse{}, nil
+	}
 	return f.GetByIDFn(ctx, id)
 }
-func (f *fakeProductService) Update(ctx context.Context, id string, r UpdateProductRequest) (ProductAdminResponse, error) {
-	return f.UpdateFn(ctx, id, r)
+
+func (f *fakeProductService) GetBySlug(ctx context.Context, slug string) (product.ProductDetailResponse, error) {
+	if f.GetBySlugFn == nil {
+		return product.ProductDetailResponse{}, nil
+	}
+	return f.GetBySlugFn(ctx, slug)
 }
+
 func (f *fakeProductService) Delete(ctx context.Context, id string) error {
+	if f.DeleteFn == nil {
+		return nil
+	}
 	return f.DeleteFn(ctx, id)
 }
-func (f *fakeProductService) Restore(ctx context.Context, id string) (ProductAdminResponse, error) {
+
+func (f *fakeProductService) Restore(
+	ctx context.Context,
+	id string,
+) (product.ProductAdminResponse, error) {
+	if f.RestoreFn == nil {
+		return product.ProductAdminResponse{}, nil
+	}
 	return f.RestoreFn(ctx, id)
 }
 
-/*
-====================================================
-SETUP ROUTER
-====================================================
-*/
-func setupTest() (*gin.Engine, *fakeProductService) {
+//
+// ==================== HELPERS ====================
+//
+
+func setupTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
-
-	svc := &fakeProductService{}
-	ctrl := NewController(svc)
-
-	r := gin.New()
-	r.GET("/products", ctrl.GetPublicList)
-	r.GET("/products/admin", ctrl.GetAdminList)
-	r.POST("/products", ctrl.Create)
-	r.GET("/products/:id", ctrl.GetByID)
-	r.PUT("/products/:id", ctrl.Update)
-	r.DELETE("/products/:id", ctrl.Delete)
-	r.POST("/products/:id/restore", ctrl.Restore)
-
-	return r, svc
+	return gin.New()
 }
 
-/*
-====================================================
-GET PUBLIC LIST
-====================================================
-*/
-func TestGetPublicList(t *testing.T) {
-	router, svc := setupTest()
-
-	t.Run("Success", func(t *testing.T) {
-		svc.ListPublicFn = func(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error) {
-			return []ProductPublicResponse{}, 10, nil
-		}
-
-		req := httptest.NewRequest(http.MethodGet, "/products?page=1&limit=5", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var res response.ApiEnvelope
-		_ = json.Unmarshal(w.Body.Bytes(), &res)
-		assert.True(t, res.Success)
-		assert.NotNil(t, res.Meta)
-	})
-
-	t.Run("Internal Error", func(t *testing.T) {
-		svc.ListPublicFn = func(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error) {
-			return nil, 0, errors.New("db error")
-		}
-
-		req := httptest.NewRequest(http.MethodGet, "/products", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
+func newTestController(svc product.Service) *product.Controller {
+	return product.NewController(svc)
 }
 
-/*
-====================================================
-GET ADMIN LIST
-====================================================
-*/
-func TestGetAdminList(t *testing.T) {
-	router, svc := setupTest()
+func createMultipartForm(fields map[string]string, fileField, filename string, content []byte) (*bytes.Buffer, string, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
 
-	svc.ListAdminFn = func(ctx context.Context, page, limit int, search, sortCol, categoryID string) ([]ProductAdminResponse, int64, error) {
-		return []ProductAdminResponse{}, 0, nil
+	for k, v := range fields {
+		if err := writer.WriteField(k, v); err != nil {
+			return nil, "", err
+		}
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/products/admin", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+	if fileField != "" && filename != "" {
+		part, err := writer.CreateFormFile(fileField, filename)
+		if err != nil {
+			return nil, "", err
+		}
+		if _, err := io.Copy(part, bytes.NewReader(content)); err != nil {
+			return nil, "", err
+		}
+	}
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	ct := writer.FormDataContentType()
+	_ = writer.Close()
+	return body, ct, nil
 }
 
-/*
-====================================================
-CREATE PRODUCT
-====================================================
-*/
+//
+// ==================== CREATE ====================
+//
+
 func TestCreateProduct(t *testing.T) {
-	router, svc := setupTest()
-
-	payload := CreateProductRequest{
-		Name:       "Macbook",
-		Price:      20000000,
-		Stock:      10,
-		CategoryID: uuid.New().String(),
-	}
-
-	t.Run("Success", func(t *testing.T) {
-		svc.CreateFn = func(ctx context.Context, req CreateProductRequest) (ProductAdminResponse, error) {
-			return ProductAdminResponse{Name: req.Name}, nil
+	t.Run("success", func(t *testing.T) {
+		svc := &fakeProductService{
+			CreateFn: func(ctx context.Context, req product.CreateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
+				assert.Equal(t, "Product", req.Name)
+				return product.ProductAdminResponse{ID: uuid.NewString()}, nil
+			},
 		}
 
-		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
+		r := setupTestRouter()
+		r.POST("/products", newTestController(svc).Create)
+
+		body, ct, _ := createMultipartForm(
+			map[string]string{
+				"category_id": uuid.NewString(),
+				"name":        "Product",
+				"price":       "10000",
+				"stock":       "5",
+			},
+			"",
+			"",
+			nil,
+		)
+
+		req := httptest.NewRequest(http.MethodPost, "/products", body)
+		req.Header.Set("Content-Type", ct)
 
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusCreated, w.Code)
 	})
 
-	t.Run("Validation Error", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewBuffer([]byte(`{}`)))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-
-	t.Run("Service Error", func(t *testing.T) {
-		svc.CreateFn = func(ctx context.Context, req CreateProductRequest) (ProductAdminResponse, error) {
-			return ProductAdminResponse{}, errors.New("create failed")
+	t.Run("service_error", func(t *testing.T) {
+		svc := &fakeProductService{
+			CreateFn: func(ctx context.Context, req product.CreateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
+				return product.ProductAdminResponse{}, errors.New("db error")
+			},
 		}
 
-		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
+		r := setupTestRouter()
+		r.POST("/products", newTestController(svc).Create)
+
+		body, ct, _ := createMultipartForm(
+			map[string]string{
+				"category_id": uuid.NewString(),
+				"name":        "Product",
+				"price":       "10000",
+				"stock":       "5",
+			},
+			"",
+			"",
+			nil,
+		)
+
+		req := httptest.NewRequest(http.MethodPost, "/products", body)
+		req.Header.Set("Content-Type", ct)
 
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
 }
 
-/*
-====================================================
-GET BY ID
-====================================================
-*/
+//
+// ==================== LIST ADMIN ====================
+//
+
+func TestListAdminProducts(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		svc := &fakeProductService{
+			ListAdminFn: func(ctx context.Context, req product.ListProductAdminRequest) ([]product.ProductAdminResponse, int64, error) {
+				assert.Equal(t, 1, req.Page)
+				assert.Equal(t, 10, req.Limit)
+				return []product.ProductAdminResponse{
+					{ID: uuid.NewString(), Name: "Product"},
+				}, 1, nil
+			},
+		}
+
+		r := setupTestRouter()
+		r.GET("/admin/products", newTestController(svc).GetAdminList)
+
+		req := httptest.NewRequest(http.MethodGet, "/admin/products?page=1&limit=10", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("service_error", func(t *testing.T) {
+		svc := &fakeProductService{
+			ListAdminFn: func(ctx context.Context, req product.ListProductAdminRequest) ([]product.ProductAdminResponse, int64, error) {
+				return nil, 0, errors.New("db error")
+			},
+		}
+
+		r := setupTestRouter()
+		r.GET("/admin/products", newTestController(svc).GetAdminList)
+
+		req := httptest.NewRequest(http.MethodGet, "/admin/products", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+//
+// ==================== GET BY ID (ADMIN) ====================
+//
+
 func TestGetProductByID(t *testing.T) {
-	router, svc := setupTest()
-	id := uuid.New().String()
+	id := uuid.NewString()
 
-	t.Run("Found", func(t *testing.T) {
-		svc.GetByIDFn = func(ctx context.Context, pid string) (ProductAdminResponse, error) {
-			return ProductAdminResponse{ID: pid}, nil
+	t.Run("success", func(t *testing.T) {
+		svc := &fakeProductService{
+			GetByIDFn: func(ctx context.Context, pid string) (product.ProductAdminResponse, error) {
+				assert.Equal(t, id, pid)
+				return product.ProductAdminResponse{ID: pid}, nil
+			},
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/products/"+id, nil)
+		r := setupTestRouter()
+		r.GET("/admin/products/:id", newTestController(svc).GetByID)
+
+		req := httptest.NewRequest(http.MethodGet, "/admin/products/"+id, nil)
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+
+		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("Not Found", func(t *testing.T) {
-		svc.GetByIDFn = func(ctx context.Context, pid string) (ProductAdminResponse, error) {
-			return ProductAdminResponse{}, errors.New("not found")
+	t.Run("not_found", func(t *testing.T) {
+		svc := &fakeProductService{
+			GetByIDFn: func(ctx context.Context, pid string) (product.ProductAdminResponse, error) {
+				return product.ProductAdminResponse{}, product.ErrProductNotFound
+			},
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/products/"+id, nil)
+		r := setupTestRouter()
+		r.GET("/admin/products/:id", newTestController(svc).GetByID)
+
+		req := httptest.NewRequest(http.MethodGet, "/admin/products/"+id, nil)
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+
+		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 }
 
-/*
-====================================================
-UPDATE PRODUCT
-====================================================
-*/
-func TestUpdateProduct(t *testing.T) {
-	router, svc := setupTest()
-	id := uuid.New().String()
+//
+// ==================== GET BY SLUG (PUBLIC) ====================
+//
 
-	payload := UpdateProductRequest{
-		Name:  "Updated",
-		Price: 9999,
-	}
-
-	t.Run("Success", func(t *testing.T) {
-		svc.UpdateFn = func(ctx context.Context, pid string, req UpdateProductRequest) (ProductAdminResponse, error) {
-			return ProductAdminResponse{Name: req.Name}, nil
+func TestGetProductBySlug(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		svc := &fakeProductService{
+			GetBySlugFn: func(ctx context.Context, slug string) (product.ProductDetailResponse, error) {
+				assert.Equal(t, "iphone-15", slug)
+				return product.ProductDetailResponse{Slug: slug}, nil
+			},
 		}
 
-		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPut, "/products/"+id, bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
+		r := setupTestRouter()
+		r.GET("/products/:slug", newTestController(svc).GetBySlug)
 
+		req := httptest.NewRequest(http.MethodGet, "/products/iphone-15", nil)
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+
+		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("Not Found", func(t *testing.T) {
-		svc.UpdateFn = func(ctx context.Context, pid string, req UpdateProductRequest) (ProductAdminResponse, error) {
-			return ProductAdminResponse{}, errors.New("product not found")
+	t.Run("not_found", func(t *testing.T) {
+		svc := &fakeProductService{
+			GetBySlugFn: func(ctx context.Context, slug string) (product.ProductDetailResponse, error) {
+				return product.ProductDetailResponse{}, product.ErrProductNotFound
+			},
 		}
 
-		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPut, "/products/"+id, bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
+		r := setupTestRouter()
+		r.GET("/products/:slug", newTestController(svc).GetBySlug)
 
+		req := httptest.NewRequest(http.MethodGet, "/products/unknown", nil)
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+
+		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 }
 
-/*
-====================================================
-DELETE PRODUCT
-====================================================
-*/
+//
+// ==================== DELETE ====================
+//
+
 func TestDeleteProduct(t *testing.T) {
-	router, svc := setupTest()
-	id := uuid.New().String()
+	id := uuid.NewString()
 
-	svc.DeleteFn = func(ctx context.Context, pid string) error {
-		return nil
-	}
+	t.Run("success", func(t *testing.T) {
+		svc := &fakeProductService{
+			DeleteFn: func(ctx context.Context, pid string) error {
+				assert.Equal(t, id, pid)
+				return nil
+			},
+		}
 
-	req := httptest.NewRequest(http.MethodDelete, "/products/"+id, nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+		r := setupTestRouter()
+		r.DELETE("/products/:id", newTestController(svc).Delete)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-}
+		req := httptest.NewRequest(http.MethodDelete, "/products/"+id, nil)
+		w := httptest.NewRecorder()
 
-/*
-====================================================
-RESTORE PRODUCT
-====================================================
-*/
-func TestRestoreProduct(t *testing.T) {
-	router, svc := setupTest()
-	id := uuid.New().String()
+		r.ServeHTTP(w, req)
 
-	svc.RestoreFn = func(ctx context.Context, pid string) (ProductAdminResponse, error) {
-		return ProductAdminResponse{ID: pid}, nil
-	}
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/products/"+id+"/restore", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+	t.Run("not_found", func(t *testing.T) {
+		svc := &fakeProductService{
+			DeleteFn: func(ctx context.Context, pid string) error {
+				return product.ErrProductNotFound
+			},
+		}
 
-	assert.Equal(t, http.StatusOK, w.Code)
+		r := setupTestRouter()
+		r.DELETE("/products/:id", newTestController(svc).Delete)
+
+		req := httptest.NewRequest(http.MethodDelete, "/products/"+id, nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
 }

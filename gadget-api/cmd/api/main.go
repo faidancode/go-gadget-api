@@ -7,8 +7,10 @@ import (
 
 	"gadget-api/internal/auth"
 	"gadget-api/internal/category"
+	"gadget-api/internal/cloudinary"
 	"gadget-api/internal/dbgen"
 	"gadget-api/internal/product"
+	"gadget-api/internal/review"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -31,24 +33,41 @@ func main() {
 	// 3. Initialize SQLC Queries
 	queries := dbgen.New(db)
 
+	// ===== Setup Cloudinary =====
+	cloudinaryService, err := cloudinary.NewService(
+		os.Getenv("CLOUDINARY_CLOUD_NAME"),
+		os.Getenv("CLOUDINARY_API_KEY"),
+		os.Getenv("CLOUDINARY_API_SECRET"),
+		"gadget-store/products", // folder name
+	)
+	if err != nil {
+		log.Fatal("Failed to initialize Cloudinary:", err)
+	}
+
 	// 4. Initialize Modules (Dependency Injection)
 
 	authRepo := auth.NewRepository(queries)
 	authService := auth.NewService(authRepo)
 	authController := auth.NewController(authService)
 
-	catRepo := category.NewRepository(queries)
-	catService := category.NewService(catRepo)
-	catController := category.NewController(catService)
+	categoryRepo := category.NewRepository(queries)
+	categoryService := category.NewService(categoryRepo)
+	categoryController := category.NewController(categoryService)
 
-	prodRepo := product.NewRepository(queries)
-	prodService := product.NewService(prodRepo, catRepo)
-	prodController := product.NewController(prodService)
+	productRepo := product.NewRepository(queries)
+
+	reviewRepo := review.NewRepository(queries)
+	reviewService := review.NewService(db, reviewRepo, productRepo)
+	reviewController := review.NewController(reviewService)
+
+	productService := product.NewService(db, productRepo, categoryRepo, reviewRepo, cloudinaryService)
+	productController := product.NewController(productService)
 
 	registry := ControllerRegistry{
 		Auth:     authController,
-		Category: catController,
-		Product:  prodController,
+		Category: categoryController,
+		Product:  productController,
+		Review:   reviewController,
 	}
 
 	// 4. Jalankan Router

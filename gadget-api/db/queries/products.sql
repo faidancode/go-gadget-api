@@ -19,22 +19,66 @@ ORDER BY
 LIMIT $1 OFFSET $2;
 
 -- name: ListProductsAdmin :many
-SELECT p.*, c.name as category_name, count(*) OVER() AS total_count
+SELECT
+    p.*,
+    c.name AS category_name,
+    COUNT(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
-WHERE (sqlc.narg('category_id')::uuid IS NULL OR p.category_id = sqlc.narg('category_id')::uuid)
-  AND (sqlc.narg('search')::text IS NULL OR p.name ILIKE '%' || sqlc.narg('search')::text || '%' OR p.sku ILIKE '%' || sqlc.narg('search')::text || '%')
-ORDER BY 
-    CASE WHEN sqlc.arg('sort_col')::text = 'stock' THEN p.stock END ASC,
-    CASE WHEN sqlc.arg('sort_col')::text = 'name' THEN p.name END ASC,
+WHERE
+    (sqlc.narg('category_id')::uuid IS NULL OR p.category_id = sqlc.narg('category_id')::uuid)
+    AND (
+        sqlc.narg('search')::text IS NULL
+        OR p.name ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR p.sku  ILIKE '%' || sqlc.narg('search')::text || '%'
+    )
+ORDER BY
+    -- name
+    CASE
+        WHEN sqlc.arg('sort_col') = 'name' AND sqlc.arg('sort_dir') = 'asc'
+            THEN p.name
+    END ASC,
+    CASE
+        WHEN sqlc.arg('sort_col') = 'name' AND sqlc.arg('sort_dir') = 'desc'
+            THEN p.name
+    END DESC,
+
+    -- stock
+    CASE
+        WHEN sqlc.arg('sort_col') = 'stock' AND sqlc.arg('sort_dir') = 'asc'
+            THEN p.stock
+    END ASC,
+    CASE
+        WHEN sqlc.arg('sort_col') = 'stock' AND sqlc.arg('sort_dir') = 'desc'
+            THEN p.stock
+    END DESC,
+
+    -- price
+    CASE
+        WHEN sqlc.arg('sort_col') = 'price' AND sqlc.arg('sort_dir') = 'asc'
+            THEN p.price
+    END ASC,
+    CASE
+        WHEN sqlc.arg('sort_col') = 'price' AND sqlc.arg('sort_dir') = 'desc'
+            THEN p.price
+    END DESC,
+
+    -- fallback (default)
     p.created_at DESC
 LIMIT $1 OFFSET $2;
+
 
 -- name: GetProductByID :one
 SELECT p.*, c.name as category_name 
 FROM products p
 JOIN categories c ON p.category_id = c.id
 WHERE p.id = $1 AND p.deleted_at IS NULL LIMIT 1;
+
+-- name: GetProductBySlug :one
+SELECT p.*, c.name as category_name 
+FROM products p
+JOIN categories c ON p.category_id = c.id
+WHERE p.slug = $1 AND p.deleted_at IS NULL LIMIT 1;
 
 -- name: CreateProduct :one
 INSERT INTO products (category_id, name, slug, description, price, stock, sku, image_url)

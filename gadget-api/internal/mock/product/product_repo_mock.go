@@ -7,6 +7,7 @@ package mock
 import (
 	context "context"
 	dbgen "gadget-api/internal/dbgen"
+	product "gadget-api/internal/product"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -80,6 +81,21 @@ func (mr *MockRepositoryMockRecorder) GetByID(ctx, id interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
 }
 
+// GetBySlug mocks base method.
+func (m *MockRepository) GetBySlug(ctx context.Context, slug string) (dbgen.GetProductBySlugRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBySlug", ctx, slug)
+	ret0, _ := ret[0].(dbgen.GetProductBySlugRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBySlug indicates an expected call of GetBySlug.
+func (mr *MockRepositoryMockRecorder) GetBySlug(ctx, slug interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBySlug", reflect.TypeOf((*MockRepository)(nil).GetBySlug), ctx, slug)
+}
+
 // ListAdmin mocks base method.
 func (m *MockRepository) ListAdmin(ctx context.Context, arg dbgen.ListProductsAdminParams) ([]dbgen.ListProductsAdminRow, error) {
 	m.ctrl.T.Helper()
@@ -138,4 +154,18 @@ func (m *MockRepository) Update(ctx context.Context, arg dbgen.UpdateProductPara
 func (mr *MockRepositoryMockRecorder) Update(ctx, arg interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockRepository)(nil).Update), ctx, arg)
+}
+
+// WithTx mocks base method.
+func (m *MockRepository) WithTx(tx dbgen.DBTX) product.Repository {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithTx", tx)
+	ret0, _ := ret[0].(product.Repository)
+	return ret0
+}
+
+// WithTx indicates an expected call of WithTx.
+func (mr *MockRepositoryMockRecorder) WithTx(tx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTx", reflect.TypeOf((*MockRepository)(nil).WithTx), tx)
 }

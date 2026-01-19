@@ -1,7 +1,11 @@
 package product
 
 import (
+	"fmt"
+	"gadget-api/internal/pkg/apperror"
+	"gadget-api/internal/pkg/httpx"
 	"gadget-api/internal/pkg/response"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 
@@ -63,18 +67,18 @@ func (ctrl *Controller) GetAdminList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	search := c.Query("search")
-	sortCol := c.DefaultQuery("sort_col", "created_at")
-	categoryID := c.Query("category_id")
+	sort := httpx.ParseSort(c, "created_at", "desc")
 
-	data, total, err := ctrl.service.ListAdmin(
-		c.Request.Context(),
-		page,
-		limit,
-		search,
-		sortCol,
-		categoryID,
-	)
+	req := ListProductAdminRequest{
+		Page:     page,
+		Limit:    limit,
+		Search:   c.Query("search"),
+		Category: c.Query("category_id"),
+		SortBy:   sort.SortBy,
+		SortDir:  sort.SortDir,
+	}
+
+	data, total, err := ctrl.service.ListAdmin(c.Request.Context(), req)
 	if err != nil {
 		response.Error(
 			c,
@@ -96,27 +100,79 @@ func (ctrl *Controller) GetAdminList(c *gin.Context) {
 
 // 3. CREATE PRODUCT
 func (ctrl *Controller) Create(c *gin.Context) {
-	var req CreateProductRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// 1. Parse multipart form
+	err := c.Request.ParseMultipartForm(10 << 20) // 10 MB max
+	if err != nil {
 		response.Error(
 			c,
 			http.StatusBadRequest,
-			"VALIDATION_ERROR",
-			"Input tidak valid",
+			"INVALID_FORM",
+			"Invalid multipart form",
 			err.Error(),
 		)
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), req)
-	if err != nil {
+	// 2. Parse form fields
+	req := CreateProductRequest{
+		CategoryID:  c.PostForm("category_id"),
+		Name:        c.PostForm("name"),
+		Description: c.PostForm("description"),
+		SKU:         c.PostForm("sku"),
+	}
+
+	// Parse numeric fields
+	var price float64
+	var stock int32
+	if priceStr := c.PostForm("price"); priceStr != "" {
+		_, err := fmt.Sscanf(priceStr, "%f", &price)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_PRICE", "Invalid price format", nil)
+			return
+		}
+		req.Price = price
+	}
+
+	if stockStr := c.PostForm("stock"); stockStr != "" {
+		_, err := fmt.Sscanf(stockStr, "%d", &stock)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "INVALID_STOCK", "Invalid stock format", nil)
+			return
+		}
+		req.Stock = stock
+	}
+
+	// 3. Validate required fields
+	if req.CategoryID == "" || req.Name == "" || req.Price == 0 || req.Stock == 0 {
 		response.Error(
 			c,
-			http.StatusInternalServerError,
-			"CREATE_ERROR",
-			"Gagal membuat produk",
-			err.Error(),
+			http.StatusBadRequest,
+			"VALIDATION_ERROR",
+			"Missing required fields: category_id, name, price, stock",
+			nil,
 		)
+		return
+	}
+
+	// 4. Get uploaded file (optional)
+	var file multipart.File
+	var filename string
+	fileHeader, err := c.FormFile("image")
+	if err == nil && fileHeader != nil {
+		file, err = fileHeader.Open()
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "FILE_ERROR", "Failed to open uploaded file", err.Error())
+			return
+		}
+		defer file.Close()
+		filename = fileHeader.Filename
+	}
+
+	// 5. Call service
+	res, err := ctrl.service.Create(c.Request.Context(), req, file, filename)
+	if err != nil {
+		httpErr := apperror.ToHTTP(err)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 
@@ -125,7 +181,23 @@ func (ctrl *Controller) Create(c *gin.Context) {
 
 // 4. GET BY ID (Admin / Detail)
 func (ctrl *Controller) GetByID(c *gin.Context) {
-	res, err := ctrl.service.GetByIDAdmin(c.Request.Context(), c.Param("id"))
+	res, err := ctrl.service.GetByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		response.Error(
+			c,
+			http.StatusNotFound,
+			"NOT_FOUND",
+			"Produk tidak ditemukan",
+			nil,
+		)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res, nil)
+}
+
+func (ctrl *Controller) GetBySlug(c *gin.Context) {
+	res, err := ctrl.service.GetBySlug(c.Request.Context(), c.Param("slug"))
 	if err != nil {
 		response.Error(
 			c,
@@ -144,32 +216,68 @@ func (ctrl *Controller) GetByID(c *gin.Context) {
 func (ctrl *Controller) Update(c *gin.Context) {
 	id := c.Param("id")
 
-	var req UpdateProductRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// 1. Parse multipart form
+	err := c.Request.ParseMultipartForm(10 << 20) // 10 MB max
+	if err != nil {
 		response.Error(
 			c,
 			http.StatusBadRequest,
-			"VALIDATION_ERROR",
-			"Input tidak valid",
+			"INVALID_FORM",
+			"Invalid multipart form",
 			err.Error(),
 		)
 		return
 	}
 
-	res, err := ctrl.service.Update(c.Request.Context(), id, req)
-	if err != nil {
-		statusCode := http.StatusInternalServerError
-		if err.Error() == "product not found" || err.Error() == "category not found" {
-			statusCode = http.StatusNotFound
-		}
+	// 2. Parse form fields (all optional for update)
+	req := UpdateProductRequest{
+		CategoryID:  c.PostForm("category_id"),
+		Name:        c.PostForm("name"),
+		Description: c.PostForm("description"),
+		SKU:         c.PostForm("sku"),
+	}
 
-		response.Error(
-			c,
-			statusCode,
-			"UPDATE_ERROR",
-			"Gagal memperbarui produk",
-			err.Error(),
-		)
+	// Parse numeric fields
+	if priceStr := c.PostForm("price"); priceStr != "" {
+		var price float64
+		_, err := fmt.Sscanf(priceStr, "%f", &price)
+		if err == nil {
+			req.Price = price
+		}
+	}
+
+	if stockStr := c.PostForm("stock"); stockStr != "" {
+		var stock int32
+		_, err := fmt.Sscanf(stockStr, "%d", &stock)
+		if err == nil {
+			req.Stock = stock
+		}
+	}
+
+	if isActiveStr := c.PostForm("is_active"); isActiveStr != "" {
+		isActive := isActiveStr == "true"
+		req.IsActive = &isActive
+	}
+
+	// 3. Get uploaded file (optional)
+	var file multipart.File
+	var filename string
+	fileHeader, err := c.FormFile("image")
+	if err == nil && fileHeader != nil {
+		file, err = fileHeader.Open()
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "FILE_ERROR", "Failed to open uploaded file", err.Error())
+			return
+		}
+		defer file.Close()
+		filename = fileHeader.Filename
+	}
+
+	// 4. Call service
+	res, err := ctrl.service.Update(c.Request.Context(), id, req, file, filename)
+	if err != nil {
+		httpErr := apperror.ToHTTP(err)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 

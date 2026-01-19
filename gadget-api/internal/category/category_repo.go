@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:generate mockgen -source=category_repo.go -destination=mock/category_repo_mock.go -package=mock
+//go:generate mockgen -source=category_repo.go -destination=../mock/category/category_repo_mock.go -package=mock
 type Repository interface {
 	Create(ctx context.Context, arg dbgen.CreateCategoryParams) (dbgen.Category, error)
 	List(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesRow, error)

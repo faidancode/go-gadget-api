@@ -1,14 +1,14 @@
-package category
+package category_test
 
 import (
 	"context"
 	"database/sql"
 	"errors"
+	"gadget-api/internal/category"
+	"gadget-api/internal/dbgen"
+	categoryMock "gadget-api/internal/mock/category"
 	"testing"
 	"time"
-
-	"gadget-api/internal/category/mock"
-	"gadget-api/internal/dbgen"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -35,8 +35,8 @@ func TestService_Category(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockRepo := mock.NewMockRepository(ctrl)
-	service := NewService(mockRepo)
+	mockRepo := categoryMock.NewMockRepository(ctrl)
+	service := category.NewService(mockRepo)
 	ctx := context.Background()
 
 	// Helper data
@@ -46,7 +46,7 @@ func TestService_Category(t *testing.T) {
 
 	// 1. CREATE
 	t.Run("Create - Success", func(t *testing.T) {
-		req := CreateCategoryRequest{Name: "Smartphone"}
+		req := category.CreateCategoryRequest{Name: "Smartphone"}
 		mockRepo.EXPECT().Create(ctx, gomock.Any()).Return(dummyCat, nil)
 
 		res, err := service.Create(ctx, req)
@@ -92,7 +92,7 @@ func TestService_Category(t *testing.T) {
 
 	// 4. UPDATE
 	t.Run("Update - Success", func(t *testing.T) {
-		req := CreateCategoryRequest{Name: "Updated Name"}
+		req := category.CreateCategoryRequest{Name: "Updated Name"}
 		mockRepo.EXPECT().Update(ctx, gomock.Any()).Return(dbgen.Category{ID: id, Name: "Updated Name"}, nil)
 
 		res, err := service.Update(ctx, idStr, req) // idStr string
