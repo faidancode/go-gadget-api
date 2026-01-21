@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"gadget-api/internal/auth"
 	"gadget-api/internal/cart"
 	"gadget-api/internal/dbgen"
 	"strconv"
@@ -21,10 +22,11 @@ type Service interface {
 	List(ctx context.Context, userID string, page, limit int) ([]OrderResponse, int64, error)
 	Detail(ctx context.Context, orderID string) (OrderResponse, error)
 	Cancel(ctx context.Context, orderID string) error
+	UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, nextStatus string) (OrderResponse, error)
 
 	// Shared/Admin Actions
 	ListAdmin(ctx context.Context, status string, search string, page, limit int) ([]OrderResponse, int64, error)
-	UpdateStatus(ctx context.Context, orderID string, status string) (OrderResponse, error)
+	UpdateStatusByAdmin(ctx context.Context, orderID string, nextStatus string, receiptNo *string) (OrderResponse, error)
 }
 
 type service struct {
@@ -249,37 +251,123 @@ func (s *service) Cancel(ctx context.Context, orderID string) error {
 	return tx.Commit()
 }
 
-// CUSTOMER: Update (DELIVERED -> COMPLETED)
-func (s *service) UpdateStatus(ctx context.Context, orderID string, status string) (OrderResponse, error) {
+// // CUSTOMER: Update (DELIVERED -> COMPLETED)
+// func (s *service) UpdateStatus(ctx context.Context, orderID string, status string) (OrderResponse, error) {
+// 	oid, err := uuid.Parse(orderID)
+// 	if err != nil {
+// 		return OrderResponse{}, ErrInvalidOrderID
+// 	}
+
+// 	// 1. Mulai Transaksi
+// 	tx, err := s.db.BeginTx(ctx, nil)
+// 	if err != nil {
+// 		return OrderResponse{}, err
+// 	}
+// 	defer tx.Rollback()
+
+// 	// 2. Hubungkan Repository dengan Transaksi
+// 	qtx := s.repo.WithTx(tx)
+
+// 	// 3. Eksekusi Update Status
+// 	o, err := qtx.UpdateStatus(ctx, oid, status)
+// 	if err != nil {
+// 		// Jika error (misal: order tidak ketemu atau DB error)
+// 		return OrderResponse{}, err
+// 	}
+
+// 	// --- LOGIKA TAMBAHAN (Opsional di masa depan) ---
+// 	// Jika status == "SHIPPED", mungkin Anda ingin otomatis kirim email/notifikasi
+// 	// if status == "SHIPPED" {
+// 	//    s.notificationSvc.Send(o.UserID, "Pesanan Anda sedang dikirim!")
+// 	// }
+
+// 	// 4. Commit Transaksi
+// 	if err := tx.Commit(); err != nil {
+// 		return OrderResponse{}, err
+// 	}
+
+// 	return s.mapOrderToResponse(o, nil), nil
+// }
+
+// Implementasi UpdateStatusByAdmin
+func (s *service) UpdateStatusByAdmin(ctx context.Context, orderID string, nextStatus string, receiptNo *string) (OrderResponse, error) {
 	oid, err := uuid.Parse(orderID)
 	if err != nil {
 		return OrderResponse{}, ErrInvalidOrderID
 	}
 
-	// 1. Mulai Transaksi
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return OrderResponse{}, err
 	}
 	defer tx.Rollback()
 
-	// 2. Hubungkan Repository dengan Transaksi
 	qtx := s.repo.WithTx(tx)
-
-	// 3. Eksekusi Update Status
-	o, err := qtx.UpdateStatus(ctx, oid, status)
+	order, err := qtx.GetByID(ctx, oid)
 	if err != nil {
-		// Jika error (misal: order tidak ketemu atau DB error)
+		// Menggunakan ErrOrderNotFound jika data tidak ada di DB
+		return OrderResponse{}, ErrOrderNotFound
+	}
+
+	// --- VALIDASI TRANSISI STATUS ---
+	switch nextStatus {
+	case "PROCESSING":
+		if order.Status != "PAID" {
+			return OrderResponse{}, ErrInvalidStatusTransition
+		}
+	case "SHIPPED":
+		if order.Status != "PROCESSING" {
+			return OrderResponse{}, ErrInvalidStatusTransition
+		}
+		if receiptNo == nil || *receiptNo == "" {
+			return OrderResponse{}, ErrReceiptRequired
+		}
+	default:
+		// Jika admin mencoba status yang tidak diizinkan di sini
+		return OrderResponse{}, ErrInvalidStatusTransition
+	}
+
+	// Update Status
+	o, err := qtx.UpdateStatus(ctx, oid, nextStatus)
+	if err != nil {
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	if err := tx.Commit(); err != nil {
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	return s.mapOrderToResponse(o, nil), nil
+}
+
+// Implementasi UpdateStatusByCustomer
+func (s *service) UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, nextStatus string) (OrderResponse, error) {
+	oid, err := uuid.Parse(orderID)
+	if err != nil {
+		return OrderResponse{}, fmt.Errorf("invalid order id")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return OrderResponse{}, err
+	}
+	defer tx.Rollback()
+
+	qtx := s.repo.WithTx(tx)
+	order, err := qtx.GetByID(ctx, oid)
+	if err != nil {
 		return OrderResponse{}, err
 	}
 
-	// --- LOGIKA TAMBAHAN (Opsional di masa depan) ---
-	// Jika status == "SHIPPED", mungkin Anda ingin otomatis kirim email/notifikasi
-	// if status == "SHIPPED" {
-	//    s.notificationSvc.Send(o.UserID, "Pesanan Anda sedang dikirim!")
-	// }
+	if order.UserID != userID {
+		return OrderResponse{}, auth.ErrUnauthorized
+	}
 
-	// 4. Commit Transaksi
+	o, err := qtx.UpdateStatus(ctx, oid, nextStatus)
+	if err != nil {
+		return OrderResponse{}, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return OrderResponse{}, err
 	}

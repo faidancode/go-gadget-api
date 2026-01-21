@@ -126,6 +126,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserByEmailStmt, err = db.PrepareContext(ctx, getUserByEmail); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserByEmail: %w", err)
 	}
+	if q.getUserByIDStmt, err = db.PrepareContext(ctx, getUserByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByID: %w", err)
+	}
 	if q.getWishlistByUserIDStmt, err = db.PrepareContext(ctx, getWishlistByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWishlistByUserID: %w", err)
 	}
@@ -138,8 +141,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listAddressesByUserStmt, err = db.PrepareContext(ctx, listAddressesByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query ListAddressesByUser: %w", err)
 	}
-	if q.listCategoriesStmt, err = db.PrepareContext(ctx, listCategories); err != nil {
-		return nil, fmt.Errorf("error preparing query ListCategories: %w", err)
+	if q.listCategoriesAdminStmt, err = db.PrepareContext(ctx, listCategoriesAdmin); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCategoriesAdmin: %w", err)
+	}
+	if q.listCategoriesPublicStmt, err = db.PrepareContext(ctx, listCategoriesPublic); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCategoriesPublic: %w", err)
 	}
 	if q.listOrdersStmt, err = db.PrepareContext(ctx, listOrders); err != nil {
 		return nil, fmt.Errorf("error preparing query ListOrders: %w", err)
@@ -364,6 +370,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getUserByEmailStmt: %w", cerr)
 		}
 	}
+	if q.getUserByIDStmt != nil {
+		if cerr := q.getUserByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByIDStmt: %w", cerr)
+		}
+	}
 	if q.getWishlistByUserIDStmt != nil {
 		if cerr := q.getWishlistByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWishlistByUserIDStmt: %w", cerr)
@@ -384,9 +395,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listAddressesByUserStmt: %w", cerr)
 		}
 	}
-	if q.listCategoriesStmt != nil {
-		if cerr := q.listCategoriesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing listCategoriesStmt: %w", cerr)
+	if q.listCategoriesAdminStmt != nil {
+		if cerr := q.listCategoriesAdminStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCategoriesAdminStmt: %w", cerr)
+		}
+	}
+	if q.listCategoriesPublicStmt != nil {
+		if cerr := q.listCategoriesPublicStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCategoriesPublicStmt: %w", cerr)
 		}
 	}
 	if q.listOrdersStmt != nil {
@@ -542,11 +558,13 @@ type Queries struct {
 	getReviewsByProductIDStmt       *sql.Stmt
 	getReviewsByUserIDStmt          *sql.Stmt
 	getUserByEmailStmt              *sql.Stmt
+	getUserByIDStmt                 *sql.Stmt
 	getWishlistByUserIDStmt         *sql.Stmt
 	getWishlistItemsStmt            *sql.Stmt
 	listAddressesAdminStmt          *sql.Stmt
 	listAddressesByUserStmt         *sql.Stmt
-	listCategoriesStmt              *sql.Stmt
+	listCategoriesAdminStmt         *sql.Stmt
+	listCategoriesPublicStmt        *sql.Stmt
 	listOrdersStmt                  *sql.Stmt
 	listOrdersAdminStmt             *sql.Stmt
 	listProductsAdminStmt           *sql.Stmt
@@ -603,11 +621,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getReviewsByProductIDStmt:       q.getReviewsByProductIDStmt,
 		getReviewsByUserIDStmt:          q.getReviewsByUserIDStmt,
 		getUserByEmailStmt:              q.getUserByEmailStmt,
+		getUserByIDStmt:                 q.getUserByIDStmt,
 		getWishlistByUserIDStmt:         q.getWishlistByUserIDStmt,
 		getWishlistItemsStmt:            q.getWishlistItemsStmt,
 		listAddressesAdminStmt:          q.listAddressesAdminStmt,
 		listAddressesByUserStmt:         q.listAddressesByUserStmt,
-		listCategoriesStmt:              q.listCategoriesStmt,
+		listCategoriesAdminStmt:         q.listCategoriesAdminStmt,
+		listCategoriesPublicStmt:        q.listCategoriesPublicStmt,
 		listOrdersStmt:                  q.listOrdersStmt,
 		listOrdersAdminStmt:             q.listOrdersAdminStmt,
 		listProductsAdminStmt:           q.listProductsAdminStmt,

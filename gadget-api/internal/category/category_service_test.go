@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func dummyCategoryRow(total int64) dbgen.ListCategoriesRow {
-	return dbgen.ListCategoriesRow{
+func dummyCategoryRow(total int64) dbgen.ListCategoriesPublicRow {
+	return dbgen.ListCategoriesPublicRow{
 		ID:         uuid.New(),
 		Name:       "Laptop",
 		Slug:       "laptop",
@@ -57,12 +57,12 @@ func TestService_Category(t *testing.T) {
 	// 2. GET ALL (SINKRON: page, limit & EXPECT().List)
 	t.Run("GetAll - Success", func(t *testing.T) {
 		mockRepo.EXPECT().
-			List(ctx, int32(10), int32(0)).
-			Return([]dbgen.ListCategoriesRow{
+			ListPublic(ctx, int32(10), int32(0)).
+			Return([]dbgen.ListCategoriesPublicRow{
 				dummyCategoryRow(1),
 			}, nil)
 
-		res, total, err := service.GetAll(ctx, 1, 10)
+		res, total, err := service.ListPublic(ctx, 1, 10)
 
 		assert.NoError(t, err)
 		assert.Equal(t, int64(1), total)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gadget-api/internal/auth"
 	"gadget-api/internal/pkg/response"
+	"log"
 	"os"
 	"strings"
 
@@ -14,6 +15,8 @@ import (
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Ambil token dari cookie
+		log.Printf("auth context: %+v\n", c.Keys)
+
 		tokenString, err := c.Cookie("access_token")
 		if err != nil {
 			// Menggunakan ErrUnauthorized
@@ -43,6 +46,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		claims, _ := token.Claims.(jwt.MapClaims)
+		c.Set("user_id", claims["user_id"])
 		c.Set("role", claims["role"])
 		c.Next()
 	}

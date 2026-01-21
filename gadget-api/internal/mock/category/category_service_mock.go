@@ -36,10 +36,10 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockService) Create(ctx context.Context, req category.CreateCategoryRequest) (category.CategoryResponse, error) {
+func (m *MockService) Create(ctx context.Context, req category.CreateCategoryRequest) (category.CategoryAdminResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, req)
-	ret0, _ := ret[0].(category.CategoryResponse)
+	ret0, _ := ret[0].(category.CategoryAdminResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -64,27 +64,11 @@ func (mr *MockServiceMockRecorder) Delete(ctx, id interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockService)(nil).Delete), ctx, id)
 }
 
-// GetAll mocks base method.
-func (m *MockService) GetAll(ctx context.Context, page, limit int) ([]category.CategoryResponse, int64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAll", ctx, page, limit)
-	ret0, _ := ret[0].([]category.CategoryResponse)
-	ret1, _ := ret[1].(int64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetAll indicates an expected call of GetAll.
-func (mr *MockServiceMockRecorder) GetAll(ctx, page, limit interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAll", reflect.TypeOf((*MockService)(nil).GetAll), ctx, page, limit)
-}
-
 // GetByID mocks base method.
-func (m *MockService) GetByID(ctx context.Context, id string) (category.CategoryResponse, error) {
+func (m *MockService) GetByID(ctx context.Context, id string) (category.CategoryAdminResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByID", ctx, id)
-	ret0, _ := ret[0].(category.CategoryResponse)
+	ret0, _ := ret[0].(category.CategoryAdminResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -95,11 +79,43 @@ func (mr *MockServiceMockRecorder) GetByID(ctx, id interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockService)(nil).GetByID), ctx, id)
 }
 
+// ListAdmin mocks base method.
+func (m *MockService) ListAdmin(ctx context.Context, req category.ListCategoryRequest) ([]category.CategoryAdminResponse, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAdmin", ctx, req)
+	ret0, _ := ret[0].([]category.CategoryAdminResponse)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListAdmin indicates an expected call of ListAdmin.
+func (mr *MockServiceMockRecorder) ListAdmin(ctx, req interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAdmin", reflect.TypeOf((*MockService)(nil).ListAdmin), ctx, req)
+}
+
+// ListPublic mocks base method.
+func (m *MockService) ListPublic(ctx context.Context, page, limit int) ([]category.CategoryPublicResponse, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListPublic", ctx, page, limit)
+	ret0, _ := ret[0].([]category.CategoryPublicResponse)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListPublic indicates an expected call of ListPublic.
+func (mr *MockServiceMockRecorder) ListPublic(ctx, page, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPublic", reflect.TypeOf((*MockService)(nil).ListPublic), ctx, page, limit)
+}
+
 // Restore mocks base method.
-func (m *MockService) Restore(ctx context.Context, id string) (category.CategoryResponse, error) {
+func (m *MockService) Restore(ctx context.Context, id string) (category.CategoryAdminResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Restore", ctx, id)
-	ret0, _ := ret[0].(category.CategoryResponse)
+	ret0, _ := ret[0].(category.CategoryAdminResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -111,10 +127,10 @@ func (mr *MockServiceMockRecorder) Restore(ctx, id interface{}) *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockService) Update(ctx context.Context, id string, req category.CreateCategoryRequest) (category.CategoryResponse, error) {
+func (m *MockService) Update(ctx context.Context, id string, req category.CreateCategoryRequest) (category.CategoryAdminResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", ctx, id, req)
-	ret0, _ := ret[0].(category.CategoryResponse)
+	ret0, _ := ret[0].(category.CategoryAdminResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

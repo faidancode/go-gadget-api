@@ -69,20 +69,51 @@ func (q *Queries) GetCategoryByID(ctx context.Context, id uuid.UUID) (Category, 
 	return i, err
 }
 
-const listCategories = `-- name: ListCategories :many
-SELECT id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at, count(*) OVER() AS total_count
+const listCategoriesAdmin = `-- name: ListCategoriesAdmin :many
+SELECT 
+    id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at, 
+    COUNT(*) OVER() AS total_count
 FROM categories
-WHERE deleted_at IS NULL
-ORDER BY created_at DESC
+WHERE 
+    deleted_at IS NULL
+    AND (
+        $3::text IS NULL 
+        OR name ILIKE '%' || $3::text || '%'
+        OR description ILIKE '%' || $3::text || '%'
+    )
+ORDER BY 
+    -- Sort by Name
+    CASE 
+        WHEN $4::text = 'name' AND $5::text = 'asc' 
+            THEN name 
+    END ASC,
+    CASE 
+        WHEN $4::text = 'name' AND $5::text = 'desc' 
+            THEN name 
+    END DESC,
+    -- Sort by CreatedAt (Default)
+    CASE 
+        WHEN $4::text = 'created_at' AND $5::text = 'asc' 
+            THEN created_at 
+    END ASC,
+    CASE 
+        WHEN $4::text = 'created_at' AND $5::text = 'desc' 
+            THEN created_at 
+    END DESC,
+    -- Fallback jika tidak ada sort yang cocok
+    created_at DESC
 LIMIT $1 OFFSET $2
 `
 
-type ListCategoriesParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+type ListCategoriesAdminParams struct {
+	Limit   int32          `json:"limit"`
+	Offset  int32          `json:"offset"`
+	Search  sql.NullString `json:"search"`
+	SortCol string         `json:"sort_col"`
+	SortDir string         `json:"sort_dir"`
 }
 
-type ListCategoriesRow struct {
+type ListCategoriesAdminRow struct {
 	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name"`
 	Slug        string         `json:"slug"`
@@ -95,15 +126,81 @@ type ListCategoriesRow struct {
 	TotalCount  int64          `json:"total_count"`
 }
 
-func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) ([]ListCategoriesRow, error) {
-	rows, err := q.query(ctx, q.listCategoriesStmt, listCategories, arg.Limit, arg.Offset)
+func (q *Queries) ListCategoriesAdmin(ctx context.Context, arg ListCategoriesAdminParams) ([]ListCategoriesAdminRow, error) {
+	rows, err := q.query(ctx, q.listCategoriesAdminStmt, listCategoriesAdmin,
+		arg.Limit,
+		arg.Offset,
+		arg.Search,
+		arg.SortCol,
+		arg.SortDir,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListCategoriesRow
+	var items []ListCategoriesAdminRow
 	for rows.Next() {
-		var i ListCategoriesRow
+		var i ListCategoriesAdminRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.ImageUrl,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCategoriesPublic = `-- name: ListCategoriesPublic :many
+SELECT id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at, count(*) OVER() AS total_count
+FROM categories
+WHERE deleted_at IS NULL
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListCategoriesPublicParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListCategoriesPublicRow struct {
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Slug        string         `json:"slug"`
+	Description sql.NullString `json:"description"`
+	ImageUrl    sql.NullString `json:"image_url"`
+	IsActive    sql.NullBool   `json:"is_active"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   sql.NullTime   `json:"deleted_at"`
+	TotalCount  int64          `json:"total_count"`
+}
+
+func (q *Queries) ListCategoriesPublic(ctx context.Context, arg ListCategoriesPublicParams) ([]ListCategoriesPublicRow, error) {
+	rows, err := q.query(ctx, q.listCategoriesPublicStmt, listCategoriesPublic, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCategoriesPublicRow
+	for rows.Next() {
+		var i ListCategoriesPublicRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,

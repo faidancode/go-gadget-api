@@ -1,8 +1,43 @@
--- name: ListCategories :many
+-- name: ListCategoriesPublic :many
 SELECT *, count(*) OVER() AS total_count
 FROM categories
 WHERE deleted_at IS NULL
 ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: ListCategoriesAdmin :many
+SELECT 
+    *, 
+    COUNT(*) OVER() AS total_count
+FROM categories
+WHERE 
+    deleted_at IS NULL
+    AND (
+        sqlc.narg('search')::text IS NULL 
+        OR name ILIKE '%' || sqlc.narg('search')::text || '%'
+        OR description ILIKE '%' || sqlc.narg('search')::text || '%'
+    )
+ORDER BY 
+    -- Sort by Name
+    CASE 
+        WHEN sqlc.arg('sort_col')::text = 'name' AND sqlc.arg('sort_dir')::text = 'asc' 
+            THEN name 
+    END ASC,
+    CASE 
+        WHEN sqlc.arg('sort_col')::text = 'name' AND sqlc.arg('sort_dir')::text = 'desc' 
+            THEN name 
+    END DESC,
+    -- Sort by CreatedAt (Default)
+    CASE 
+        WHEN sqlc.arg('sort_col')::text = 'created_at' AND sqlc.arg('sort_dir')::text = 'asc' 
+            THEN created_at 
+    END ASC,
+    CASE 
+        WHEN sqlc.arg('sort_col')::text = 'created_at' AND sqlc.arg('sort_dir')::text = 'desc' 
+            THEN created_at 
+    END DESC,
+    -- Fallback jika tidak ada sort yang cocok
+    created_at DESC
 LIMIT $1 OFFSET $2;
 
 -- name: GetCategoryByID :one

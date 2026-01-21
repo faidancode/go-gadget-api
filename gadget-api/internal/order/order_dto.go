@@ -25,7 +25,12 @@ type ListOrderAdminRequest struct {
 }
 
 type UpdateStatusRequest struct {
-	Status string `json:"status" binding:"required"` // PAID, SHIPPED, DELIVERED, CANCELLED
+	Status string `json:"status" binding:"required"`
+}
+
+type UpdateStatusAdminRequest struct {
+	Status    string  `json:"status" binding:"required"`
+	ReceiptNo *string `json:"receipt_no"`
 }
 
 // ==================== RESPONSE STRUCTS ====================
@@ -42,6 +47,7 @@ type OrderResponse struct {
 	ID          string              `json:"id"`
 	OrderNumber string              `json:"order_number"`
 	Status      string              `json:"status"`
+	ReceiptNo   *string             `json:"receipt_no,omitempty"` // Tambahkan di sini
 	TotalPrice  float64             `json:"total_price"`
 	PlacedAt    time.Time           `json:"placed_at"`
 	Items       []OrderItemResponse `json:"items,omitempty"`

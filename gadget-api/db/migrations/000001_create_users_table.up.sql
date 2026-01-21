@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(50) NOT NULL UNIQUE,
-    name VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(50) NOT NULL,
     password TEXT NOT NULL,
-    role VARCHAR(20) DEFAULT 'admin',
+    role VARCHAR(20) NOT NULL DEFAULT 'ADMIN',
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

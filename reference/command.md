@@ -1,3 +1,6 @@
+## Run
+go run ./cmd/api
+
 ## Create Migration
 migrate create -ext sql -dir db/migrations -seq create_users_table
 

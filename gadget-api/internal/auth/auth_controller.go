@@ -2,7 +2,9 @@ package auth
 
 import (
 	"gadget-api/internal/pkg/response"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,6 +31,7 @@ func (ctrl *Controller) Login(c *gin.Context) {
 		response.Error(c, http.StatusUnauthorized, "AUTH_FAILED", "Email atau password salah", nil)
 		return
 	}
+	isProd := os.Getenv("APP_ENV") == "production"
 
 	// Set Cookie
 	c.SetCookie(
@@ -37,12 +40,34 @@ func (ctrl *Controller) Login(c *gin.Context) {
 		86400,
 		"/",
 		"",
-		false,
+		isProd,
 		true,
 	)
 
 	// Response Success Seragam
 	// Data yang dikirim adalah struct AuthResponse (Email & Role)
+	response.Success(c, http.StatusOK, userResp, nil)
+}
+
+func (ctrl *Controller) Me(c *gin.Context) {
+	// asumsi middleware sudah set userID di context
+	log.Printf("auth context: %+v\n", c.Keys)
+
+	userID, ok := c.Get("user_id")
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Unauthorized", nil)
+		return
+	}
+
+	userResp, err := ctrl.service.GetMe(
+		c.Request.Context(),
+		userID.(string),
+	)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Unauthorized", nil)
+		return
+	}
+
 	response.Success(c, http.StatusOK, userResp, nil)
 }
 

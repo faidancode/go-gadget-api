@@ -10,6 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	uuid "github.com/google/uuid"
 )
 
 // MockRepository is a mock of Repository interface.
@@ -51,10 +52,10 @@ func (mr *MockRepositoryMockRecorder) Create(ctx, params interface{}) *gomock.Ca
 }
 
 // GetByEmail mocks base method.
-func (m *MockRepository) GetByEmail(ctx context.Context, email string) (dbgen.GetUserByEmailRow, error) {
+func (m *MockRepository) GetByEmail(ctx context.Context, email string) (dbgen.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByEmail", ctx, email)
-	ret0, _ := ret[0].(dbgen.GetUserByEmailRow)
+	ret0, _ := ret[0].(dbgen.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,4 +64,19 @@ func (m *MockRepository) GetByEmail(ctx context.Context, email string) (dbgen.Ge
 func (mr *MockRepositoryMockRecorder) GetByEmail(ctx, email interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByEmail", reflect.TypeOf((*MockRepository)(nil).GetByEmail), ctx, email)
+}
+
+// GetByID mocks base method.
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByID", ctx, id)
+	ret0, _ := ret[0].(dbgen.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByID indicates an expected call of GetByID.
+func (mr *MockRepositoryMockRecorder) GetByID(ctx, id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
 }

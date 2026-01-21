@@ -5,43 +5,32 @@ import (
 	"log"
 	"os"
 
-	"gadget-api/internal/category"
-	"gadget-api/internal/dbgen"
+	"gadget-api/db/seed"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	// Load .env
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found")
 	}
-
-	// Database connection
-	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
+	db, err := sql.Open("postgres", os.Getenv("DB_URL"))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Cannot connect to database:", err)
 	}
 	defer db.Close()
 
-	// Initialize sqlc queries
-	queries := dbgen.New(db)
+	// if err := seed.SeedUsers(db); err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	// Initialize Repositories
-	catRepo := category.NewRepository(queries)
+	// if err := seed.SeedCustomers(db); err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	schema, err := os.ReadFile("db/schema.sql")
-	if err != nil {
-		log.Fatal("Gagal membaca file schema.sql: ", err)
+	if err := seed.SeedCategories(db); err != nil {
+		log.Fatal(err)
 	}
 
-	_, err = db.Exec(string(schema))
-	if err != nil {
-		log.Printf("Peringatan: Gagal eksekusi schema (mungkin tabel sudah ada): %v", err)
-	}
-
-	// Run Seeders
-	category.SeedCategories(catRepo)
 }

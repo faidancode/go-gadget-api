@@ -16,11 +16,11 @@ func NewController(s Service) *Controller {
 	return &Controller{service: s}
 }
 
-func (ctrl *Controller) GetAll(c *gin.Context) {
+func (ctrl *Controller) ListPublic(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	data, total, err := ctrl.service.GetAll(c.Request.Context(), page, limit)
+	data, total, err := ctrl.service.ListPublic(c.Request.Context(), page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FETCH_ERROR", "Gagal mengambil kategori", err.Error())
 		return
@@ -36,6 +36,36 @@ func (ctrl *Controller) GetAll(c *gin.Context) {
 		TotalPages: totalPages,
 		Page:       page,
 		PageSize:   limit,
+	})
+}
+
+func (ctrl *Controller) ListAdmin(c *gin.Context) {
+	var req ListCategoryRequest
+
+	// Bind query parameters ke struct (page, limit, search, sort_col, sort_dir)
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_INPUT", "Parameter pencarian tidak valid", err.Error())
+		return
+	}
+
+	// Memanggil service dengan struct req
+	data, total, err := ctrl.service.ListAdmin(c.Request.Context(), req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "FETCH_ERROR", "Gagal mengambil daftar kategori admin", err.Error())
+		return
+	}
+
+	// Kalkulasi Pagination
+	totalPages := 0
+	if req.Limit > 0 {
+		totalPages = int((total + int64(req.Limit) - 1) / int64(req.Limit))
+	}
+
+	response.Success(c, http.StatusOK, data, &response.PaginationMeta{
+		Total:      total,
+		TotalPages: totalPages,
+		Page:       int(req.Page),
+		PageSize:   int(req.Limit),
 	})
 }
 

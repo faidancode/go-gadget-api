@@ -3,6 +3,7 @@ package order_test
 import (
 	"context"
 	"database/sql"
+	"gadget-api/internal/auth"
 	"gadget-api/internal/cart"
 	cartMock "gadget-api/internal/cart/mock"
 	"gadget-api/internal/dbgen"
@@ -281,7 +282,7 @@ func TestOrderService_Cancel(t *testing.T) {
 	})
 }
 
-func TestOrderService_UpdateStatus(t *testing.T) {
+func TestOrderService_UpdateStatusByCustomer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -293,21 +294,106 @@ func TestOrderService_UpdateStatus(t *testing.T) {
 	svc := order.NewService(db, orderRepo, cartSvc)
 	ctx := context.Background()
 
-	t.Run("success_update_status", func(t *testing.T) {
+	t.Run("customer_success_complete", func(t *testing.T) {
 		orderID := uuid.New()
+		userID := uuid.New()
+		statusTarget := "COMPLETED"
 
 		mock.ExpectBegin()
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
+
+		// 1. Mock GetByID: Pastikan UserID sama dan status SHIPPED/DELIVERED
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+			ID: orderID, UserID: userID, Status: "SHIPPED",
+		}, nil)
+
+		orderRepo.EXPECT().UpdateStatus(ctx, orderID, statusTarget).Return(dbgen.Order{
+			ID: orderID, Status: statusTarget,
+		}, nil)
+
 		mock.ExpectCommit()
-		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).AnyTimes()
 
-		orderRepo.EXPECT().
-			UpdateStatus(gomock.Any(), orderID, "COMPLETED").
-			Return(dbgen.Order{ID: orderID, Status: "COMPLETED", OrderNumber: "ORD-123"}, nil)
-
-		res, err := svc.UpdateStatus(ctx, orderID.String(), "COMPLETED")
+		res, err := svc.UpdateStatusByCustomer(ctx, orderID.String(), userID, statusTarget)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "COMPLETED", res.Status)
-		assert.NoError(t, mock.ExpectationsWereMet())
+		assert.Equal(t, statusTarget, res.Status)
+	})
+
+	t.Run("customer_failed_unauthorized", func(t *testing.T) {
+		orderID := uuid.New()
+		wrongUserID := uuid.New()
+		realOwnerID := uuid.New()
+
+		mock.ExpectBegin()
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
+
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+			ID: orderID, UserID: realOwnerID, Status: "SHIPPED",
+		}, nil)
+
+		// User yang login (wrongUserID) tidak sama dengan pemilik order (realOwnerID)
+		_, err := svc.UpdateStatusByCustomer(ctx, orderID.String(), wrongUserID, "COMPLETED")
+
+		assert.Error(t, err)
+		assert.Equal(t, auth.ErrUnauthorized, err) // Sesuai pesan error di service Anda
+		mock.ExpectRollback()
+	})
+}
+
+func TestOrderService_UpdateStatusByAdmin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+
+	orderRepo := orderMock.NewMockRepository(ctrl)
+	cartSvc := cartMock.NewMockService(ctrl)
+	svc := order.NewService(db, orderRepo, cartSvc)
+	ctx := context.Background()
+
+	t.Run("admin_success_processing", func(t *testing.T) {
+		orderID := uuid.New()
+		statusTarget := "PROCESSING"
+
+		mock.ExpectBegin()
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
+
+		// 1. Mock GetByID untuk validasi status awal (harus PAID)
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+			ID: orderID, Status: "PAID",
+		}, nil)
+
+		// 2. Mock UpdateStatus
+		orderRepo.EXPECT().UpdateStatus(ctx, orderID, statusTarget).Return(dbgen.Order{
+			ID: orderID, Status: statusTarget,
+		}, nil)
+
+		mock.ExpectCommit()
+
+		res, err := svc.UpdateStatusByAdmin(ctx, orderID.String(), statusTarget, nil)
+
+		assert.NoError(t, err)
+		assert.Equal(t, statusTarget, res.Status)
+	})
+
+	t.Run("admin_failed_shipped_no_receipt", func(t *testing.T) {
+		orderID := uuid.New()
+		statusTarget := "SHIPPED"
+
+		mock.ExpectBegin()
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
+
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+			ID: orderID, Status: "PROCESSING",
+		}, nil)
+
+		// ReceiptNo nil saat status SHIPPED harus return error
+		res, err := svc.UpdateStatusByAdmin(ctx, orderID.String(), statusTarget, nil)
+
+		assert.Error(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, order.ErrReceiptRequired, err)
+		mock.ExpectRollback()
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Controller struct {
@@ -192,37 +193,37 @@ func (ctrl *Controller) ListAdmin(c *gin.Context) {
 
 // UpdateStatus updates order status (admin only)
 // PATCH /admin/orders/:id/status
-func (ctrl *Controller) UpdateStatus(c *gin.Context) {
-	orderID := c.Param("id")
-	if orderID == "" {
-		httpErr := apperror.ToHTTP(ErrInvalidOrderID)
-		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
+func (c *Controller) UpdateStatusByAdmin(ctx *gin.Context) {
+	id := ctx.Param("id")
+	var req UpdateStatusAdminRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	var req UpdateStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appErr := apperror.Wrap(
-			err,
-			apperror.CodeInvalidInput,
-			"Invalid request body",
-			http.StatusBadRequest,
-		)
-		httpErr := apperror.ToHTTP(appErr)
-		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, err.Error())
-		return
-	}
-
-	res, err := ctrl.service.UpdateStatus(
-		c.Request.Context(),
-		orderID,
-		req.Status,
-	)
+	res, err := c.service.UpdateStatusByAdmin(ctx.Request.Context(), id, req.Status, req.ReceiptNo)
 	if err != nil {
-		httpErr := apperror.ToHTTP(err)
-		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	response.Success(c, http.StatusOK, res, nil)
+	ctx.JSON(200, res)
+}
+
+// PATCH /api/v1/orders/:id/complete
+func (c *Controller) UpdateStatusByCustomer(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	// Ambil UserID dari middleware Auth
+	userIDStr, _ := ctx.Get("user_id")
+	userID, _ := uuid.Parse(userIDStr.(string))
+
+	// Langsung paksa status ke COMPLETED karena ini endpoint khusus customer
+	res, err := c.service.UpdateStatusByCustomer(ctx.Request.Context(), id, userID, "COMPLETED")
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(200, res)
 }

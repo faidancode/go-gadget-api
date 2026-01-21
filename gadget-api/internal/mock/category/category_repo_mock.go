@@ -80,19 +80,34 @@ func (mr *MockRepositoryMockRecorder) GetByID(ctx, id interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
 }
 
-// List mocks base method.
-func (m *MockRepository) List(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesRow, error) {
+// ListAdmin mocks base method.
+func (m *MockRepository) ListAdmin(ctx context.Context, arg dbgen.ListCategoriesAdminParams) ([]dbgen.ListCategoriesAdminRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", ctx, limit, offset)
-	ret0, _ := ret[0].([]dbgen.ListCategoriesRow)
+	ret := m.ctrl.Call(m, "ListAdmin", ctx, arg)
+	ret0, _ := ret[0].([]dbgen.ListCategoriesAdminRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// List indicates an expected call of List.
-func (mr *MockRepositoryMockRecorder) List(ctx, limit, offset interface{}) *gomock.Call {
+// ListAdmin indicates an expected call of ListAdmin.
+func (mr *MockRepositoryMockRecorder) ListAdmin(ctx, arg interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRepository)(nil).List), ctx, limit, offset)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAdmin", reflect.TypeOf((*MockRepository)(nil).ListAdmin), ctx, arg)
+}
+
+// ListPublic mocks base method.
+func (m *MockRepository) ListPublic(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesPublicRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListPublic", ctx, limit, offset)
+	ret0, _ := ret[0].([]dbgen.ListCategoriesPublicRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPublic indicates an expected call of ListPublic.
+func (mr *MockRepositoryMockRecorder) ListPublic(ctx, limit, offset interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPublic", reflect.TypeOf((*MockRepository)(nil).ListPublic), ctx, limit, offset)
 }
 
 // Restore mocks base method.

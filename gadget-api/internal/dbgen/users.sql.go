@@ -7,7 +7,6 @@ package dbgen
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,19 +25,19 @@ RETURNING id, name, email, password, role, created_at
 `
 
 type CreateUserParams struct {
-	Email    string         `json:"email"`
-	Name     string         `json:"name"`
-	Password string         `json:"password"`
-	Role     sql.NullString `json:"role"`
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
 }
 
 type CreateUserRow struct {
-	ID        uuid.UUID      `json:"id"`
-	Name      string         `json:"name"`
-	Email     string         `json:"email"`
-	Password  string         `json:"password"`
-	Role      sql.NullString `json:"role"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Password  string    `json:"password"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
@@ -61,26 +60,40 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password, role, created_at 
+SELECT id, email, name, password, role, created_at 
 FROM users 
 WHERE email = $1 
 LIMIT 1
 `
 
-type GetUserByEmailRow struct {
-	ID        uuid.UUID      `json:"id"`
-	Email     string         `json:"email"`
-	Password  string         `json:"password"`
-	Role      sql.NullString `json:"role"`
-	CreatedAt time.Time      `json:"created_at"`
-}
-
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row := q.queryRow(ctx, q.getUserByEmailStmt, getUserByEmail, email)
-	var i GetUserByEmailRow
+	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
+		&i.Name,
+		&i.Password,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, email, name, password, role, created_at 
+FROM users 
+WHERE id = $1 
+LIMIT 1
+`
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.queryRow(ctx, q.getUserByIDStmt, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
 		&i.Password,
 		&i.Role,
 		&i.CreatedAt,

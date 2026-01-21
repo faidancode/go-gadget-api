@@ -10,7 +10,8 @@ import (
 //go:generate mockgen -source=category_repo.go -destination=../mock/category/category_repo_mock.go -package=mock
 type Repository interface {
 	Create(ctx context.Context, arg dbgen.CreateCategoryParams) (dbgen.Category, error)
-	List(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesRow, error)
+	ListPublic(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesPublicRow, error)
+	ListAdmin(ctx context.Context, arg dbgen.ListCategoriesAdminParams) ([]dbgen.ListCategoriesAdminRow, error)
 	GetByID(ctx context.Context, id uuid.UUID) (dbgen.Category, error)
 	Update(ctx context.Context, arg dbgen.UpdateCategoryParams) (dbgen.Category, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -29,8 +30,12 @@ func (r *repository) Create(ctx context.Context, arg dbgen.CreateCategoryParams)
 	return r.queries.CreateCategory(ctx, arg)
 }
 
-func (r *repository) List(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesRow, error) {
-	return r.queries.ListCategories(ctx, dbgen.ListCategoriesParams{Limit: limit, Offset: offset})
+func (r *repository) ListPublic(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesPublicRow, error) {
+	return r.queries.ListCategoriesPublic(ctx, dbgen.ListCategoriesPublicParams{Limit: limit, Offset: offset})
+}
+
+func (r *repository) ListAdmin(ctx context.Context, arg dbgen.ListCategoriesAdminParams) ([]dbgen.ListCategoriesAdminRow, error) {
+	return r.queries.ListCategoriesAdmin(ctx, arg)
 }
 
 func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.Category, error) {

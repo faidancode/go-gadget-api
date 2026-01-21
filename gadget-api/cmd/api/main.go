@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"time"
 
 	"gadget-api/internal/auth"
+	"gadget-api/internal/bootstrap"
 	"gadget-api/internal/category"
 	"gadget-api/internal/cloudinary"
 	"gadget-api/internal/dbgen"
@@ -18,50 +20,49 @@ import (
 )
 
 func main() {
-	// 1. Load Environment
+	// Load env
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found")
 	}
 
-	// 2. Database Connection
-	db, err := sql.Open("postgres", os.Getenv("DB"))
+	// DB
+	db, err := sql.Open("postgres", os.Getenv("DB_URL"))
 	if err != nil {
 		log.Fatal("Cannot connect to database:", err)
 	}
 	defer db.Close()
 
-	// 3. Initialize SQLC Queries
 	queries := dbgen.New(db)
 
-	// ===== Setup Cloudinary =====
 	cloudinaryService, err := cloudinary.NewService(
 		os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		os.Getenv("CLOUDINARY_API_KEY"),
 		os.Getenv("CLOUDINARY_API_SECRET"),
-		"gadget-store/products", // folder name
+		"gadget-store/products",
 	)
 	if err != nil {
 		log.Fatal("Failed to initialize Cloudinary:", err)
 	}
 
-	// 4. Initialize Modules (Dependency Injection)
-
-	authRepo := auth.NewRepository(queries)
-	authService := auth.NewService(authRepo)
-	authController := auth.NewController(authService)
+	// DI
+	authController := auth.NewController(
+		auth.NewService(auth.NewRepository(queries)),
+	)
 
 	categoryRepo := category.NewRepository(queries)
-	categoryService := category.NewService(categoryRepo)
-	categoryController := category.NewController(categoryService)
+	categoryController := category.NewController(
+		category.NewService(categoryRepo),
+	)
 
 	productRepo := product.NewRepository(queries)
 
-	reviewRepo := review.NewRepository(queries)
-	reviewService := review.NewService(db, reviewRepo, productRepo)
-	reviewController := review.NewController(reviewService)
+	reviewController := review.NewController(
+		review.NewService(db, review.NewRepository(queries), productRepo),
+	)
 
-	productService := product.NewService(db, productRepo, categoryRepo, reviewRepo, cloudinaryService)
-	productController := product.NewController(productService)
+	productController := product.NewController(
+		product.NewService(db, productRepo, categoryRepo, review.NewRepository(queries), cloudinaryService),
+	)
 
 	registry := ControllerRegistry{
 		Auth:     authController,
@@ -70,14 +71,27 @@ func main() {
 		Review:   reviewController,
 	}
 
-	// 4. Jalankan Router
+	// Router
 	r := gin.Default()
 	setupRoutes(r, registry)
 
-	// 7. Start Server
+	// Audit logger
+	auditLogger := bootstrap.NewStdoutAuditLogger()
+
+	// Server config
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3000"
 	}
-	r.Run(":" + port)
+
+	bootstrap.StartHTTPServer(
+		r,
+		bootstrap.ServerConfig{
+			Port:         port,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		},
+		auditLogger,
+	)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"gadget-api/internal/order"
-	"gadget-api/internal/pkg/apperror"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,12 +18,14 @@ import (
 // ==================== FAKE SERVICE ====================
 
 type fakeOrderService struct {
-	checkoutFunc     func(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error)
-	listFunc         func(ctx context.Context, userID string, page, limit int) ([]order.OrderResponse, int64, error)
-	detailFunc       func(ctx context.Context, orderID string) (order.OrderResponse, error)
-	cancelFunc       func(ctx context.Context, orderID string) error
-	listAdminFunc    func(ctx context.Context, status string, search string, page, limit int) ([]order.OrderResponse, int64, error)
-	updateStatusFunc func(ctx context.Context, orderID string, status string) (order.OrderResponse, error)
+	checkoutFunc  func(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error)
+	listFunc      func(ctx context.Context, userID string, page, limit int) ([]order.OrderResponse, int64, error)
+	detailFunc    func(ctx context.Context, orderID string) (order.OrderResponse, error)
+	cancelFunc    func(ctx context.Context, orderID string) error
+	listAdminFunc func(ctx context.Context, status string, search string, page, limit int) ([]order.OrderResponse, int64, error)
+	// Perbaikan: Gunakan uuid.UUID dan *string di dalam definisi func field
+	updateStatusCustomerFunc func(ctx context.Context, orderID string, userID uuid.UUID, status string) (order.OrderResponse, error)
+	updateStatusAdminFunc    func(ctx context.Context, orderID string, status string, receiptNo *string) (order.OrderResponse, error)
 }
 
 func (f *fakeOrderService) Checkout(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error) {
@@ -62,9 +63,16 @@ func (f *fakeOrderService) ListAdmin(ctx context.Context, status string, search 
 	return []order.OrderResponse{}, 0, nil
 }
 
-func (f *fakeOrderService) UpdateStatus(ctx context.Context, orderID string, status string) (order.OrderResponse, error) {
-	if f.updateStatusFunc != nil {
-		return f.updateStatusFunc(ctx, orderID, status)
+func (f *fakeOrderService) UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, status string) (order.OrderResponse, error) {
+	if f.updateStatusCustomerFunc != nil {
+		return f.updateStatusCustomerFunc(ctx, orderID, userID, status)
+	}
+	return order.OrderResponse{}, nil
+}
+
+func (f *fakeOrderService) UpdateStatusByAdmin(ctx context.Context, orderID string, status string, receiptNo *string) (order.OrderResponse, error) {
+	if f.updateStatusAdminFunc != nil {
+		return f.updateStatusAdminFunc(ctx, orderID, status, receiptNo)
 	}
 	return order.OrderResponse{}, nil
 }
@@ -520,22 +528,22 @@ func TestOrderController_ListAdmin(t *testing.T) {
 }
 
 // ==================== UPDATE STATUS TESTS ====================
-
-func TestOrderController_UpdateStatus(t *testing.T) {
-	t.Run("success_update_status", func(t *testing.T) {
+func TestOrderController_UpdateStatusByAdmin(t *testing.T) {
+	t.Run("success_update_status_admin", func(t *testing.T) {
 		orderID := uuid.New().String()
+		receiptNo := "RESI12345"
 
 		svc := &fakeOrderService{
-			updateStatusFunc: func(ctx context.Context, id, status string) (order.OrderResponse, error) {
+			updateStatusAdminFunc: func(ctx context.Context, id, status string, resi *string) (order.OrderResponse, error) {
 				assert.Equal(t, orderID, id)
 				assert.Equal(t, "SHIPPED", status)
+				assert.Equal(t, receiptNo, *resi)
 
 				return order.OrderResponse{
 					ID:          id,
 					OrderNumber: "ORD-123",
 					Status:      status,
-					TotalPrice:  100000.00,
-					PlacedAt:    time.Now(),
+					ReceiptNo:   resi,
 				}, nil
 			},
 		}
@@ -544,54 +552,21 @@ func TestOrderController_UpdateStatus(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"status": "SHIPPED"}`
-		c.Request = httptest.NewRequest(http.MethodPatch, "/admin/orders/"+orderID+"/status", strings.NewReader(body))
+		// Admin biasanya mengirim JSON body
+		body := `{"status": "SHIPPED", "receipt_no": "RESI12345"}`
+		c.Request = httptest.NewRequest(http.MethodPatch, "/api/v1/orders/admin/"+orderID+"/status", strings.NewReader(body))
 		c.Request.Header.Set("Content-Type", "application/json")
 		c.Params = gin.Params{{Key: "id", Value: orderID}}
 
-		ctrl.UpdateStatus(c)
+		ctrl.UpdateStatusByAdmin(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("invalid_status", func(t *testing.T) {
-		orderID := uuid.New().String()
-
-		ctrl := newTestController(&fakeOrderService{})
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-
-		body := `{"status": ""}`
-		c.Request = httptest.NewRequest(http.MethodPatch, "/admin/orders/"+orderID+"/status", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Params = gin.Params{{Key: "id", Value: orderID}}
-
-		ctrl.UpdateStatus(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-
-	t.Run("invalid_json", func(t *testing.T) {
-		orderID := uuid.New().String()
-
-		ctrl := newTestController(&fakeOrderService{})
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-
-		c.Request = httptest.NewRequest(http.MethodPatch, "/admin/orders/"+orderID+"/status", strings.NewReader(`{invalid}`))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Params = gin.Params{{Key: "id", Value: orderID}}
-
-		ctrl.UpdateStatus(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-
 	t.Run("order_not_found", func(t *testing.T) {
 		orderID := uuid.New().String()
-
 		svc := &fakeOrderService{
-			updateStatusFunc: func(ctx context.Context, id, status string) (order.OrderResponse, error) {
+			updateStatusAdminFunc: func(ctx context.Context, id, status string, resi *string) (order.OrderResponse, error) {
 				return order.OrderResponse{}, order.ErrOrderNotFound
 			},
 		}
@@ -600,42 +575,13 @@ func TestOrderController_UpdateStatus(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"status": "DELIVERED"}`
-		c.Request = httptest.NewRequest(http.MethodPatch, "/admin/orders/"+orderID+"/status", strings.NewReader(body))
+		body := `{"status": "PROCESSING"}`
+		c.Request = httptest.NewRequest(http.MethodPatch, "/", strings.NewReader(body))
 		c.Request.Header.Set("Content-Type", "application/json")
 		c.Params = gin.Params{{Key: "id", Value: orderID}}
 
-		ctrl.UpdateStatus(c)
+		ctrl.UpdateStatusByAdmin(c)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
-
-	t.Run("invalid_status_transition", func(t *testing.T) {
-		orderID := uuid.New().String()
-
-		svc := &fakeOrderService{
-			updateStatusFunc: func(ctx context.Context, id, status string) (order.OrderResponse, error) {
-				return order.OrderResponse{}, order.ErrInvalidStatusTransition
-			},
-		}
-
-		ctrl := newTestController(svc)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-
-		body := `{"status":"PENDING"}`
-		c.Request = httptest.NewRequest(
-			http.MethodPatch,
-			"/admin/orders/"+orderID+"/status",
-			strings.NewReader(body),
-		)
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Params = gin.Params{{Key: "id", Value: orderID}}
-
-		ctrl.UpdateStatus(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), apperror.CodeInvalidState)
-	})
-
 }

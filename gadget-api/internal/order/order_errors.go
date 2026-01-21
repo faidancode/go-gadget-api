@@ -41,4 +41,10 @@ var (
 		"Failed to process order, please try again",
 		http.StatusInternalServerError,
 	)
+
+	ErrReceiptRequired = apperror.New(
+		apperror.CodeInvalidInput,
+		"receipt number is required for shipping",
+		http.StatusBadRequest,
+	)
 )

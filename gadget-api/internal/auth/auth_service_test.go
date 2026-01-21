@@ -2,7 +2,6 @@ package auth_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"gadget-api/internal/auth"
 	"gadget-api/internal/dbgen"
@@ -27,7 +26,7 @@ func TestService_Login(t *testing.T) {
 	t.Run("Success Login", func(t *testing.T) {
 		mockRepo.EXPECT().
 			GetByEmail(ctx, "admin").
-			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw)}, nil)
+			Return(dbgen.User{Email: "admin", Password: string(pw)}, nil)
 
 		token, resp, err := service.Login(ctx, "admin", "password123")
 
@@ -39,7 +38,7 @@ func TestService_Login(t *testing.T) {
 	t.Run("Wrong Password", func(t *testing.T) {
 		mockRepo.EXPECT().
 			GetByEmail(ctx, "admin").
-			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw)}, nil)
+			Return(dbgen.User{Email: "admin", Password: string(pw)}, nil)
 
 		_, _, err := service.Login(ctx, "admin", "wrongpass")
 		assert.Error(t, err)
@@ -64,7 +63,7 @@ func TestService_Register(t *testing.T) {
 			Create(ctx, gomock.Any()).
 			Return(dbgen.CreateUserRow{
 				Email: req.Email,
-				Role:  sql.NullString{String: "customer", Valid: true},
+				Role:  "CUSTOMER",
 			}, nil)
 
 		resp, err := service.Register(ctx, req)

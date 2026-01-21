@@ -5,6 +5,7 @@ import (
 	"gadget-api/internal/cart"
 	"gadget-api/internal/category"
 	"gadget-api/internal/middleware"
+	"gadget-api/internal/order"
 	"gadget-api/internal/product"
 	"gadget-api/internal/review"
 
@@ -17,7 +18,7 @@ type ControllerRegistry struct {
 	Product  *product.Controller
 	Review   *review.Controller
 	Cart     *cart.Controller
-	// Order    *order.Controller
+	Order    *order.Controller
 }
 
 func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
@@ -30,6 +31,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		// ========================
 		auth := v1.Group("/auth")
 		{
+			auth.GET("/me", middleware.AuthMiddleware(), reg.Auth.Me)
 			auth.POST("/login", reg.Auth.Login)
 			auth.POST("/logout", reg.Auth.Logout)
 			auth.POST("/register", reg.Auth.Register)
@@ -38,74 +40,62 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		// ========================
 		// CATEGORY
 		// ========================
-		cat := v1.Group("/categories")
+		categories := v1.Group("/categories")
 		{
-			// Public
-			cat.GET("", reg.Category.GetAll)
-			cat.GET("/:id", reg.Category.GetByID)
+			categories.GET("", reg.Category.ListPublic)
+			categories.GET("/:id", reg.Category.GetByID)
+		}
 
-			// Admin only
-			admin := cat.Group("")
-			admin.Use(
-				middleware.AuthMiddleware(),
-				middleware.RoleMiddleware("ADMIN", "SUPERADMIN"),
-			)
-			{
-				admin.POST("", reg.Category.Create)
-				admin.PUT("/:id", reg.Category.Update)
-				admin.DELETE("/:id", reg.Category.Delete)
-				admin.PATCH("/:id/restore", reg.Category.Restore)
-			}
+		adminCategories := v1.Group("/admin/categories")
+		adminCategories.Use(
+			middleware.AuthMiddleware(),
+			middleware.RoleMiddleware("ADMIN", "SUPERADMIN"),
+		)
+		{
+			adminCategories.GET("", reg.Category.ListAdmin)
+			adminCategories.POST("", reg.Category.Create)
+			adminCategories.PUT("/:id", reg.Category.Update)
+			adminCategories.DELETE("/:id", reg.Category.Delete)
+			adminCategories.PATCH("/:id/restore", reg.Category.Restore)
 		}
 
 		// ========================
 		// PRODUCT
 		// ========================
-		prod := v1.Group("/products")
+		products := v1.Group("/products")
 		{
-			// Public
-			prod.GET("", reg.Product.GetPublicList)
-			prod.GET("/:slug", reg.Product.GetBySlug)
-			prod.GET("/:slug/reviews", reg.Review.GetReviewsByProductSlug)
+			products.GET("", reg.Product.GetPublicList)
+			products.GET("/:id", reg.Product.GetByID)
+		}
+		optional := products.Group("")
+		optional.Use(middleware.OptionalAuthMiddleware())
+		{
+			optional.GET(
+				"/:slug/reviews/eligibility",
+				reg.Review.CheckReviewEligibility,
+			)
+		}
 
-			// Optional Auth (Guest / Logged-in)
-			optional := prod.Group("")
-			optional.Use(middleware.OptionalAuthMiddleware())
-			{
-				optional.GET(
-					"/:slug/reviews/eligibility",
-					reg.Review.CheckReviewEligibility,
-				)
-			}
-
-			// Auth Required (User)
-			authUser := prod.Group("")
-			authUser.Use(middleware.AuthMiddleware())
-			{
-				authUser.POST("/:slug/reviews", reg.Review.CreateReview)
-
-				// Admin only (inherit auth)
-				admin := authUser.Group("")
-				admin.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
-				{
-					admin.GET("/admin/list", reg.Product.GetAdminList)
-					admin.POST("", reg.Product.Create)
-					admin.PUT("/:id", reg.Product.Update)
-					admin.DELETE("/:id", reg.Product.Delete)
-					admin.PATCH("/:id/restore", reg.Product.Restore)
-				}
-			}
+		adminProducts := v1.Group("/admin/products")
+		adminProducts.Use(middleware.AuthMiddleware())
+		adminProducts.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
+		{
+			adminProducts.GET("", reg.Product.GetAdminList)
+			adminProducts.POST("", reg.Product.Create)
+			adminProducts.PUT("/:id", reg.Product.Update)
+			adminProducts.DELETE("/:id", reg.Product.Delete)
+			adminProducts.PATCH("/:id/restore", reg.Product.Restore)
 		}
 
 		// ========================
 		// REVIEW (AUTH REQUIRED, NON-PRODUCT)
 		// ========================
-		review := v1.Group("")
-		review.Use(middleware.AuthMiddleware())
+		reviews := v1.Group("")
+		reviews.Use(middleware.AuthMiddleware())
 		{
-			review.PUT("/reviews/:id", reg.Review.UpdateReview)
-			review.DELETE("/reviews/:id", reg.Review.DeleteReview)
-			review.GET("/users/:userId/reviews", reg.Review.GetReviewsByUserID)
+			reviews.PUT("/reviews/:id", reg.Review.UpdateReview)
+			reviews.DELETE("/reviews/:id", reg.Review.DeleteReview)
+			reviews.GET("/users/:userId/reviews", reg.Review.GetReviewsByUserID)
 		}
 
 		// ========================
@@ -125,6 +115,28 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 				items.POST("/increment", reg.Cart.Increment)
 				items.POST("/decrement", reg.Cart.Decrement)
 				items.DELETE("", reg.Cart.DeleteItem)
+			}
+		}
+
+		// ========================
+		// ORDER
+		// ========================
+		orders := v1.Group("/orders")
+		orders.Use(middleware.AuthMiddleware()) // Semua route order butuh login
+		{
+			// Customer Routes
+			orders.POST("/checkout", reg.Order.Checkout)
+			orders.GET("", reg.Order.List)
+			orders.GET("/:id", reg.Order.Detail)
+			orders.PATCH("/:id/cancel", reg.Order.Cancel)
+			orders.PATCH("/:id/status", reg.Order.UpdateStatusByCustomer)
+
+			// Admin Routes (Management)
+			adminOrders := orders.Group("/admin")
+			adminOrders.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
+			{
+				adminOrders.GET("", reg.Order.ListAdmin)
+				adminOrders.PATCH("/:id/status", reg.Order.UpdateStatusByAdmin)
 			}
 		}
 	}

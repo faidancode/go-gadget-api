@@ -22,7 +22,7 @@ import (
 
 //go:generate mockgen -source=auth_repo.go -destination=mock/auth_repo_mock.go -package=mock
 type Repository interface {
-	GetByEmail(ctx context.Context, email string) (dbgen.GetUserByEmailRow, error)
+	GetByEmail(ctx context.Context, email string) (dbgen.User, error)
 }
 
 type repository struct {
@@ -33,7 +33,7 @@ func NewRepository(q *dbgen.Queries) Repository {
 	return &repository{queries: q}
 }
 
-func (r *repository) GetByEmail(ctx context.Context, email string) (dbgen.GetUserByEmailRow, error) {
+func (r *repository) GetByEmail(ctx context.Context, email string) (dbgen.User, error) {
 	return r.queries.GetUserByEmail(ctx, email)
 }
 

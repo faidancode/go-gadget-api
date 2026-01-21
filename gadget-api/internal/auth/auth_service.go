@@ -2,13 +2,13 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"gadget-api/internal/dbgen"
 	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -34,14 +34,28 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, Au
 	}
 
 	// 3. Generate JWT Token
-	tokenString, err := s.generateToken(user.ID.String(), user.Role.String)
+	tokenString, err := s.generateToken(user.ID.String(), user.Role)
 	if err != nil {
 		return "", AuthResponse{}, fmt.Errorf("failed to generate token")
 	}
 
 	return tokenString, AuthResponse{
 		Email: user.Email,
-		Role:  user.Role.String,
+		Role:  user.Role,
+	}, nil
+}
+
+func (s *Service) GetMe(ctx context.Context, userID string) (*AuthResponse, error) {
+	u, err := s.repo.GetByID(ctx, uuid.MustParse(userID))
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthResponse{
+		ID:    u.ID.String(),
+		Email: u.Email,
+		Name:  u.Name,
+		Role:  u.Role,
 	}, nil
 }
 
@@ -68,10 +82,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (AuthRespon
 		Email:    req.Email,
 		Name:     req.Name,
 		Password: string(hashed),
-		Role: sql.NullString{
-			String: "customer",
-			Valid:  true,
-		},
+		Role:     "CUSTOMER",
 	})
 	if err != nil {
 		return AuthResponse{}, fmt.Errorf("email already registered")
@@ -79,6 +90,6 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (AuthRespon
 
 	return AuthResponse{
 		Email: user.Email,
-		Role:  user.Role.String,
+		Role:  user.Role,
 	}, nil
 }

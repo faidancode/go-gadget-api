@@ -16,30 +16,34 @@ import (
 )
 
 type fakeCategoryService struct {
-	CreateFn  func(ctx context.Context, req CreateCategoryRequest) (CategoryResponse, error)
-	GetAllFn  func(ctx context.Context, page, limit int) ([]CategoryResponse, int64, error)
-	GetByIDFn func(ctx context.Context, id string) (CategoryResponse, error)
-	UpdateFn  func(ctx context.Context, id string, req CreateCategoryRequest) (CategoryResponse, error)
-	DeleteFn  func(ctx context.Context, id string) error
-	RestoreFn func(ctx context.Context, id string) (CategoryResponse, error)
+	CreateFn     func(ctx context.Context, req CreateCategoryRequest) (CategoryAdminResponse, error)
+	ListPublicFn func(ctx context.Context, page, limit int) ([]CategoryPublicResponse, int64, error)
+	ListAdminFn  func(ctx context.Context, req ListCategoryRequest) ([]CategoryAdminResponse, int64, error)
+	GetByIDFn    func(ctx context.Context, id string) (CategoryAdminResponse, error)
+	UpdateFn     func(ctx context.Context, id string, req CreateCategoryRequest) (CategoryAdminResponse, error)
+	DeleteFn     func(ctx context.Context, id string) error
+	RestoreFn    func(ctx context.Context, id string) (CategoryAdminResponse, error)
 }
 
-func (f *fakeCategoryService) Create(ctx context.Context, req CreateCategoryRequest) (CategoryResponse, error) {
+func (f *fakeCategoryService) Create(ctx context.Context, req CreateCategoryRequest) (CategoryAdminResponse, error) {
 	return f.CreateFn(ctx, req)
 }
-func (f *fakeCategoryService) GetAll(ctx context.Context, p, l int) ([]CategoryResponse, int64, error) {
-	return f.GetAllFn(ctx, p, l)
+func (f *fakeCategoryService) ListPublic(ctx context.Context, p, l int) ([]CategoryPublicResponse, int64, error) {
+	return f.ListPublicFn(ctx, p, l)
 }
-func (f *fakeCategoryService) GetByID(ctx context.Context, id string) (CategoryResponse, error) {
+func (f *fakeCategoryService) ListAdmin(ctx context.Context, req ListCategoryRequest) ([]CategoryAdminResponse, int64, error) {
+	return f.ListAdminFn(ctx, req)
+}
+func (f *fakeCategoryService) GetByID(ctx context.Context, id string) (CategoryAdminResponse, error) {
 	return f.GetByIDFn(ctx, id)
 }
-func (f *fakeCategoryService) Update(ctx context.Context, id string, req CreateCategoryRequest) (CategoryResponse, error) {
+func (f *fakeCategoryService) Update(ctx context.Context, id string, req CreateCategoryRequest) (CategoryAdminResponse, error) {
 	return f.UpdateFn(ctx, id, req)
 }
 func (f *fakeCategoryService) Delete(ctx context.Context, id string) error {
 	return f.DeleteFn(ctx, id)
 }
-func (f *fakeCategoryService) Restore(ctx context.Context, id string) (CategoryResponse, error) {
+func (f *fakeCategoryService) Restore(ctx context.Context, id string) (CategoryAdminResponse, error) {
 	return f.RestoreFn(ctx, id)
 }
 
@@ -50,7 +54,7 @@ func setupCategoryTest() (*gin.Engine, *fakeCategoryService) {
 	ctrl := NewController(svc)
 
 	r := gin.New()
-	r.GET("/categories", ctrl.GetAll)
+	r.GET("/categories", ctrl.ListPublic)
 	r.POST("/categories", ctrl.Create)
 	r.GET("/categories/:id", ctrl.GetByID)
 	r.PUT("/categories/:id", ctrl.Update)
@@ -65,8 +69,8 @@ func TestCategoryController_Create(t *testing.T) {
 
 	payload := CreateCategoryRequest{Name: "Phone"}
 
-	svc.CreateFn = func(ctx context.Context, req CreateCategoryRequest) (CategoryResponse, error) {
-		return CategoryResponse{ID: uuid.New().String(), Name: req.Name}, nil
+	svc.CreateFn = func(ctx context.Context, req CreateCategoryRequest) (CategoryAdminResponse, error) {
+		return CategoryAdminResponse{ID: uuid.New().String(), Name: req.Name}, nil
 	}
 
 	body, _ := json.Marshal(payload)
@@ -84,7 +88,12 @@ func TestCategoryController_Create(t *testing.T) {
 }
 
 func TestCategoryController_Create_ValidationError(t *testing.T) {
-	router, _ := setupCategoryTest()
+	router, svc := setupCategoryTest() // Ambil svc dari setup
+
+	// Inisialisasi mock agar tidak nil
+	svc.CreateFn = func(ctx context.Context, req CreateCategoryRequest) (CategoryAdminResponse, error) {
+		return CategoryAdminResponse{}, nil
+	}
 
 	req := httptest.NewRequest(http.MethodPost, "/categories", bytes.NewBuffer([]byte(`{}`)))
 	req.Header.Set("Content-Type", "application/json")
@@ -102,8 +111,8 @@ func TestCategoryController_Update(t *testing.T) {
 	payload := CreateCategoryRequest{Name: "Updated"}
 
 	t.Run("Success", func(t *testing.T) {
-		svc.UpdateFn = func(ctx context.Context, id string, req CreateCategoryRequest) (CategoryResponse, error) {
-			return CategoryResponse{ID: id, Name: req.Name}, nil
+		svc.UpdateFn = func(ctx context.Context, id string, req CreateCategoryRequest) (CategoryAdminResponse, error) {
+			return CategoryAdminResponse{ID: id, Name: req.Name}, nil
 		}
 
 		body, _ := json.Marshal(payload)
@@ -117,8 +126,8 @@ func TestCategoryController_Update(t *testing.T) {
 	})
 
 	t.Run("Service Error", func(t *testing.T) {
-		svc.UpdateFn = func(ctx context.Context, id string, req CreateCategoryRequest) (CategoryResponse, error) {
-			return CategoryResponse{}, errors.New("update failed")
+		svc.UpdateFn = func(ctx context.Context, id string, req CreateCategoryRequest) (CategoryAdminResponse, error) {
+			return CategoryAdminResponse{}, errors.New("update failed")
 		}
 
 		body, _ := json.Marshal(payload)
@@ -132,12 +141,12 @@ func TestCategoryController_Update(t *testing.T) {
 	})
 }
 
-func TestCategoryController_GetAll(t *testing.T) {
+func TestCategoryController_ListPublic(t *testing.T) {
 	router, svc := setupCategoryTest()
 
 	t.Run("Success", func(t *testing.T) {
-		svc.GetAllFn = func(ctx context.Context, page, limit int) ([]CategoryResponse, int64, error) {
-			return []CategoryResponse{
+		svc.ListPublicFn = func(ctx context.Context, page, limit int) ([]CategoryPublicResponse, int64, error) {
+			return []CategoryPublicResponse{
 				{ID: uuid.New().String(), Name: "Phone"},
 			}, 1, nil
 		}
@@ -155,7 +164,7 @@ func TestCategoryController_GetAll(t *testing.T) {
 	})
 
 	t.Run("Internal Error", func(t *testing.T) {
-		svc.GetAllFn = func(ctx context.Context, page, limit int) ([]CategoryResponse, int64, error) {
+		svc.ListPublicFn = func(ctx context.Context, page, limit int) ([]CategoryPublicResponse, int64, error) {
 			return nil, 0, errors.New("db error")
 		}
 
@@ -170,8 +179,8 @@ func TestCategoryController_GetAll(t *testing.T) {
 func TestCategoryController_GetByID_NotFound(t *testing.T) {
 	router, svc := setupCategoryTest()
 
-	svc.GetByIDFn = func(ctx context.Context, id string) (CategoryResponse, error) {
-		return CategoryResponse{}, errors.New("not found")
+	svc.GetByIDFn = func(ctx context.Context, id string) (CategoryAdminResponse, error) {
+		return CategoryAdminResponse{}, errors.New("not found")
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/categories/"+uuid.New().String(), nil)
@@ -214,8 +223,8 @@ func TestCategoryController_Restore(t *testing.T) {
 	router, svc := setupCategoryTest()
 	id := uuid.New().String()
 
-	svc.RestoreFn = func(ctx context.Context, id string) (CategoryResponse, error) {
-		return CategoryResponse{ID: id, Name: "Restored"}, nil
+	svc.RestoreFn = func(ctx context.Context, id string) (CategoryAdminResponse, error) {
+		return CategoryAdminResponse{ID: id, Name: "Restored"}, nil
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/categories/"+id+"/restore", nil)
