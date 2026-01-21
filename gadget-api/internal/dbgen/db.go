@@ -48,6 +48,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createAddressStmt, err = db.PrepareContext(ctx, createAddress); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAddress: %w", err)
 	}
+	if q.createBrandStmt, err = db.PrepareContext(ctx, createBrand); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateBrand: %w", err)
+	}
 	if q.createCartStmt, err = db.PrepareContext(ctx, createCart); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCart: %w", err)
 	}
@@ -86,6 +89,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getAverageRatingByProductIDStmt, err = db.PrepareContext(ctx, getAverageRatingByProductID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAverageRatingByProductID: %w", err)
+	}
+	if q.getBrandByIDStmt, err = db.PrepareContext(ctx, getBrandByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBrandByID: %w", err)
 	}
 	if q.getCartByUserIDStmt, err = db.PrepareContext(ctx, getCartByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartByUserID: %w", err)
@@ -141,6 +147,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listAddressesByUserStmt, err = db.PrepareContext(ctx, listAddressesByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query ListAddressesByUser: %w", err)
 	}
+	if q.listBrandsAdminStmt, err = db.PrepareContext(ctx, listBrandsAdmin); err != nil {
+		return nil, fmt.Errorf("error preparing query ListBrandsAdmin: %w", err)
+	}
+	if q.listBrandsPublicStmt, err = db.PrepareContext(ctx, listBrandsPublic); err != nil {
+		return nil, fmt.Errorf("error preparing query ListBrandsPublic: %w", err)
+	}
 	if q.listCategoriesAdminStmt, err = db.PrepareContext(ctx, listCategoriesAdmin); err != nil {
 		return nil, fmt.Errorf("error preparing query ListCategoriesAdmin: %w", err)
 	}
@@ -159,6 +171,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listProductsPublicStmt, err = db.PrepareContext(ctx, listProductsPublic); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductsPublic: %w", err)
 	}
+	if q.restoreBrandStmt, err = db.PrepareContext(ctx, restoreBrand); err != nil {
+		return nil, fmt.Errorf("error preparing query RestoreBrand: %w", err)
+	}
 	if q.restoreCategoryStmt, err = db.PrepareContext(ctx, restoreCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query RestoreCategory: %w", err)
 	}
@@ -167,6 +182,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.softDeleteAddressStmt, err = db.PrepareContext(ctx, softDeleteAddress); err != nil {
 		return nil, fmt.Errorf("error preparing query SoftDeleteAddress: %w", err)
+	}
+	if q.softDeleteBrandStmt, err = db.PrepareContext(ctx, softDeleteBrand); err != nil {
+		return nil, fmt.Errorf("error preparing query SoftDeleteBrand: %w", err)
 	}
 	if q.softDeleteCategoryStmt, err = db.PrepareContext(ctx, softDeleteCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query SoftDeleteCategory: %w", err)
@@ -179,6 +197,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateAddressStmt, err = db.PrepareContext(ctx, updateAddress); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAddress: %w", err)
+	}
+	if q.updateBrandStmt, err = db.PrepareContext(ctx, updateBrand); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateBrand: %w", err)
 	}
 	if q.updateCartItemQtyStmt, err = db.PrepareContext(ctx, updateCartItemQty); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCartItemQty: %w", err)
@@ -238,6 +259,11 @@ func (q *Queries) Close() error {
 	if q.createAddressStmt != nil {
 		if cerr := q.createAddressStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAddressStmt: %w", cerr)
+		}
+	}
+	if q.createBrandStmt != nil {
+		if cerr := q.createBrandStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createBrandStmt: %w", cerr)
 		}
 	}
 	if q.createCartStmt != nil {
@@ -303,6 +329,11 @@ func (q *Queries) Close() error {
 	if q.getAverageRatingByProductIDStmt != nil {
 		if cerr := q.getAverageRatingByProductIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAverageRatingByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.getBrandByIDStmt != nil {
+		if cerr := q.getBrandByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBrandByIDStmt: %w", cerr)
 		}
 	}
 	if q.getCartByUserIDStmt != nil {
@@ -395,6 +426,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listAddressesByUserStmt: %w", cerr)
 		}
 	}
+	if q.listBrandsAdminStmt != nil {
+		if cerr := q.listBrandsAdminStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listBrandsAdminStmt: %w", cerr)
+		}
+	}
+	if q.listBrandsPublicStmt != nil {
+		if cerr := q.listBrandsPublicStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listBrandsPublicStmt: %w", cerr)
+		}
+	}
 	if q.listCategoriesAdminStmt != nil {
 		if cerr := q.listCategoriesAdminStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listCategoriesAdminStmt: %w", cerr)
@@ -425,6 +466,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listProductsPublicStmt: %w", cerr)
 		}
 	}
+	if q.restoreBrandStmt != nil {
+		if cerr := q.restoreBrandStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing restoreBrandStmt: %w", cerr)
+		}
+	}
 	if q.restoreCategoryStmt != nil {
 		if cerr := q.restoreCategoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing restoreCategoryStmt: %w", cerr)
@@ -438,6 +484,11 @@ func (q *Queries) Close() error {
 	if q.softDeleteAddressStmt != nil {
 		if cerr := q.softDeleteAddressStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing softDeleteAddressStmt: %w", cerr)
+		}
+	}
+	if q.softDeleteBrandStmt != nil {
+		if cerr := q.softDeleteBrandStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing softDeleteBrandStmt: %w", cerr)
 		}
 	}
 	if q.softDeleteCategoryStmt != nil {
@@ -458,6 +509,11 @@ func (q *Queries) Close() error {
 	if q.updateAddressStmt != nil {
 		if cerr := q.updateAddressStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateAddressStmt: %w", cerr)
+		}
+	}
+	if q.updateBrandStmt != nil {
+		if cerr := q.updateBrandStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateBrandStmt: %w", cerr)
 		}
 	}
 	if q.updateCartItemQtyStmt != nil {
@@ -532,6 +588,7 @@ type Queries struct {
 	countReviewsByProductIDStmt     *sql.Stmt
 	countReviewsByUserIDStmt        *sql.Stmt
 	createAddressStmt               *sql.Stmt
+	createBrandStmt                 *sql.Stmt
 	createCartStmt                  *sql.Stmt
 	createCartItemStmt              *sql.Stmt
 	createCategoryStmt              *sql.Stmt
@@ -545,6 +602,7 @@ type Queries struct {
 	deleteReviewStmt                *sql.Stmt
 	deleteWishlistItemStmt          *sql.Stmt
 	getAverageRatingByProductIDStmt *sql.Stmt
+	getBrandByIDStmt                *sql.Stmt
 	getCartByUserIDStmt             *sql.Stmt
 	getCartDetailStmt               *sql.Stmt
 	getCategoryByIDStmt             *sql.Stmt
@@ -563,19 +621,24 @@ type Queries struct {
 	getWishlistItemsStmt            *sql.Stmt
 	listAddressesAdminStmt          *sql.Stmt
 	listAddressesByUserStmt         *sql.Stmt
+	listBrandsAdminStmt             *sql.Stmt
+	listBrandsPublicStmt            *sql.Stmt
 	listCategoriesAdminStmt         *sql.Stmt
 	listCategoriesPublicStmt        *sql.Stmt
 	listOrdersStmt                  *sql.Stmt
 	listOrdersAdminStmt             *sql.Stmt
 	listProductsAdminStmt           *sql.Stmt
 	listProductsPublicStmt          *sql.Stmt
+	restoreBrandStmt                *sql.Stmt
 	restoreCategoryStmt             *sql.Stmt
 	restoreProductStmt              *sql.Stmt
 	softDeleteAddressStmt           *sql.Stmt
+	softDeleteBrandStmt             *sql.Stmt
 	softDeleteCategoryStmt          *sql.Stmt
 	softDeleteProductStmt           *sql.Stmt
 	unsetPrimaryAddressByUserStmt   *sql.Stmt
 	updateAddressStmt               *sql.Stmt
+	updateBrandStmt                 *sql.Stmt
 	updateCartItemQtyStmt           *sql.Stmt
 	updateCategoryStmt              *sql.Stmt
 	updateOrderStatusStmt           *sql.Stmt
@@ -595,6 +658,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		countReviewsByProductIDStmt:     q.countReviewsByProductIDStmt,
 		countReviewsByUserIDStmt:        q.countReviewsByUserIDStmt,
 		createAddressStmt:               q.createAddressStmt,
+		createBrandStmt:                 q.createBrandStmt,
 		createCartStmt:                  q.createCartStmt,
 		createCartItemStmt:              q.createCartItemStmt,
 		createCategoryStmt:              q.createCategoryStmt,
@@ -608,6 +672,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteReviewStmt:                q.deleteReviewStmt,
 		deleteWishlistItemStmt:          q.deleteWishlistItemStmt,
 		getAverageRatingByProductIDStmt: q.getAverageRatingByProductIDStmt,
+		getBrandByIDStmt:                q.getBrandByIDStmt,
 		getCartByUserIDStmt:             q.getCartByUserIDStmt,
 		getCartDetailStmt:               q.getCartDetailStmt,
 		getCategoryByIDStmt:             q.getCategoryByIDStmt,
@@ -626,19 +691,24 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getWishlistItemsStmt:            q.getWishlistItemsStmt,
 		listAddressesAdminStmt:          q.listAddressesAdminStmt,
 		listAddressesByUserStmt:         q.listAddressesByUserStmt,
+		listBrandsAdminStmt:             q.listBrandsAdminStmt,
+		listBrandsPublicStmt:            q.listBrandsPublicStmt,
 		listCategoriesAdminStmt:         q.listCategoriesAdminStmt,
 		listCategoriesPublicStmt:        q.listCategoriesPublicStmt,
 		listOrdersStmt:                  q.listOrdersStmt,
 		listOrdersAdminStmt:             q.listOrdersAdminStmt,
 		listProductsAdminStmt:           q.listProductsAdminStmt,
 		listProductsPublicStmt:          q.listProductsPublicStmt,
+		restoreBrandStmt:                q.restoreBrandStmt,
 		restoreCategoryStmt:             q.restoreCategoryStmt,
 		restoreProductStmt:              q.restoreProductStmt,
 		softDeleteAddressStmt:           q.softDeleteAddressStmt,
+		softDeleteBrandStmt:             q.softDeleteBrandStmt,
 		softDeleteCategoryStmt:          q.softDeleteCategoryStmt,
 		softDeleteProductStmt:           q.softDeleteProductStmt,
 		unsetPrimaryAddressByUserStmt:   q.unsetPrimaryAddressByUserStmt,
 		updateAddressStmt:               q.updateAddressStmt,
+		updateBrandStmt:                 q.updateBrandStmt,
 		updateCartItemQtyStmt:           q.updateCartItemQtyStmt,
 		updateCategoryStmt:              q.updateCategoryStmt,
 		updateOrderStatusStmt:           q.updateOrderStatusStmt,

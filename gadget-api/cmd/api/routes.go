@@ -2,6 +2,7 @@ package main
 
 import (
 	"gadget-api/internal/auth"
+	"gadget-api/internal/brand"
 	"gadget-api/internal/cart"
 	"gadget-api/internal/category"
 	"gadget-api/internal/middleware"
@@ -15,6 +16,7 @@ import (
 type ControllerRegistry struct {
 	Auth     *auth.Controller
 	Category *category.Controller
+	Brand    *brand.Controller
 	Product  *product.Controller
 	Review   *review.Controller
 	Cart     *cart.Controller
@@ -60,12 +62,34 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		}
 
 		// ========================
+		// CATEGORY
+		// ========================
+		brands := v1.Group("/brands")
+		{
+			brands.GET("", reg.Brand.ListPublic)
+			brands.GET("/:id", reg.Brand.GetByID)
+		}
+
+		adminBrands := v1.Group("/admin/brands")
+		adminBrands.Use(
+			middleware.AuthMiddleware(),
+			middleware.RoleMiddleware("ADMIN", "SUPERADMIN"),
+		)
+		{
+			adminBrands.GET("", reg.Brand.ListAdmin)
+			adminBrands.POST("", reg.Brand.Create)
+			adminBrands.PUT("/:id", reg.Brand.Update)
+			adminBrands.DELETE("/:id", reg.Brand.Delete)
+			adminBrands.PATCH("/:id/restore", reg.Brand.Restore)
+		}
+
+		// ========================
 		// PRODUCT
 		// ========================
 		products := v1.Group("/products")
 		{
 			products.GET("", reg.Product.GetPublicList)
-			products.GET("/:id", reg.Product.GetByID)
+			products.GET("/:slug", reg.Product.GetBySlug)
 		}
 		optional := products.Group("")
 		optional.Use(middleware.OptionalAuthMiddleware())

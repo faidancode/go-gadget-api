@@ -63,27 +63,30 @@ func (s *service) ListPublic(ctx context.Context, page, limit int) ([]CategoryPu
 // internal/category/service.go
 
 func (s *service) ListAdmin(ctx context.Context, req ListCategoryRequest) ([]CategoryAdminResponse, int64, error) {
-	// default safety
-	page := req.Page
+	// 1. Pagination Safety
 	limit := req.Limit
-	if page < 1 {
-		page = 1
-	}
 	if limit < 1 {
 		limit = 10
 	}
-
-	offset := (page - 1) * limit
-	sortCol := req.SortBy
-	if sortCol == "" {
-		sortCol = "created_at"
+	offset := (req.Page - 1) * limit
+	if offset < 0 {
+		offset = 0
 	}
 
-	sortDir := strings.ToLower(req.SortDir)
-	if sortDir != "asc" {
-		sortDir = "desc"
+	// 2. Default Sorting
+	sortCol := "created_at"
+	sortDir := "desc"
+
+	// 3. Parsing Format "name:asc"
+	if req.Sort != "" {
+		parts := strings.Split(req.Sort, ":")
+		if len(parts) == 2 {
+			sortCol = strings.ToLower(parts[0])
+			sortDir = strings.ToLower(parts[1])
+		}
 	}
 
+	// 4. Panggil SQLC
 	params := dbgen.ListCategoriesAdminParams{
 		Limit:   int32(limit),
 		Offset:  int32(offset),
@@ -92,19 +95,17 @@ func (s *service) ListAdmin(ctx context.Context, req ListCategoryRequest) ([]Cat
 		SortDir: sortDir,
 	}
 
-	// 2. Call Repository
 	rows, err := s.repo.ListAdmin(ctx, params)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 3. Handle Empty State & Total Count
+	// 5. Handle Total Count
 	var total int64 = 0
 	if len(rows) > 0 {
 		total = rows[0].TotalCount
 	}
 
-	// 4. Map Rows to Admin Response
 	return s.mapAdminRowsToResponse(rows), total, nil
 }
 
