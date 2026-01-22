@@ -39,24 +39,27 @@ func (ctrl *Controller) Login(c *gin.Context) {
 	isProd := os.Getenv("APP_ENV") == "production"
 
 	if platform.IsWebClient(clientType) {
-		c.SetCookie(
-			"access_token",
-			token,
-			86400,
-			"/",
-			"",
-			isProd,
-			true,
-		)
+		// Set access_token cookie
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "access_token",
+			Value:    token,
+			Path:     "/",
+			MaxAge:   86400, // 1 hari
+			HttpOnly: true,
+			Secure:   isProd,
+			SameSite: http.SameSiteLaxMode, // ✅ Explicit SameSite
+		})
 
-		c.SetCookie(
-			"refresh_token",
-			refreshToken,
-			3600*24*7,
-			"/",
-			"",
-			isProd,
-			true)
+		// Set refresh_token cookie
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    refreshToken,
+			Path:     "/",
+			MaxAge:   3600 * 24 * 7, // 7 hari
+			HttpOnly: true,
+			Secure:   isProd,
+			SameSite: http.SameSiteLaxMode, // ✅ Explicit SameSite
+		})
 	}
 
 	responseData := gin.H{
@@ -90,11 +93,35 @@ func (ctrl *Controller) Me(c *gin.Context) {
 	response.Success(c, http.StatusOK, userResp, nil)
 }
 
-func (ctrl *Controller) Logout(c *gin.Context) {
-	c.SetCookie("access_token", "", -1, "/", "", false, true)
+// auth/auth_controller.go
 
-	// Response Success Seragam
-	response.Success(c, http.StatusOK, "Logout berhasil", nil)
+func (ctrl *Controller) Logout(c *gin.Context) {
+	// Ambil isProd dari config
+	isProd := os.Getenv("APP_ENV") == "production" // atau dari config Anda
+
+	// Clear access_token
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProd,
+		SameSite: http.SameSiteLaxMode, // ✅ Harus sama dengan login
+	})
+
+	// Clear refresh_token
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProd,
+		SameSite: http.SameSiteLaxMode, // ✅ Harus sama dengan login
+	})
+
+	response.Success(c, http.StatusOK, "Logout success.", nil)
 }
 
 func (ctrl *Controller) Register(c *gin.Context) {

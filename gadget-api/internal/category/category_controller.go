@@ -2,6 +2,7 @@ package category
 
 import (
 	"gadget-api/internal/pkg/response"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 
@@ -86,25 +87,60 @@ func (ctrl *Controller) GetByID(c *gin.Context) {
 }
 
 func (ctrl *Controller) Create(c *gin.Context) {
-	var req CreateCategoryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// 1. Parse multipart form (Max 10 MB)
+	err := c.Request.ParseMultipartForm(10 << 20)
+	if err != nil {
 		response.Error(
 			c,
 			http.StatusBadRequest,
-			"VALIDATION_ERROR",
-			"Invalid input",
+			"INVALID_FORM",
+			"Invalid multipart form",
 			err.Error(),
 		)
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), req)
+	// 2. Parse form fields
+	req := CreateCategoryRequest{
+		Name:        c.PostForm("name"),
+		Description: c.PostForm("description"),
+	}
+
+	// 3. Validate required fields
+	if req.Name == "" {
+		response.Error(
+			c,
+			http.StatusBadRequest,
+			"VALIDATION_ERROR",
+			"Missing required fields: name",
+			nil,
+		)
+		return
+	}
+
+	// 4. Get uploaded file (optional)
+	var file multipart.File
+	var filename string
+	fileHeader, err := c.FormFile("image") // Key form-data: "image"
+	if err == nil && fileHeader != nil {
+		file, err = fileHeader.Open()
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "FILE_ERROR", "Failed to open uploaded file", err.Error())
+			return
+		}
+		defer file.Close()
+		filename = fileHeader.Filename
+	}
+
+	// 5. Call service (Pastikan signature Service.Create sudah diupdate untuk menerima file)
+	res, err := ctrl.service.Create(c.Request.Context(), req, file, filename)
 	if err != nil {
+		// Menggunakan error mapper jika ada, jika tidak gunakan error default
 		response.Error(
 			c,
 			http.StatusInternalServerError,
 			"CREATE_ERROR",
-			"Failed to create category",
+			"Failed to create brand",
 			err.Error(),
 		)
 		return
@@ -116,6 +152,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 func (ctrl *Controller) Update(c *gin.Context) {
 	var req CreateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+
 		response.Error(
 			c,
 			http.StatusBadRequest,

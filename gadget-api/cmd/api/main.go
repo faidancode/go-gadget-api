@@ -52,7 +52,7 @@ func main() {
 
 	categoryRepo := category.NewRepository(queries)
 	categoryController := category.NewController(
-		category.NewService(categoryRepo),
+		category.NewService(db, categoryRepo, cloudinaryService),
 	)
 
 	brandRepo := brand.NewRepository(queries)

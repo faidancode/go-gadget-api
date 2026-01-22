@@ -6,6 +6,7 @@ package mock
 
 import (
 	context "context"
+	category "gadget-api/internal/category"
 	dbgen "gadget-api/internal/dbgen"
 	reflect "reflect"
 
@@ -138,4 +139,18 @@ func (m *MockRepository) Update(ctx context.Context, arg dbgen.UpdateCategoryPar
 func (mr *MockRepositoryMockRecorder) Update(ctx, arg interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockRepository)(nil).Update), ctx, arg)
+}
+
+// WithTx mocks base method.
+func (m *MockRepository) WithTx(tx dbgen.DBTX) category.Repository {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithTx", tx)
+	ret0, _ := ret[0].(category.Repository)
+	return ret0
+}
+
+// WithTx indicates an expected call of WithTx.
+func (mr *MockRepositoryMockRecorder) WithTx(tx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTx", reflect.TypeOf((*MockRepository)(nil).WithTx), tx)
 }

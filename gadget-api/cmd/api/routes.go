@@ -57,7 +57,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		{
 			adminCategories.GET("", reg.Category.ListAdmin)
 			adminCategories.POST("", reg.Category.Create)
-			adminCategories.PUT("/:id", reg.Category.Update)
+			adminCategories.PATCH("/:id", reg.Category.Update)
 			adminCategories.DELETE("/:id", reg.Category.Delete)
 			adminCategories.PATCH("/:id/restore", reg.Category.Restore)
 		}
@@ -79,7 +79,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		{
 			adminBrands.GET("", reg.Brand.ListAdmin)
 			adminBrands.POST("", reg.Brand.Create)
-			adminBrands.PUT("/:id", reg.Brand.Update)
+			adminBrands.PATCH("/:id", reg.Brand.Update)
 			adminBrands.DELETE("/:id", reg.Brand.Delete)
 			adminBrands.PATCH("/:id/restore", reg.Brand.Restore)
 		}
@@ -107,7 +107,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		{
 			adminProducts.GET("", reg.Product.GetAdminList)
 			adminProducts.POST("", reg.Product.Create)
-			adminProducts.PUT("/:id", reg.Product.Update)
+			adminProducts.PATCH("/:id", reg.Product.Update)
 			adminProducts.DELETE("/:id", reg.Product.Delete)
 			adminProducts.PATCH("/:id/restore", reg.Product.Restore)
 		}
@@ -118,7 +118,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		reviews := v1.Group("")
 		reviews.Use(middleware.AuthMiddleware())
 		{
-			reviews.PUT("/reviews/:id", reg.Review.UpdateReview)
+			reviews.PATCH("/reviews/:id", reg.Review.UpdateReview)
 			reviews.DELETE("/reviews/:id", reg.Review.DeleteReview)
 			reviews.GET("/users/:userId/reviews", reg.Review.GetReviewsByUserID)
 		}
@@ -136,7 +136,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 
 			items := cart.Group("/items/:productId")
 			{
-				items.PUT("", reg.Cart.UpdateQty)
+				items.PATCH("", reg.Cart.UpdateQty)
 				items.POST("/increment", reg.Cart.Increment)
 				items.POST("/decrement", reg.Cart.Decrement)
 				items.DELETE("", reg.Cart.DeleteItem)

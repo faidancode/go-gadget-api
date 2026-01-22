@@ -48,7 +48,7 @@ RETURNING *;
 
 -- name: UpdateCategory :one
 UPDATE categories 
-SET name = $2, slug = $3, description = $4, image_url = $5, updated_at = NOW()
+SET name = $2, slug = $3, description = $4, image_url = $5, is_active = $6, updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
 

@@ -2,15 +2,23 @@ package category
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"gadget-api/internal/dbgen"
+	"mime/multipart"
 	"strings"
 
 	"github.com/google/uuid"
 )
 
+type CloudinaryService interface {
+	UploadImage(ctx context.Context, file multipart.File, filename string) (string, error)
+	DeleteImage(ctx context.Context, publicID string) error
+}
+
 //go:generate mockgen -source=category_service.go -destination=../mock/category/category_service_mock.go -package=mock
 type Service interface {
-	Create(ctx context.Context, req CreateCategoryRequest) (CategoryAdminResponse, error)
+	Create(ctx context.Context, req CreateCategoryRequest, file multipart.File, filename string) (CategoryAdminResponse, error)
 	ListPublic(ctx context.Context, page, limit int) ([]CategoryPublicResponse, int64, error)
 	ListAdmin(ctx context.Context, req ListCategoryRequest) ([]CategoryAdminResponse, int64, error)
 	GetByID(ctx context.Context, id string) (CategoryAdminResponse, error)
@@ -20,22 +28,80 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	db             *sql.DB
+	repo           Repository
+	cloudinaryRepo CloudinaryService
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(db *sql.DB, repo Repository, cloudinaryRepo CloudinaryService) Service {
+	return &service{
+		db:             db,
+		repo:           repo,
+		cloudinaryRepo: cloudinaryRepo,
+	}
 }
 
-func (s *service) Create(ctx context.Context, req CreateCategoryRequest) (CategoryAdminResponse, error) {
+func (s *service) Create(ctx context.Context, req CreateCategoryRequest, file multipart.File, filename string) (CategoryAdminResponse, error) {
+	// 1. Generate slug awal
 	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
-	cat, err := s.repo.Create(ctx, dbgen.CreateCategoryParams{
+
+	// 2. Start transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return CategoryAdminResponse{}, err
+	}
+	defer tx.Rollback()
+
+	// 3. Create category di DB (tanpa image URL dulu)
+	qtx := s.repo.WithTx(tx)
+	category, err := qtx.Create(ctx, dbgen.CreateCategoryParams{
 		Name:        req.Name,
 		Slug:        slug,
 		Description: dbgen.NewNullString(req.Description),
-		ImageUrl:    dbgen.NewNullString(req.ImageUrl),
+		ImageUrl:    sql.NullString{}, // Kosongkan dulu
 	})
-	return mapToResponse(cat), err
+	if err != nil {
+		return CategoryAdminResponse{}, err
+	}
+
+	// 4. Upload image ke Cloudinary (jika ada file)
+	var imageURL string
+	if file != nil && filename != "" {
+		// Gunakan Category ID agar nama file unik
+		uniqueFilename := fmt.Sprintf("category-%s-%s", category.ID.String(), filename)
+
+		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename)
+		if err != nil {
+			// Jika upload gagal, transaksi di-rollback otomatis oleh defer tx.Rollback()
+			return CategoryAdminResponse{}, fmt.Errorf("failed to upload image: %w", err)
+		}
+
+		// 5. Update category dengan image URL yang didapat
+		_, err = qtx.Update(ctx, dbgen.UpdateCategoryParams{
+			ID:          category.ID,
+			Name:        category.Name,
+			Description: category.Description,
+			ImageUrl:    dbgen.NewNullString(imageURL),
+			IsActive:    category.IsActive,
+		})
+		if err != nil {
+			// Update gagal, hapus image yang sudah terlanjur diupload
+			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
+			return CategoryAdminResponse{}, err
+		}
+	}
+
+	// 6. Commit transaction
+	if err := tx.Commit(); err != nil {
+		// Jika commit gagal, hapus image jika tadi berhasil diupload
+		if imageURL != "" {
+			uniqueFilename := fmt.Sprintf("category-%s-%s", category.ID.String(), filename)
+			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
+		}
+		return CategoryAdminResponse{}, err
+	}
+
+	return s.GetByID(ctx, category.ID.String())
 }
 
 func (s *service) ListPublic(ctx context.Context, page, limit int) ([]CategoryPublicResponse, int64, error) {
@@ -114,8 +180,8 @@ func (s *service) GetByID(ctx context.Context, idStr string) (CategoryAdminRespo
 	if err != nil {
 		return CategoryAdminResponse{}, err
 	}
-	cat, err := s.repo.GetByID(ctx, id)
-	return mapToResponse(cat), err
+	category, err := s.repo.GetByID(ctx, id)
+	return mapToResponse(category), err
 }
 
 func (s *service) Update(ctx context.Context, idStr string, req CreateCategoryRequest) (CategoryAdminResponse, error) {
@@ -125,14 +191,14 @@ func (s *service) Update(ctx context.Context, idStr string, req CreateCategoryRe
 	}
 
 	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
-	cat, err := s.repo.Update(ctx, dbgen.UpdateCategoryParams{
+	category, err := s.repo.Update(ctx, dbgen.UpdateCategoryParams{
 		ID:          id,
 		Name:        req.Name,
 		Slug:        slug,
 		Description: dbgen.NewNullString(req.Description),
 		ImageUrl:    dbgen.NewNullString(req.ImageUrl),
 	})
-	return mapToResponse(cat), err
+	return mapToResponse(category), err
 }
 
 func (s *service) Delete(ctx context.Context, idStr string) error {
@@ -148,16 +214,17 @@ func (s *service) Restore(ctx context.Context, idStr string) (CategoryAdminRespo
 	if err != nil {
 		return CategoryAdminResponse{}, err
 	}
-	cat, err := s.repo.Restore(ctx, id)
-	return mapToResponse(cat), err
+	category, err := s.repo.Restore(ctx, id)
+	return mapToResponse(category), err
 }
 
-func mapToResponse(cat dbgen.Category) CategoryAdminResponse {
+func mapToResponse(category dbgen.Category) CategoryAdminResponse {
 	return CategoryAdminResponse{
-		ID:        cat.ID.String(),
-		Name:      cat.Name,
-		Slug:      cat.Slug,
-		CreatedAt: cat.CreatedAt,
+		ID:        category.ID.String(),
+		Name:      category.Name,
+		ImageUrl:  category.ImageUrl.String,
+		Slug:      category.Slug,
+		CreatedAt: category.CreatedAt,
 	}
 }
 

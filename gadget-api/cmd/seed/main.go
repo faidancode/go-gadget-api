@@ -21,13 +21,13 @@ func main() {
 	}
 	defer db.Close()
 
-	// if err := seed.SeedUsers(db); err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err := seed.SeedUsers(db); err != nil {
+		log.Fatal(err)
+	}
 
-	// if err := seed.SeedCustomers(db); err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err := seed.SeedCustomers(db); err != nil {
+		log.Fatal(err)
+	}
 
 	if err := seed.SeedCategories(db); err != nil {
 		log.Fatal(err)

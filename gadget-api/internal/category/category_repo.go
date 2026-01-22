@@ -2,6 +2,7 @@ package category
 
 import (
 	"context"
+	"database/sql"
 	"gadget-api/internal/dbgen"
 
 	"github.com/google/uuid"
@@ -9,6 +10,7 @@ import (
 
 //go:generate mockgen -source=category_repo.go -destination=../mock/category/category_repo_mock.go -package=mock
 type Repository interface {
+	WithTx(tx dbgen.DBTX) Repository
 	Create(ctx context.Context, arg dbgen.CreateCategoryParams) (dbgen.Category, error)
 	ListPublic(ctx context.Context, limit, offset int32) ([]dbgen.ListCategoriesPublicRow, error)
 	ListAdmin(ctx context.Context, arg dbgen.ListCategoriesAdminParams) ([]dbgen.ListCategoriesAdminRow, error)
@@ -52,4 +54,15 @@ func (r *repository) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *repository) Restore(ctx context.Context, id uuid.UUID) (dbgen.Category, error) {
 	return r.queries.RestoreCategory(ctx, id)
+}
+
+func (r *repository) WithTx(tx dbgen.DBTX) Repository {
+	if sqlTx, ok := tx.(*sql.Tx); ok {
+		return &repository{
+			queries: r.queries.WithTx(sqlTx),
+		}
+	}
+
+	// Standard Repo
+	return r
 }

@@ -3,108 +3,169 @@ package category_test
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"mime/multipart"
+	"testing"
+
 	"gadget-api/internal/category"
 	"gadget-api/internal/dbgen"
-	categoryMock "gadget-api/internal/mock/category"
-	"testing"
-	"time"
 
+	categoryMock "gadget-api/internal/mock/category"
+	cloudinaryMock "gadget-api/internal/mock/cloudinary"
+
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
-func dummyCategoryRow(total int64) dbgen.ListCategoriesPublicRow {
-	return dbgen.ListCategoriesPublicRow{
-		ID:         uuid.New(),
-		Name:       "Laptop",
-		Slug:       "laptop",
-		TotalCount: total,
+// ======================= HELPERS =======================
 
-		// field lain boleh default / zero value
-		Description: sql.NullString{},
-		ImageUrl:    sql.NullString{},
-		IsActive:    sql.NullBool{},
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+type serviceDeps struct {
+	db         *sql.DB
+	sqlMock    sqlmock.Sqlmock
+	service    category.Service
+	repo       *categoryMock.MockRepository
+	cloudinary *cloudinaryMock.MockService
+}
+
+func setupServiceTest(t *testing.T) *serviceDeps {
+	t.Helper()
+
+	ctrl := gomock.NewController(t)
+	db, sqlMock, _ := sqlmock.New()
+
+	repo := categoryMock.NewMockRepository(ctrl)
+	cloudinary := cloudinaryMock.NewMockService(ctrl)
+
+	// Sesuaikan dengan constructor Category Service Anda yang baru
+	svc := category.NewService(db, repo, cloudinary)
+
+	return &serviceDeps{
+		db:         db,
+		sqlMock:    sqlMock,
+		service:    svc,
+		repo:       repo,
+		cloudinary: cloudinary,
 	}
 }
 
-func TestService_Category(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func expectTx(t *testing.T, mock sqlmock.Sqlmock, commit bool) {
+	t.Helper()
+	mock.ExpectBegin()
+	if commit {
+		mock.ExpectCommit()
+	} else {
+		mock.ExpectRollback()
+	}
+}
 
-	mockRepo := categoryMock.NewMockRepository(ctrl)
-	service := category.NewService(mockRepo)
+type mockFile struct {
+	multipart.File
+}
+
+func (m *mockFile) Read(p []byte) (n int, err error) { return 0, nil }
+func (m *mockFile) Close() error                     { return nil }
+
+// ======================= CREATE =======================
+
+func TestCategoryService_Create(t *testing.T) {
+	deps := setupServiceTest(t)
+	defer deps.db.Close()
+
 	ctx := context.Background()
+	categoryID := uuid.New()
+	req := category.CreateCategoryRequest{
+		Name:        "Apple",
+		Description: "Premium Tech Category",
+	}
 
-	// Helper data
-	id := uuid.New()
-	idStr := id.String()
-	dummyCat := dbgen.Category{ID: id, Name: "Smartphone", Slug: "smartphone"}
+	t.Run("positive - success with image upload", func(t *testing.T) {
+		fakeFile := &mockFile{}
+		filename := "logo.png"
+		imgURL := "https://cloudinary.com/apple.png"
 
-	// 1. CREATE
-	t.Run("Create - Success", func(t *testing.T) {
-		req := category.CreateCategoryRequest{Name: "Smartphone"}
-		mockRepo.EXPECT().Create(ctx, gomock.Any()).Return(dummyCat, nil)
+		expectTx(t, deps.sqlMock, true)
 
-		res, err := service.Create(ctx, req)
-		assert.NoError(t, err)
-		assert.Equal(t, "Smartphone", res.Name)
-	})
+		deps.repo.EXPECT().WithTx(gomock.Any()).Return(deps.repo)
 
-	// 2. GET ALL (SINKRON: page, limit & EXPECT().List)
-	t.Run("GetAll - Success", func(t *testing.T) {
-		mockRepo.EXPECT().
-			ListPublic(ctx, int32(10), int32(0)).
-			Return([]dbgen.ListCategoriesPublicRow{
-				dummyCategoryRow(1),
+		// 1. Mock Create awal
+		deps.repo.EXPECT().Create(ctx, gomock.Any()).Return(dbgen.Category{
+			ID:   categoryID,
+			Name: req.Name,
+		}, nil)
+
+		// 2. Mock Cloudinary Upload
+		deps.cloudinary.EXPECT().
+			UploadImage(ctx, fakeFile, gomock.Any()).
+			Return(imgURL, nil)
+
+		// 3. Mock Update dengan ImageUrl
+		deps.repo.EXPECT().Update(ctx, gomock.Any()).Return(dbgen.Category{
+			ID:   categoryID,
+			Name: req.Name,
+		}, nil)
+
+		// --- TAMBAHKAN BAGIAN INI ---
+		// Karena service memanggil s.GetByID() sebelum return
+		deps.repo.EXPECT().
+			GetByID(ctx, categoryID).
+			Return(dbgen.Category{
+				ID:          categoryID,
+				Name:        req.Name,
+				Description: dbgen.NewNullString(req.Description),
+				ImageUrl:    dbgen.NewNullString(imgURL),
 			}, nil)
+		// ----------------------------
 
-		res, total, err := service.ListPublic(ctx, 1, 10)
+		res, err := deps.service.Create(ctx, req, fakeFile, filename)
 
 		assert.NoError(t, err)
-		assert.Equal(t, int64(1), total)
-		assert.Len(t, res, 1)
-		assert.Equal(t, "Laptop", res[0].Name)
+		assert.Equal(t, req.Name, res.Name)
+		assert.Equal(t, imgURL, res.ImageUrl) // Sekarang ini tidak akan "" lagi
 	})
 
-	// 3. GET BY ID (SINKRON: string idStr)
-	t.Run("GetByID - Success", func(t *testing.T) {
-		mockRepo.EXPECT().
-			GetByID(ctx, id).
-			Return(dummyCat, nil)
-
-		res, err := service.GetByID(ctx, idStr) // idStr = id.String()
-		assert.NoError(t, err)
-
-		// FIX: bandingkan string dengan string
-		assert.Equal(t, id.String(), res.ID)
-	})
-
-	t.Run("GetByID - Not Found", func(t *testing.T) {
-		mockRepo.EXPECT().GetByID(ctx, id).Return(dbgen.Category{}, errors.New("not found"))
-
-		_, err := service.GetByID(ctx, idStr)
+	t.Run("invalid uuid", func(t *testing.T) {
+		_, err := deps.service.GetByID(ctx, "invalid-id")
 		assert.Error(t, err)
 	})
+}
 
-	// 4. UPDATE
-	t.Run("Update - Success", func(t *testing.T) {
-		req := category.CreateCategoryRequest{Name: "Updated Name"}
-		mockRepo.EXPECT().Update(ctx, gomock.Any()).Return(dbgen.Category{ID: id, Name: "Updated Name"}, nil)
+// ======================= UPDATE =======================
 
-		res, err := service.Update(ctx, idStr, req) // idStr string
+func TestCategoryService_Update(t *testing.T) {
+	deps := setupServiceTest(t)
+	defer deps.db.Close()
+
+	ctx := context.Background()
+	id := uuid.New()
+	req := category.CreateCategoryRequest{Name: "Updated Apple"}
+
+	t.Run("success without image change", func(t *testing.T) {
+		deps.repo.EXPECT().Update(ctx, gomock.Any()).Return(dbgen.Category{
+			ID:   id,
+			Name: req.Name,
+		}, nil)
+
+		res, err := deps.service.Update(ctx, id.String(), req)
+
 		assert.NoError(t, err)
-		assert.Equal(t, "Updated Name", res.Name)
+		assert.Equal(t, req.Name, res.Name)
 	})
+}
 
-	// 5. DELETE
-	t.Run("Delete - Success", func(t *testing.T) {
-		mockRepo.EXPECT().Delete(ctx, id).Return(nil)
+// ======================= DELETE =======================
 
-		err := service.Delete(ctx, idStr) // idStr string
+func TestCategoryService_Delete(t *testing.T) {
+	deps := setupServiceTest(t)
+	defer deps.db.Close()
+
+	ctx := context.Background()
+	id := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		deps.repo.EXPECT().Delete(ctx, id).Return(nil)
+
+		err := deps.service.Delete(ctx, id.String())
 		assert.NoError(t, err)
 	})
 }

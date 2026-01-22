@@ -256,7 +256,7 @@ func (q *Queries) SoftDeleteCategory(ctx context.Context, id uuid.UUID) error {
 
 const updateCategory = `-- name: UpdateCategory :one
 UPDATE categories 
-SET name = $2, slug = $3, description = $4, image_url = $5, updated_at = NOW()
+SET name = $2, slug = $3, description = $4, image_url = $5, is_active = $6, updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at
 `
@@ -267,6 +267,7 @@ type UpdateCategoryParams struct {
 	Slug        string         `json:"slug"`
 	Description sql.NullString `json:"description"`
 	ImageUrl    sql.NullString `json:"image_url"`
+	IsActive    sql.NullBool   `json:"is_active"`
 }
 
 func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
@@ -276,6 +277,7 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 		arg.Slug,
 		arg.Description,
 		arg.ImageUrl,
+		arg.IsActive,
 	)
 	var i Category
 	err := row.Scan(

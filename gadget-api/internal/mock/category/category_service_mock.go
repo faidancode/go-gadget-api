@@ -7,10 +7,63 @@ package mock
 import (
 	context "context"
 	category "gadget-api/internal/category"
+	multipart "mime/multipart"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
 )
+
+// MockCloudinaryService is a mock of CloudinaryService interface.
+type MockCloudinaryService struct {
+	ctrl     *gomock.Controller
+	recorder *MockCloudinaryServiceMockRecorder
+}
+
+// MockCloudinaryServiceMockRecorder is the mock recorder for MockCloudinaryService.
+type MockCloudinaryServiceMockRecorder struct {
+	mock *MockCloudinaryService
+}
+
+// NewMockCloudinaryService creates a new mock instance.
+func NewMockCloudinaryService(ctrl *gomock.Controller) *MockCloudinaryService {
+	mock := &MockCloudinaryService{ctrl: ctrl}
+	mock.recorder = &MockCloudinaryServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCloudinaryService) EXPECT() *MockCloudinaryServiceMockRecorder {
+	return m.recorder
+}
+
+// DeleteImage mocks base method.
+func (m *MockCloudinaryService) DeleteImage(ctx context.Context, publicID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteImage", ctx, publicID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteImage indicates an expected call of DeleteImage.
+func (mr *MockCloudinaryServiceMockRecorder) DeleteImage(ctx, publicID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteImage", reflect.TypeOf((*MockCloudinaryService)(nil).DeleteImage), ctx, publicID)
+}
+
+// UploadImage mocks base method.
+func (m *MockCloudinaryService) UploadImage(ctx context.Context, file multipart.File, filename string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UploadImage", ctx, file, filename)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UploadImage indicates an expected call of UploadImage.
+func (mr *MockCloudinaryServiceMockRecorder) UploadImage(ctx, file, filename interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadImage", reflect.TypeOf((*MockCloudinaryService)(nil).UploadImage), ctx, file, filename)
+}
 
 // MockService is a mock of Service interface.
 type MockService struct {
@@ -36,18 +89,18 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockService) Create(ctx context.Context, req category.CreateCategoryRequest) (category.CategoryAdminResponse, error) {
+func (m *MockService) Create(ctx context.Context, req category.CreateCategoryRequest, file multipart.File, filename string) (category.CategoryAdminResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, req)
+	ret := m.ctrl.Call(m, "Create", ctx, req, file, filename)
 	ret0, _ := ret[0].(category.CategoryAdminResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create.
-func (mr *MockServiceMockRecorder) Create(ctx, req interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) Create(ctx, req, file, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockService)(nil).Create), ctx, req)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockService)(nil).Create), ctx, req, file, filename)
 }
 
 // Delete mocks base method.
