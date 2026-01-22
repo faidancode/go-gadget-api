@@ -1,6 +1,7 @@
 package auth
 
 import (
+	platform "gadget-api/internal/pkg/request"
 	"gadget-api/internal/pkg/response"
 	"log"
 	"net/http"
@@ -25,7 +26,11 @@ func (ctrl *Controller) Login(c *gin.Context) {
 		return
 	}
 
-	token, userResp, err := ctrl.service.Login(c.Request.Context(), req.Email, req.Password)
+	clientHeader := c.GetHeader("X-Client-Type")
+	userAgent := c.GetHeader("User-Agent")
+	clientType := platform.ResolveClientType(clientHeader, userAgent)
+
+	token, refreshToken, userResp, err := ctrl.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		// Response Error Seragam
 		response.Error(c, http.StatusUnauthorized, "AUTH_FAILED", "Email atau password salah", nil)
@@ -33,20 +38,34 @@ func (ctrl *Controller) Login(c *gin.Context) {
 	}
 	isProd := os.Getenv("APP_ENV") == "production"
 
-	// Set Cookie
-	c.SetCookie(
-		"access_token",
-		token,
-		86400,
-		"/",
-		"",
-		isProd,
-		true,
-	)
+	if platform.IsWebClient(clientType) {
+		c.SetCookie(
+			"access_token",
+			token,
+			86400,
+			"/",
+			"",
+			isProd,
+			true,
+		)
 
-	// Response Success Seragam
-	// Data yang dikirim adalah struct AuthResponse (Email & Role)
-	response.Success(c, http.StatusOK, userResp, nil)
+		c.SetCookie(
+			"refresh_token",
+			refreshToken,
+			3600*24*7,
+			"/",
+			"",
+			isProd,
+			true)
+	}
+
+	responseData := gin.H{
+		"user":          userResp,
+		"access_token":  token,
+		"refresh_token": refreshToken,
+	}
+
+	response.Success(c, http.StatusOK, responseData, nil)
 }
 
 func (ctrl *Controller) Me(c *gin.Context) {
@@ -92,4 +111,60 @@ func (ctrl *Controller) Register(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusCreated, res, nil)
+}
+
+func (ctrl *Controller) RefreshToken(c *gin.Context) {
+	// 1. Deteksi Client
+	clientHeader := c.GetHeader("X-Client-Type")
+	userAgent := c.GetHeader("User-Agent")
+	clientType := platform.ResolveClientType(clientHeader, userAgent)
+
+	var refreshToken string
+	isWeb := platform.IsWebClient(clientType)
+
+	// 2. Ambil Refresh Token (Cookie vs Body)
+	if isWeb {
+		var err error
+		refreshToken, err = c.Cookie("refresh_token")
+		if err != nil {
+			response.Error(c, http.StatusUnauthorized, "NO_REFRESH_TOKEN", "Missing refresh token", nil)
+			return
+		}
+	} else {
+		var req struct {
+			RefreshToken string `json:"refresh_token" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Refresh token is required", nil)
+			return
+		}
+		refreshToken = req.RefreshToken
+	}
+
+	// 3. Panggil Service untuk Verify & Issue New Tokens
+	// Mengembalikan accessToken, newRefreshToken, userDetail, error
+	newAccess, newRefresh, userResp, err := ctrl.service.RefreshToken(c.Request.Context(), refreshToken)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", err.Error(), nil)
+		return
+	}
+
+	isProd := os.Getenv("APP_ENV") == "production"
+
+	// 4. Sinkronisasi Web (Set-Cookie)
+	if isWeb {
+		// Update Access Token di Cookie
+		c.SetCookie("access_token", newAccess, 15*60, "/", "", isProd, true)
+		// Update Refresh Token di Cookie
+		c.SetCookie("refresh_token", newRefresh, 3600*24*7, "/", "", isProd, true)
+	}
+
+	// 5. Response Success (Tetap kirim body untuk sinkronisasi state di frontend)
+	responseData := gin.H{
+		"user":          userResp,
+		"access_token":  newAccess,
+		"refresh_token": newRefresh,
+	}
+
+	response.Success(c, http.StatusOK, responseData, nil)
 }

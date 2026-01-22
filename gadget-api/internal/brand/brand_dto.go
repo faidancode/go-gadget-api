@@ -39,9 +39,9 @@ type BrandAdminResponse struct {
 	Name        string     `json:"name"`
 	Slug        string     `json:"slug"`
 	Description string     `json:"description"`
-	ImageUrl    string     `json:"image_url"`
-	IsActive    bool       `json:"is_active"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	ImageUrl    string     `json:"imageUrl"`
+	IsActive    bool       `json:"isActive"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+	DeletedAt   *time.Time `json:"deletedAt,omitempty"`
 }

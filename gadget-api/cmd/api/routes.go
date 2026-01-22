@@ -35,6 +35,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		{
 			auth.GET("/me", middleware.AuthMiddleware(), reg.Auth.Me)
 			auth.POST("/login", reg.Auth.Login)
+			auth.POST("/refresh", reg.Auth.RefreshToken)
 			auth.POST("/logout", reg.Auth.Logout)
 			auth.POST("/register", reg.Auth.Register)
 		}
