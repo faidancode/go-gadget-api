@@ -39,7 +39,6 @@ func main() {
 		os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		os.Getenv("CLOUDINARY_API_KEY"),
 		os.Getenv("CLOUDINARY_API_SECRET"),
-		"gadget-store/products",
 	)
 	if err != nil {
 		log.Fatal("Failed to initialize Cloudinary:", err)

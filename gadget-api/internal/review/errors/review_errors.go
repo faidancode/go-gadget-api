@@ -1,4 +1,4 @@
-package review
+package reviewerrors
 
 import (
 	"gadget-api/internal/pkg/apperror"
@@ -6,6 +6,20 @@ import (
 )
 
 var (
+	// New Errors
+	ErrUnauthenticated = apperror.New(
+		apperror.CodeUnauthorized,
+		"User not authenticated",
+		http.StatusUnauthorized,
+	)
+
+	ErrForbidden = apperror.New(
+		apperror.CodeForbidden,
+		"You do not have permission to access this resource",
+		http.StatusForbidden,
+	)
+
+	// Existing Errors
 	ErrInvalidReviewID = apperror.New(
 		apperror.CodeInvalidInput,
 		"Invalid review ID",
@@ -58,5 +72,23 @@ var (
 		apperror.CodeInternalError,
 		"Failed to process review operation",
 		http.StatusInternalServerError,
+	)
+
+	ErrInvalidRating = apperror.New(
+		apperror.CodeInvalidInput,
+		"Rating must be between 1 and 5",
+		http.StatusBadRequest,
+	)
+
+	ErrInvalidComment = apperror.New(
+		apperror.CodeInvalidInput,
+		"Comment must be between 10 and 1000 characters",
+		http.StatusBadRequest,
+	)
+
+	ErrInvalidReviewInput = apperror.New(
+		apperror.CodeInvalidInput,
+		"Invalid review input",
+		http.StatusBadRequest,
 	)
 )

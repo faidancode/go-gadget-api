@@ -6,10 +6,12 @@ import (
 	"testing"
 
 	"gadget-api/internal/dbgen"
+	"gadget-api/internal/pkg/apperror"
 	"gadget-api/internal/review"
 
 	productMock "gadget-api/internal/mock/product"
 	reviewMock "gadget-api/internal/mock/review"
+	reviewerrors "gadget-api/internal/review/errors"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
@@ -69,7 +71,7 @@ func TestReviewService_Create(t *testing.T) {
 	orderID := uuid.New()
 	productSlug := "gadget-xyz"
 
-	req := review.CreateReviewRequest{Rating: 5, Comment: "Mantap!"}
+	req := review.CreateReviewRequest{Rating: 5, Comment: "Mantap, Productnya bagus!"}
 
 	t.Run("positive - success create review", func(t *testing.T) {
 		expectTx(deps.sqlMock, true)
@@ -98,8 +100,23 @@ func TestReviewService_Create(t *testing.T) {
 
 		_, err := deps.service.Create(ctx, userID.String(), productSlug, req)
 		assert.Error(t, err)
-		assert.Equal(t, review.ErrReviewAlreadyExists, err)
+		assert.Equal(t, reviewerrors.ErrReviewAlreadyExists, err)
 	})
+
+	t.Run("negative - invalid request validation", func(t *testing.T) {
+		req := review.CreateReviewRequest{
+			Rating:  6,        // invalid
+			Comment: "pendek", // invalid
+		}
+		var appErr *apperror.AppError
+
+		_, err := deps.service.Create(ctx, userID.String(), productSlug, req)
+
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperror.CodeInvalidInput, appErr.Code)
+	})
+
 }
 
 // ======================= ELIGIBILITY =======================
@@ -165,8 +182,47 @@ func TestReviewService_Update(t *testing.T) {
 
 		_, err := deps.service.Update(ctx, reviewID.String(), userID.String(), req)
 		assert.Error(t, err)
-		assert.Equal(t, review.ErrUnauthorizedReview, err)
+		assert.Equal(t, reviewerrors.ErrUnauthorizedReview, err)
 	})
+
+	t.Run("negative - validation error (rating out of range)", func(t *testing.T) {
+		// Request dengan rating yang tidak valid (misal: 0 atau 6)
+		invalidReq := review.UpdateReviewRequest{
+			Rating:  6,
+			Comment: "Komentar valid tapi rating salah",
+		}
+
+		_, err := deps.service.Update(ctx, reviewID.String(), userID.String(), invalidReq)
+
+		assert.Error(t, err)
+		// Jika Anda menggunakan apperror.CodeInvalidInput untuk error validasi
+		appErr, ok := err.(*apperror.AppError)
+		assert.True(t, ok)
+		assert.Equal(t, apperror.CodeInvalidInput, appErr.Code)
+	})
+
+	t.Run("negative - validation error (comment too short)", func(t *testing.T) {
+		invalidReq := review.UpdateReviewRequest{
+			Rating:  5,
+			Comment: "pendek",
+		}
+
+		_, err := deps.service.Update(ctx, reviewID.String(), userID.String(), invalidReq)
+
+		var appErr *apperror.AppError
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperror.CodeInvalidInput, appErr.Code)
+	})
+
+	t.Run("negative - invalid review id format", func(t *testing.T) {
+		// Mengetes handling terhadap format UUID yang tidak valid
+		_, err := deps.service.Update(ctx, "invalid-uuid-format", userID.String(), req)
+
+		assert.Error(t, err)
+		assert.Equal(t, reviewerrors.ErrInvalidReviewID, err)
+	})
+
 }
 
 // ======================= DELETE =======================
@@ -195,7 +251,7 @@ func TestReviewService_Delete(t *testing.T) {
 
 		err := deps.service.Delete(ctx, reviewID.String(), userID.String())
 		assert.Error(t, err)
-		assert.Equal(t, review.ErrReviewNotFound, err)
+		assert.Equal(t, reviewerrors.ErrReviewNotFound, err)
 	})
 }
 

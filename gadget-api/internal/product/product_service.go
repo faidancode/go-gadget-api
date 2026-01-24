@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gadget-api/internal/category"
 	"gadget-api/internal/dbgen"
+	"gadget-api/internal/pkg/constants"
 	"mime/multipart"
 	"strconv"
 	"strings"
@@ -30,7 +31,7 @@ type ReviewRow struct {
 }
 
 type CloudinaryService interface {
-	UploadImage(ctx context.Context, file multipart.File, filename string) (string, error)
+	UploadImage(ctx context.Context, file multipart.File, filename string, folderName string) (string, error)
 	DeleteImage(ctx context.Context, publicID string) error
 }
 
@@ -224,7 +225,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 	if file != nil && filename != "" {
 		// Generate unique filename
 		uniqueFilename := fmt.Sprintf("%s-%s", product.ID.String(), filename)
-		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename)
+		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename, constants.CloudinaryProductFolder)
 		if err != nil {
 			// Upload failed, rollback transaction
 			return ProductAdminResponse{}, fmt.Errorf("failed to upload image: %w", err)
@@ -358,7 +359,7 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 
 		// Upload new image
 		uniqueFilename := fmt.Sprintf("%s-%s", id.String(), filename)
-		newImageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename)
+		newImageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename, constants.CloudinaryProductFolder)
 		if err != nil {
 			return ProductAdminResponse{}, fmt.Errorf("failed to upload image: %w", err)
 		}

@@ -5,13 +5,13 @@ import "time"
 // ==================== REQUEST STRUCTS ====================
 
 type CreateReviewRequest struct {
-	Rating  int32  `json:"rating" binding:"required,min=1,max=5"`
-	Comment string `json:"comment" binding:"required,min=10,max=1000"`
+	Rating  int32  `json:"rating" validate:"required,min=1,max=5"`
+	Comment string `json:"comment" validate:"required,min=10,max=1000"`
 }
 
 type UpdateReviewRequest struct {
-	Rating  int32  `json:"rating" binding:"required,min=1,max=5"`
-	Comment string `json:"comment" binding:"required,min=10,max=1000"`
+	Rating  int32  `json:"rating" validate:"required,min=1,max=5"`
+	Comment string `json:"comment" validate:"required,min=10,max=1000"`
 }
 
 type GetReviewsRequest struct {

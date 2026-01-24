@@ -4,15 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	branderrors "gadget-api/internal/brand/errors"
+	"gadget-api/internal/cloudinary"
 	"gadget-api/internal/dbgen"
+	"gadget-api/internal/pkg/apperror"
+	"gadget-api/internal/pkg/constants"
 	"mime/multipart"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 type CloudinaryService interface {
-	UploadImage(ctx context.Context, file multipart.File, filename string) (string, error)
+	UploadImage(ctx context.Context, file multipart.File, filename string, folderName string) (string, error)
 	DeleteImage(ctx context.Context, publicID string) error
 }
 
@@ -22,7 +27,7 @@ type Service interface {
 	ListPublic(ctx context.Context, page, limit int) ([]BrandPublicResponse, int64, error)
 	ListAdmin(ctx context.Context, req ListBrandRequest) ([]BrandAdminResponse, int64, error)
 	GetByID(ctx context.Context, id string) (BrandAdminResponse, error)
-	Update(ctx context.Context, id string, req CreateBrandRequest) (BrandAdminResponse, error)
+	Update(ctx context.Context, id string, req UpdateBrandRequest, file multipart.File, filename string) (BrandAdminResponse, error)
 	Delete(ctx context.Context, id string) error
 	Restore(ctx context.Context, id string) (BrandAdminResponse, error)
 }
@@ -31,6 +36,7 @@ type service struct {
 	db             *sql.DB
 	repo           Repository
 	cloudinaryRepo CloudinaryService
+	validate       *validator.Validate
 }
 
 func NewService(db *sql.DB, repo Repository, cloudinaryRepo CloudinaryService) Service {
@@ -38,70 +44,8 @@ func NewService(db *sql.DB, repo Repository, cloudinaryRepo CloudinaryService) S
 		db:             db,
 		repo:           repo,
 		cloudinaryRepo: cloudinaryRepo,
+		validate:       validator.New(),
 	}
-}
-
-func (s *service) Create(ctx context.Context, req CreateBrandRequest, file multipart.File, filename string) (BrandAdminResponse, error) {
-	// 1. Generate slug awal
-	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
-
-	// 2. Start transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return BrandAdminResponse{}, err
-	}
-	defer tx.Rollback()
-
-	// 3. Create brand di DB (tanpa image URL dulu)
-	qtx := s.repo.WithTx(tx)
-	brand, err := qtx.Create(ctx, dbgen.CreateBrandParams{
-		Name:        req.Name,
-		Slug:        slug,
-		Description: dbgen.NewNullString(req.Description),
-		ImageUrl:    sql.NullString{}, // Kosongkan dulu
-	})
-	if err != nil {
-		return BrandAdminResponse{}, err
-	}
-
-	// 4. Upload image ke Cloudinary (jika ada file)
-	var imageURL string
-	if file != nil && filename != "" {
-		// Gunakan Brand ID agar nama file unik
-		uniqueFilename := fmt.Sprintf("brand-%s-%s", brand.ID.String(), filename)
-
-		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename)
-		if err != nil {
-			// Jika upload gagal, transaksi di-rollback otomatis oleh defer tx.Rollback()
-			return BrandAdminResponse{}, fmt.Errorf("failed to upload image: %w", err)
-		}
-
-		// 5. Update brand dengan image URL yang didapat
-		_, err = qtx.Update(ctx, dbgen.UpdateBrandParams{
-			ID:          brand.ID,
-			Name:        brand.Name,
-			Description: brand.Description,
-			ImageUrl:    dbgen.NewNullString(imageURL),
-			IsActive:    brand.IsActive,
-		})
-		if err != nil {
-			// Update gagal, hapus image yang sudah terlanjur diupload
-			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
-			return BrandAdminResponse{}, err
-		}
-	}
-
-	// 6. Commit transaction
-	if err := tx.Commit(); err != nil {
-		// Jika commit gagal, hapus image jika tadi berhasil diupload
-		if imageURL != "" {
-			uniqueFilename := fmt.Sprintf("brand-%s-%s", brand.ID.String(), filename)
-			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
-		}
-		return BrandAdminResponse{}, err
-	}
-
-	return s.GetByID(ctx, brand.ID.String())
 }
 
 func (s *service) ListPublic(ctx context.Context, page, limit int) ([]BrandPublicResponse, int64, error) {
@@ -118,9 +62,10 @@ func (s *service) ListPublic(ctx context.Context, page, limit int) ([]BrandPubli
 			total = row.TotalCount
 		}
 		res = append(res, BrandPublicResponse{
-			ID:   row.ID.String(),
-			Name: row.Name,
-			Slug: row.Slug,
+			ID:       row.ID.String(),
+			Name:     row.Name,
+			Slug:     row.Slug,
+			ImageUrl: row.ImageUrl.String,
 		})
 	}
 	return res, total, nil
@@ -178,27 +123,150 @@ func (s *service) ListAdmin(ctx context.Context, req ListBrandRequest) ([]BrandA
 func (s *service) GetByID(ctx context.Context, idStr string) (BrandAdminResponse, error) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return BrandAdminResponse{}, err
+		return BrandAdminResponse{}, branderrors.ErrInvalidUUID
 	}
+
 	brand, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return BrandAdminResponse{}, branderrors.ErrBrandNotFound
+	}
 	return mapToResponse(brand), err
 }
 
-func (s *service) Update(ctx context.Context, idStr string, req CreateBrandRequest) (BrandAdminResponse, error) {
+func (s *service) Create(ctx context.Context, req CreateBrandRequest, file multipart.File, filename string) (BrandAdminResponse, error) {
+	if err := s.validate.Struct(req); err != nil {
+		return BrandAdminResponse{}, apperror.MapValidationError(err)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return BrandAdminResponse{}, err
+	}
+	defer tx.Rollback()
+
+	qtx := s.repo.WithTx(tx)
+	brand, err := qtx.Create(ctx, dbgen.CreateBrandParams{
+		Name:        req.Name,
+		Slug:        req.Slug,
+		Description: dbgen.NewNullString(req.Description),
+		ImageUrl:    sql.NullString{},
+	})
+	if err != nil {
+		return BrandAdminResponse{}, err
+	}
+
+	// 4. Upload image ke Cloudinary (jika ada file)
+	var imageURL string
+	if file != nil && filename != "" {
+		// Gunakan Brand ID agar nama file unik
+		uniqueFilename := fmt.Sprintf("brand-%s-%s", brand.ID.String(), filename)
+
+		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename, constants.CloudinaryBrandFolder)
+		if err != nil {
+			// Jika upload gagal, transaksi di-rollback otomatis oleh defer tx.Rollback()
+			return BrandAdminResponse{}, branderrors.ErrImageUploadFailed
+		}
+
+		// 5. Update brand dengan image URL yang didapat
+		_, err = qtx.Update(ctx, dbgen.UpdateBrandParams{
+			ID:          brand.ID,
+			Name:        brand.Name,
+			Slug:        brand.Slug,
+			Description: brand.Description,
+			ImageUrl:    dbgen.NewNullString(imageURL),
+			IsActive:    brand.IsActive,
+		})
+		if err != nil {
+			// Update gagal, hapus image yang sudah terlanjur diupload
+			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
+			return BrandAdminResponse{}, branderrors.ErrImageDeleteFailed
+		}
+	}
+
+	// 6. Commit transaction
+	if err := tx.Commit(); err != nil {
+		// Jika commit gagal, hapus image jika tadi berhasil diupload
+		if imageURL != "" {
+			uniqueFilename := fmt.Sprintf("brand-%s-%s", brand.ID.String(), filename)
+			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
+		}
+		return BrandAdminResponse{}, branderrors.ErrBrandFailed
+	}
+
+	return s.GetByID(ctx, brand.ID.String())
+}
+
+func (s *service) Update(
+	ctx context.Context,
+	idStr string,
+	req UpdateBrandRequest,
+	file multipart.File,
+	filename string,
+) (BrandAdminResponse, error) {
+	if err := s.validate.Struct(req); err != nil {
+		return BrandAdminResponse{}, apperror.MapValidationError(err)
+	}
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		return BrandAdminResponse{}, err
 	}
 
-	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
-	brand, err := s.repo.Update(ctx, dbgen.UpdateBrandParams{
-		ID:          id,
+	// 1. Ambil data lama
+	brand, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return BrandAdminResponse{}, err
+	}
+
+	var newImageURL sql.NullString
+
+	// 2. Kalau upload image baru
+	if file != nil && filename != "" {
+
+		// 2a. Hapus image lama (jika ada)
+		if brand.ImageUrl.Valid && brand.ImageUrl.String != "" {
+			publicID, err := cloudinary.ExtractPublicID(
+				brand.ImageUrl.String,
+				constants.CloudinaryBrandFolder,
+			)
+			if err != nil {
+				return BrandAdminResponse{}, branderrors.ErrInvalidImageURL
+			}
+
+			_ = s.cloudinaryRepo.DeleteImage(ctx, publicID)
+			// ⚠️ sengaja tidak fatal → image lama boleh gagal hapus
+		}
+
+		// 2b. Upload image baru
+		uniqueFilename := fmt.Sprintf("brand-%s-%s", brand.ID, filename)
+
+		imageURL, err := s.cloudinaryRepo.UploadImage(
+			ctx,
+			file,
+			uniqueFilename,
+			constants.CloudinaryBrandFolder,
+		)
+		if err != nil {
+			return BrandAdminResponse{}, branderrors.ErrImageUploadFailed
+		}
+
+		newImageURL = dbgen.NewNullString(imageURL)
+	} else {
+		newImageURL = brand.ImageUrl
+	}
+
+	// 3. Update DB
+	_, err = s.repo.Update(ctx, dbgen.UpdateBrandParams{
+		ID:          brand.ID,
 		Name:        req.Name,
-		Slug:        slug,
+		Slug:        req.Slug,
 		Description: dbgen.NewNullString(req.Description),
-		ImageUrl:    dbgen.NewNullString(req.ImageUrl),
+		ImageUrl:    newImageURL,
+		IsActive:    brand.IsActive,
 	})
-	return mapToResponse(brand), err
+	if err != nil {
+		return BrandAdminResponse{}, branderrors.ErrBrandFailed
+	}
+
+	return s.GetByID(ctx, brand.ID.String())
 }
 
 func (s *service) Delete(ctx context.Context, idStr string) error {
@@ -206,6 +274,26 @@ func (s *service) Delete(ctx context.Context, idStr string) error {
 	if err != nil {
 		return err
 	}
+
+	// 1. ambil data brand dulu
+	brand, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// 2. delete image jika ada
+	if brand.ImageUrl.Valid && brand.ImageUrl.String != "" {
+		publicID, err := cloudinary.ExtractPublicID(brand.ImageUrl.String, constants.CloudinaryBrandFolder)
+		if err != nil {
+			return fmt.Errorf("failed to extract public id: %w", err)
+		}
+
+		if err := s.cloudinaryRepo.DeleteImage(ctx, publicID); err != nil {
+			return err
+		}
+	}
+
+	// 3. delete brand di database
 	return s.repo.Delete(ctx, id)
 }
 

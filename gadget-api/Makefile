@@ -94,4 +94,4 @@ test:
 # =========================
 .PHONY: run
 run:
-	$(GO) run ./cmd/api/main.go
+	$(GO) run ./cmd/api

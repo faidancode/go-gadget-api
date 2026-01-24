@@ -63,7 +63,7 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		}
 
 		// ========================
-		// CATEGORY
+		// BRANDS
 		// ========================
 		brands := v1.Group("/brands")
 		{

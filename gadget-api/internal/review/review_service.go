@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"gadget-api/internal/dbgen"
+	"gadget-api/internal/pkg/apperror"
 	"gadget-api/internal/product"
+	reviewerrors "gadget-api/internal/review/errors"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
@@ -30,6 +33,7 @@ type service struct {
 	repo        Repository
 	productRepo product.Repository
 	db          *sql.DB
+	validate    *validator.Validate
 }
 
 func NewService(db *sql.DB, r Repository, pr product.Repository) Service {
@@ -37,53 +41,58 @@ func NewService(db *sql.DB, r Repository, pr product.Repository) Service {
 		db:          db,
 		repo:        r,
 		productRepo: pr,
+		validate:    validator.New(),
 	}
 }
 
 // Create creates a new review for a product
 func (s *service) Create(ctx context.Context, userID, productSlug string, req CreateReviewRequest) (ReviewResponse, error) {
+	if err := s.validate.Struct(req); err != nil {
+		return ReviewResponse{}, apperror.MapValidationError(err)
+	}
+
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return ReviewResponse{}, ErrInvalidReviewID
+		return ReviewResponse{}, reviewerrors.ErrInvalidReviewID
 	}
 
 	// 1. Get product by slug
 	product, err := s.productRepo.GetBySlug(ctx, productSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ReviewResponse{}, ErrProductNotFound
+			return ReviewResponse{}, reviewerrors.ErrProductNotFound
 		}
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 2. Check if user already reviewed this product
 	exists, err := s.repo.CheckExists(ctx, uid, product.ID)
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 	if exists {
-		return ReviewResponse{}, ErrReviewAlreadyExists
+		return ReviewResponse{}, reviewerrors.ErrReviewAlreadyExists
 	}
 
 	// 3. Check if user purchased this product
 	purchased, err := s.repo.CheckUserPurchased(ctx, uid, product.ID)
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 	if !purchased {
-		return ReviewResponse{}, ErrNotPurchased
+		return ReviewResponse{}, reviewerrors.ErrNotPurchased
 	}
 
 	// 4. Get completed order for this product
 	orderID, err := s.repo.GetCompletedOrder(ctx, uid, product.ID)
 	if err != nil {
-		return ReviewResponse{}, ErrOrderNotCompleted
+		return ReviewResponse{}, reviewerrors.ErrOrderNotCompleted
 	}
 
 	// 5. Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 	defer tx.Rollback()
 
@@ -99,18 +108,18 @@ func (s *service) Create(ctx context.Context, userID, productSlug string, req Cr
 		IsVerifiedPurchase: true,
 	})
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 7. Commit transaction
 	if err := tx.Commit(); err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 8. Fetch complete review data with user name
 	reviewDetail, err := s.repo.GetByID(ctx, review.ID)
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	return s.mapToReviewResponse(reviewDetail), nil
@@ -129,22 +138,22 @@ func (s *service) GetByProductSlug(ctx context.Context, productSlug string, page
 	product, err := s.productRepo.GetBySlug(ctx, productSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ReviewListResponse{}, ErrProductNotFound
+			return ReviewListResponse{}, reviewerrors.ErrProductNotFound
 		}
-		return ReviewListResponse{}, ErrReviewFailed
+		return ReviewListResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 2. Get reviews
 	offset := int32((page - 1) * limit)
 	reviews, err := s.repo.GetByProductID(ctx, product.ID, int32(limit), offset)
 	if err != nil {
-		return ReviewListResponse{}, ErrReviewFailed
+		return ReviewListResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 3. Get total count
 	total, err := s.repo.CountByProductID(ctx, product.ID)
 	if err != nil {
-		return ReviewListResponse{}, ErrReviewFailed
+		return ReviewListResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 4. Map to response
@@ -175,7 +184,7 @@ func (s *service) GetByProductSlug(ctx context.Context, productSlug string, page
 func (s *service) GetByUserID(ctx context.Context, userID string, page, limit int) (UserReviewListResponse, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return UserReviewListResponse{}, ErrInvalidReviewID
+		return UserReviewListResponse{}, reviewerrors.ErrInvalidReviewID
 	}
 
 	if page < 1 {
@@ -189,13 +198,13 @@ func (s *service) GetByUserID(ctx context.Context, userID string, page, limit in
 	offset := int32((page - 1) * limit)
 	reviews, err := s.repo.GetByUserID(ctx, uid, int32(limit), offset)
 	if err != nil {
-		return UserReviewListResponse{}, ErrReviewFailed
+		return UserReviewListResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 2. Get total count
 	total, err := s.repo.CountByUserID(ctx, uid)
 	if err != nil {
-		return UserReviewListResponse{}, ErrReviewFailed
+		return UserReviewListResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 3. Map to response
@@ -235,22 +244,22 @@ func (s *service) CheckEligibility(ctx context.Context, userID, productSlug stri
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return ReviewEligibilityResponse{}, ErrInvalidReviewID
+		return ReviewEligibilityResponse{}, reviewerrors.ErrInvalidReviewID
 	}
 
 	// 1. Get product by slug
 	product, err := s.productRepo.GetBySlug(ctx, productSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ReviewEligibilityResponse{}, ErrProductNotFound
+			return ReviewEligibilityResponse{}, reviewerrors.ErrProductNotFound
 		}
-		return ReviewEligibilityResponse{}, ErrReviewFailed
+		return ReviewEligibilityResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 2. Check if already reviewed
 	alreadyReviewed, err := s.repo.CheckExists(ctx, uid, product.ID)
 	if err != nil {
-		return ReviewEligibilityResponse{}, ErrReviewFailed
+		return ReviewEligibilityResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	if alreadyReviewed {
@@ -265,7 +274,7 @@ func (s *service) CheckEligibility(ctx context.Context, userID, productSlug stri
 	// 3. Check if purchased
 	hasPurchased, err := s.repo.CheckUserPurchased(ctx, uid, product.ID)
 	if err != nil {
-		return ReviewEligibilityResponse{}, ErrReviewFailed
+		return ReviewEligibilityResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	if !hasPurchased {
@@ -287,34 +296,38 @@ func (s *service) CheckEligibility(ctx context.Context, userID, productSlug stri
 
 // Update updates an existing review
 func (s *service) Update(ctx context.Context, reviewID, userID string, req UpdateReviewRequest) (ReviewResponse, error) {
+	if err := s.validate.Struct(req); err != nil {
+		return ReviewResponse{}, apperror.MapValidationError(err)
+	}
+
 	rid, err := uuid.Parse(reviewID)
 	if err != nil {
-		return ReviewResponse{}, ErrInvalidReviewID
+		return ReviewResponse{}, reviewerrors.ErrInvalidReviewID
 	}
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return ReviewResponse{}, ErrInvalidReviewID
+		return ReviewResponse{}, reviewerrors.ErrInvalidReviewID
 	}
 
 	// 1. Get existing review
 	review, err := s.repo.GetByID(ctx, rid)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ReviewResponse{}, ErrReviewNotFound
+			return ReviewResponse{}, reviewerrors.ErrReviewNotFound
 		}
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 2. Check authorization
 	if review.UserID != uid {
-		return ReviewResponse{}, ErrUnauthorizedReview
+		return ReviewResponse{}, reviewerrors.ErrUnauthorizedReview
 	}
 
 	// 3. Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 	defer tx.Rollback()
 
@@ -327,18 +340,18 @@ func (s *service) Update(ctx context.Context, reviewID, userID string, req Updat
 		Comment: req.Comment,
 	})
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 5. Commit transaction
 	if err := tx.Commit(); err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	// 6. Fetch updated review
 	updatedReview, err := s.repo.GetByID(ctx, rid)
 	if err != nil {
-		return ReviewResponse{}, ErrReviewFailed
+		return ReviewResponse{}, reviewerrors.ErrReviewFailed
 	}
 
 	return s.mapToReviewResponse(updatedReview), nil
@@ -348,32 +361,32 @@ func (s *service) Update(ctx context.Context, reviewID, userID string, req Updat
 func (s *service) Delete(ctx context.Context, reviewID, userID string) error {
 	rid, err := uuid.Parse(reviewID)
 	if err != nil {
-		return ErrInvalidReviewID
+		return reviewerrors.ErrInvalidReviewID
 	}
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return ErrInvalidReviewID
+		return reviewerrors.ErrInvalidReviewID
 	}
 
 	// 1. Get existing review
 	review, err := s.repo.GetByID(ctx, rid)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ErrReviewNotFound
+			return reviewerrors.ErrReviewNotFound
 		}
-		return ErrReviewFailed
+		return reviewerrors.ErrReviewFailed
 	}
 
 	// 2. Check authorization
 	if review.UserID != uid {
-		return ErrUnauthorizedReview
+		return reviewerrors.ErrUnauthorizedReview
 	}
 
 	// 3. Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return ErrReviewFailed
+		return reviewerrors.ErrReviewFailed
 	}
 	defer tx.Rollback()
 
@@ -382,12 +395,12 @@ func (s *service) Delete(ctx context.Context, reviewID, userID string) error {
 	// 4. Delete review
 	err = qtx.Delete(ctx, rid)
 	if err != nil {
-		return ErrReviewFailed
+		return reviewerrors.ErrReviewFailed
 	}
 
 	// 5. Commit transaction
 	if err := tx.Commit(); err != nil {
-		return ErrReviewFailed
+		return reviewerrors.ErrReviewFailed
 	}
 
 	return nil

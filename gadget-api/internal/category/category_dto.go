@@ -5,16 +5,18 @@ import "time"
 // --- REQUEST DTO ---
 
 type CreateCategoryRequest struct {
-	Name        string `json:"name" binding:"required" validate:"required,min=2,max=100"`
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Slug        string `json:"slug"`
 	Description string `json:"description" validate:"max=500"`
 	ImageUrl    string `json:"imageUrl" validate:"omitempty,url"`
 }
 
 type UpdateCategoryRequest struct {
-	Name        string `json:"name" binding:"required" validate:"required,min=2,max=100"`
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Slug        string `json:"slug"`
 	Description string `json:"description" validate:"max=500"`
 	ImageUrl    string `json:"imageUrl" validate:"omitempty,url"`
-	IsActive    *bool  `json:"isActive" binding:"required" validate:"required"`
+	IsActive    *bool  `json:"isActive"`
 }
 
 type ListCategoryRequest struct {

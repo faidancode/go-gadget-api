@@ -4,15 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	categoryerrors "gadget-api/internal/category/errors"
+	"gadget-api/internal/cloudinary"
 	"gadget-api/internal/dbgen"
+	"gadget-api/internal/pkg/apperror"
+	"gadget-api/internal/pkg/constants"
 	"mime/multipart"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 type CloudinaryService interface {
-	UploadImage(ctx context.Context, file multipart.File, filename string) (string, error)
+	UploadImage(ctx context.Context, file multipart.File, filename string, folderName string) (string, error)
 	DeleteImage(ctx context.Context, publicID string) error
 }
 
@@ -22,7 +27,7 @@ type Service interface {
 	ListPublic(ctx context.Context, page, limit int) ([]CategoryPublicResponse, int64, error)
 	ListAdmin(ctx context.Context, req ListCategoryRequest) ([]CategoryAdminResponse, int64, error)
 	GetByID(ctx context.Context, id string) (CategoryAdminResponse, error)
-	Update(ctx context.Context, id string, req CreateCategoryRequest) (CategoryAdminResponse, error)
+	Update(ctx context.Context, id string, req UpdateCategoryRequest, file multipart.File, filename string) (CategoryAdminResponse, error)
 	Delete(ctx context.Context, id string) error
 	Restore(ctx context.Context, id string) (CategoryAdminResponse, error)
 }
@@ -31,6 +36,7 @@ type service struct {
 	db             *sql.DB
 	repo           Repository
 	cloudinaryRepo CloudinaryService
+	validate       *validator.Validate
 }
 
 func NewService(db *sql.DB, repo Repository, cloudinaryRepo CloudinaryService) Service {
@@ -38,70 +44,8 @@ func NewService(db *sql.DB, repo Repository, cloudinaryRepo CloudinaryService) S
 		db:             db,
 		repo:           repo,
 		cloudinaryRepo: cloudinaryRepo,
+		validate:       validator.New(),
 	}
-}
-
-func (s *service) Create(ctx context.Context, req CreateCategoryRequest, file multipart.File, filename string) (CategoryAdminResponse, error) {
-	// 1. Generate slug awal
-	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
-
-	// 2. Start transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return CategoryAdminResponse{}, err
-	}
-	defer tx.Rollback()
-
-	// 3. Create category di DB (tanpa image URL dulu)
-	qtx := s.repo.WithTx(tx)
-	category, err := qtx.Create(ctx, dbgen.CreateCategoryParams{
-		Name:        req.Name,
-		Slug:        slug,
-		Description: dbgen.NewNullString(req.Description),
-		ImageUrl:    sql.NullString{}, // Kosongkan dulu
-	})
-	if err != nil {
-		return CategoryAdminResponse{}, err
-	}
-
-	// 4. Upload image ke Cloudinary (jika ada file)
-	var imageURL string
-	if file != nil && filename != "" {
-		// Gunakan Category ID agar nama file unik
-		uniqueFilename := fmt.Sprintf("category-%s-%s", category.ID.String(), filename)
-
-		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename)
-		if err != nil {
-			// Jika upload gagal, transaksi di-rollback otomatis oleh defer tx.Rollback()
-			return CategoryAdminResponse{}, fmt.Errorf("failed to upload image: %w", err)
-		}
-
-		// 5. Update category dengan image URL yang didapat
-		_, err = qtx.Update(ctx, dbgen.UpdateCategoryParams{
-			ID:          category.ID,
-			Name:        category.Name,
-			Description: category.Description,
-			ImageUrl:    dbgen.NewNullString(imageURL),
-			IsActive:    category.IsActive,
-		})
-		if err != nil {
-			// Update gagal, hapus image yang sudah terlanjur diupload
-			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
-			return CategoryAdminResponse{}, err
-		}
-	}
-
-	// 6. Commit transaction
-	if err := tx.Commit(); err != nil {
-		// Jika commit gagal, hapus image jika tadi berhasil diupload
-		if imageURL != "" {
-			uniqueFilename := fmt.Sprintf("category-%s-%s", category.ID.String(), filename)
-			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
-		}
-		return CategoryAdminResponse{}, err
-	}
-
-	return s.GetByID(ctx, category.ID.String())
 }
 
 func (s *service) ListPublic(ctx context.Context, page, limit int) ([]CategoryPublicResponse, int64, error) {
@@ -118,9 +62,10 @@ func (s *service) ListPublic(ctx context.Context, page, limit int) ([]CategoryPu
 			total = row.TotalCount
 		}
 		res = append(res, CategoryPublicResponse{
-			ID:   row.ID.String(),
-			Name: row.Name,
-			Slug: row.Slug,
+			ID:       row.ID.String(),
+			Name:     row.Name,
+			Slug:     row.Slug,
+			ImageUrl: row.ImageUrl.String,
 		})
 	}
 	return res, total, nil
@@ -178,27 +123,149 @@ func (s *service) ListAdmin(ctx context.Context, req ListCategoryRequest) ([]Cat
 func (s *service) GetByID(ctx context.Context, idStr string) (CategoryAdminResponse, error) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return CategoryAdminResponse{}, err
+		return CategoryAdminResponse{}, categoryerrors.ErrInvalidUUID
 	}
 	category, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return CategoryAdminResponse{}, categoryerrors.ErrCategoryNotFound
+	}
 	return mapToResponse(category), err
 }
 
-func (s *service) Update(ctx context.Context, idStr string, req CreateCategoryRequest) (CategoryAdminResponse, error) {
+func (s *service) Create(ctx context.Context, req CreateCategoryRequest, file multipart.File, filename string) (CategoryAdminResponse, error) {
+	if err := s.validate.Struct(req); err != nil {
+		return CategoryAdminResponse{}, apperror.MapValidationError(err)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return CategoryAdminResponse{}, err
+	}
+	defer tx.Rollback()
+
+	qtx := s.repo.WithTx(tx)
+	category, err := qtx.Create(ctx, dbgen.CreateCategoryParams{
+		Name:        req.Name,
+		Slug:        req.Slug,
+		Description: dbgen.NewNullString(req.Description),
+		ImageUrl:    sql.NullString{},
+	})
+	if err != nil {
+		return CategoryAdminResponse{}, categoryerrors.ErrCategoryFailed
+	}
+
+	// 4. Upload image ke Cloudinary (jika ada file)
+	var imageURL string
+	if file != nil && filename != "" {
+		// Gunakan Category ID agar nama file unik
+		uniqueFilename := fmt.Sprintf("category-%s-%s", category.ID.String(), filename)
+
+		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename, constants.CloudinaryCategoryFolder)
+		if err != nil {
+			// Jika upload gagal, transaksi di-rollback otomatis oleh defer tx.Rollback()
+			return CategoryAdminResponse{}, categoryerrors.ErrImageUploadFailed
+		}
+
+		// 5. Update category dengan image URL yang didapat
+		_, err = qtx.Update(ctx, dbgen.UpdateCategoryParams{
+			ID:          category.ID,
+			Name:        category.Name,
+			Slug:        category.Slug,
+			Description: category.Description,
+			ImageUrl:    dbgen.NewNullString(imageURL),
+			IsActive:    category.IsActive,
+		})
+		if err != nil {
+			// Update gagal, hapus image yang sudah terlanjur diupload
+			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
+			return CategoryAdminResponse{}, categoryerrors.ErrImageUploadFailed
+		}
+	}
+
+	// 6. Commit transaction
+	if err := tx.Commit(); err != nil {
+		// Jika commit gagal, hapus image jika tadi berhasil diupload
+		if imageURL != "" {
+			uniqueFilename := fmt.Sprintf("category-%s-%s", category.ID.String(), filename)
+			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
+		}
+		return CategoryAdminResponse{}, categoryerrors.ErrImageDeleteFailed
+	}
+
+	return s.GetByID(ctx, category.ID.String())
+}
+
+func (s *service) Update(
+	ctx context.Context,
+	idStr string,
+	req UpdateCategoryRequest,
+	file multipart.File,
+	filename string,
+) (CategoryAdminResponse, error) {
+	if err := s.validate.Struct(req); err != nil {
+		return CategoryAdminResponse{}, apperror.MapValidationError(err)
+	}
 	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return CategoryAdminResponse{}, categoryerrors.ErrInvalidUUID
+	}
+
+	// 1. Ambil data lama
+	category, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return CategoryAdminResponse{}, categoryerrors.ErrCategoryNotFound
+	}
+
+	var newImageURL sql.NullString
+
+	// 2. Kalau upload image baru
+	if file != nil && filename != "" {
+
+		// 2a. Hapus image lama (jika ada)
+		if category.ImageUrl.Valid && category.ImageUrl.String != "" {
+			publicID, err := cloudinary.ExtractPublicID(
+				category.ImageUrl.String,
+				constants.CloudinaryCategoryFolder,
+			)
+			if err != nil {
+				return CategoryAdminResponse{}, categoryerrors.ErrInvalidImageURL
+			}
+
+			_ = s.cloudinaryRepo.DeleteImage(ctx, publicID)
+			// ⚠️ sengaja tidak fatal → image lama boleh gagal hapus
+		}
+
+		// 2b. Upload image baru
+		uniqueFilename := fmt.Sprintf("category-%s-%s", category.ID, filename)
+
+		imageURL, err := s.cloudinaryRepo.UploadImage(
+			ctx,
+			file,
+			uniqueFilename,
+			constants.CloudinaryCategoryFolder,
+		)
+		if err != nil {
+			return CategoryAdminResponse{}, categoryerrors.ErrImageUploadFailed
+		}
+
+		newImageURL = dbgen.NewNullString(imageURL)
+	} else {
+		newImageURL = category.ImageUrl
+	}
+
+	// 3. Update DB
+	_, err = s.repo.Update(ctx, dbgen.UpdateCategoryParams{
+		ID:          category.ID,
+		Name:        req.Name,
+		Slug:        req.Slug,
+		Description: dbgen.NewNullString(req.Description),
+		ImageUrl:    newImageURL,
+		IsActive:    category.IsActive,
+	})
 	if err != nil {
 		return CategoryAdminResponse{}, err
 	}
 
-	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
-	category, err := s.repo.Update(ctx, dbgen.UpdateCategoryParams{
-		ID:          id,
-		Name:        req.Name,
-		Slug:        slug,
-		Description: dbgen.NewNullString(req.Description),
-		ImageUrl:    dbgen.NewNullString(req.ImageUrl),
-	})
-	return mapToResponse(category), err
+	return s.GetByID(ctx, category.ID.String())
 }
 
 func (s *service) Delete(ctx context.Context, idStr string) error {
@@ -206,6 +273,26 @@ func (s *service) Delete(ctx context.Context, idStr string) error {
 	if err != nil {
 		return err
 	}
+
+	// 1. ambil data category dulu
+	category, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// 2. delete image jika ada
+	if category.ImageUrl.Valid && category.ImageUrl.String != "" {
+		publicID, err := cloudinary.ExtractPublicID(category.ImageUrl.String, constants.CloudinaryCategoryFolder)
+		if err != nil {
+			return categoryerrors.ErrInvalidImageURL
+		}
+
+		if err := s.cloudinaryRepo.DeleteImage(ctx, publicID); err != nil {
+			return err
+		}
+	}
+
+	// 3. delete category di database
 	return s.repo.Delete(ctx, id)
 }
 

@@ -5,16 +5,18 @@ import "time"
 // --- REQUEST DTO ---
 
 type CreateBrandRequest struct {
-	Name        string `json:"name" binding:"required" validate:"required,min=2,max=100"`
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Slug        string `json:"slug"`
 	Description string `json:"description" validate:"max=500"`
-	ImageUrl    string `json:"image_url" validate:"omitempty,url"`
+	ImageUrl    string `json:"imageUrl" validate:"omitempty,url"`
 }
 
 type UpdateBrandRequest struct {
-	Name        string `json:"name" binding:"required" validate:"required,min=2,max=100"`
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Slug        string `json:"slug"`
 	Description string `json:"description" validate:"max=500"`
-	ImageUrl    string `json:"image_url" validate:"omitempty,url"`
-	IsActive    *bool  `json:"is_active" binding:"required" validate:"required"`
+	ImageUrl    string `json:"imageUrl" validate:"omitempty,url"`
+	IsActive    *bool  `json:"isActive"`
 }
 
 type ListBrandRequest struct {
@@ -31,7 +33,7 @@ type BrandPublicResponse struct {
 	Name        string `json:"name"`
 	Slug        string `json:"slug"`
 	Description string `json:"description,omitempty"`
-	ImageUrl    string `json:"image_url,omitempty"`
+	ImageUrl    string `json:"imageUrl,omitempty"`
 }
 
 type BrandAdminResponse struct {

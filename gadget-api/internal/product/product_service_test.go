@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gadget-api/internal/dbgen"
+	"gadget-api/internal/pkg/constants"
 	"gadget-api/internal/product"
 
 	categoryMock "gadget-api/internal/mock/category"
@@ -109,7 +110,7 @@ func TestProductService_Create(t *testing.T) {
 
 		// UploadImage akan dipanggil karena kita akan passing 'not nil' value di pemanggilan service
 		deps.cloudinary.EXPECT().
-			UploadImage(gomock.Any(), gomock.Any(), gomock.Any()).
+			UploadImage(gomock.Any(), gomock.Any(), gomock.Any(), constants.CloudinaryProductFolder).
 			Return("https://img.jpg", nil)
 
 		deps.repo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(dbgen.Product{}, nil)
@@ -153,7 +154,7 @@ func TestProductService_Create(t *testing.T) {
 		// PERBAIKAN DI SINI:
 		// Gunakan gomock.Any() untuk argumen kedua (file)
 		deps.cloudinary.EXPECT().
-			UploadImage(gomock.Any(), gomock.Any(), gomock.Any()).
+			UploadImage(gomock.Any(), gomock.Any(), gomock.Any(), constants.CloudinaryProductFolder).
 			Return("", errors.New("upload failed"))
 
 		// Pastikan argumen 'fakeFile' dikirim di sini
@@ -201,7 +202,7 @@ func TestProductService_Update(t *testing.T) {
 
 		// 3. Mock Cloudinary Upload (Gunakan gomock.Any() untuk menghindari mismatch nil)
 		deps.cloudinary.EXPECT().
-			UploadImage(ctx, gomock.Any(), gomock.Any()).
+			UploadImage(ctx, gomock.Any(), gomock.Any(), constants.CloudinaryProductFolder).
 			Return("https://new.jpg", nil)
 
 		// 4. Mock Update di DB

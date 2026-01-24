@@ -51,18 +51,18 @@ func (mr *MockCloudinaryServiceMockRecorder) DeleteImage(ctx, publicID interface
 }
 
 // UploadImage mocks base method.
-func (m *MockCloudinaryService) UploadImage(ctx context.Context, file multipart.File, filename string) (string, error) {
+func (m *MockCloudinaryService) UploadImage(ctx context.Context, file multipart.File, filename, folderName string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadImage", ctx, file, filename)
+	ret := m.ctrl.Call(m, "UploadImage", ctx, file, filename, folderName)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadImage indicates an expected call of UploadImage.
-func (mr *MockCloudinaryServiceMockRecorder) UploadImage(ctx, file, filename interface{}) *gomock.Call {
+func (mr *MockCloudinaryServiceMockRecorder) UploadImage(ctx, file, filename, folderName interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadImage", reflect.TypeOf((*MockCloudinaryService)(nil).UploadImage), ctx, file, filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadImage", reflect.TypeOf((*MockCloudinaryService)(nil).UploadImage), ctx, file, filename, folderName)
 }
 
 // MockService is a mock of Service interface.
@@ -180,16 +180,16 @@ func (mr *MockServiceMockRecorder) Restore(ctx, id interface{}) *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockService) Update(ctx context.Context, id string, req category.CreateCategoryRequest) (category.CategoryAdminResponse, error) {
+func (m *MockService) Update(ctx context.Context, id string, req category.UpdateCategoryRequest, file multipart.File, filename string) (category.CategoryAdminResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", ctx, id, req)
+	ret := m.ctrl.Call(m, "Update", ctx, id, req, file, filename)
 	ret0, _ := ret[0].(category.CategoryAdminResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockServiceMockRecorder) Update(ctx, id, req interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) Update(ctx, id, req, file, filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockService)(nil).Update), ctx, id, req)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockService)(nil).Update), ctx, id, req, file, filename)
 }
