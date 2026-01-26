@@ -71,7 +71,7 @@ func TestService_Register(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, req.Email, resp.Email)
-		assert.Equal(t, "customer", resp.Role)
+		assert.Equal(t, "CUSTOMER", resp.Role)
 	})
 
 	t.Run("Error Register", func(t *testing.T) {

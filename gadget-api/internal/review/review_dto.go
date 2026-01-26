@@ -23,33 +23,33 @@ type GetReviewsRequest struct {
 
 type ReviewResponse struct {
 	ID                 string    `json:"id"`
-	UserID             string    `json:"user_id"`
-	UserName           string    `json:"user_name"`
-	ProductID          string    `json:"product_id"`
+	UserID             string    `json:"userdId"`
+	UserName           string    `json:"userdName"`
+	ProductID          string    `json:"productdId"`
 	Rating             int32     `json:"rating"`
 	Comment            string    `json:"comment"`
-	IsVerifiedPurchase bool      `json:"is_verified_purchase"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	IsVerifiedPurchase bool      `json:"isVerifiedPurchase"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
 }
 
 type ReviewSummaryResponse struct {
 	ID        string    `json:"id"`
-	UserName  string    `json:"user_name"`
+	UserName  string    `json:"userdName"`
 	Rating    int32     `json:"rating"`
 	Comment   string    `json:"comment"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type UserReviewResponse struct {
 	ID          string    `json:"id"`
-	ProductID   string    `json:"product_id"`
-	ProductName string    `json:"product_name"`
-	ProductSlug string    `json:"product_slug"`
+	ProductID   string    `json:"productdId"`
+	ProductName string    `json:"productdName"`
+	ProductSlug string    `json:"productSlug"`
 	Rating      int32     `json:"rating"`
 	Comment     string    `json:"comment"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 type ReviewListResponse struct {
@@ -67,14 +67,14 @@ type UserReviewListResponse struct {
 }
 
 type ReviewEligibilityResponse struct {
-	CanReview       bool   `json:"can_review"`
+	CanReview       bool   `json:"canReview"`
 	Reason          string `json:"reason,omitempty"`
-	HasPurchased    bool   `json:"has_purchased"`
-	AlreadyReviewed bool   `json:"already_reviewed"`
+	HasPurchased    bool   `json:"hasPurchased"`
+	AlreadyReviewed bool   `json:"alreadyReviewed"`
 }
 
 type ReviewStatsResponse struct {
-	AverageRating   float64       `json:"average_rating"`
-	TotalReviews    int64         `json:"total_reviews"`
-	RatingBreakdown map[int]int64 `json:"rating_breakdown,omitempty"` // optional for future
+	AverageRating   float64       `json:"averageRating"`
+	RatingCount     int64         `json:"ratingCount"`
+	RatingBreakdown map[int]int64 `json:"ratingBreakdown,omitempty"` // optional for future
 }

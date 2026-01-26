@@ -3,7 +3,9 @@ package review
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"gadget-api/internal/dbgen"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -74,12 +76,33 @@ func (r *repository) CountByUserID(ctx context.Context, userID uuid.UUID) (int64
 	return r.queries.CountReviewsByUserID(ctx, userID)
 }
 
-func (r *repository) GetAverageRating(ctx context.Context, productID uuid.UUID) (float64, error) {
+func (r *repository) GetAverageRating(
+	ctx context.Context,
+	productID uuid.UUID,
+) (float64, error) {
+
 	result, err := r.queries.GetAverageRatingByProductID(ctx, productID)
 	if err != nil {
 		return 0, err
 	}
-	return result.(float64), nil
+
+	switch v := result.(type) {
+	case nil:
+		return 0, sql.ErrNoRows
+
+	case float64:
+		return v, nil
+
+	case []uint8:
+		f, err := strconv.ParseFloat(string(v), 64)
+		if err != nil {
+			return 0, err
+		}
+		return f, nil
+
+	default:
+		return 0, fmt.Errorf("unexpected avg rating type: %T", v)
+	}
 }
 
 func (r *repository) CheckExists(ctx context.Context, userID, productID uuid.UUID) (bool, error) {

@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.addCartItemStmt, err = db.PrepareContext(ctx, addCartItem); err != nil {
+		return nil, fmt.Errorf("error preparing query AddCartItem: %w", err)
+	}
 	if q.addWishlistItemStmt, err = db.PrepareContext(ctx, addWishlistItem); err != nil {
 		return nil, fmt.Errorf("error preparing query AddWishlistItem: %w", err)
 	}
@@ -53,9 +56,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createCartStmt, err = db.PrepareContext(ctx, createCart); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCart: %w", err)
-	}
-	if q.createCartItemStmt, err = db.PrepareContext(ctx, createCartItem); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateCartItem: %w", err)
 	}
 	if q.createCategoryStmt, err = db.PrepareContext(ctx, createCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCategory: %w", err)
@@ -101,6 +101,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getCategoryByIDStmt, err = db.PrepareContext(ctx, getCategoryByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoryByID: %w", err)
+	}
+	if q.getCategoryBySlugStmt, err = db.PrepareContext(ctx, getCategoryBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryBySlug: %w", err)
 	}
 	if q.getCompletedOrderForReviewStmt, err = db.PrepareContext(ctx, getCompletedOrderForReview); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCompletedOrderForReview: %w", err)
@@ -168,6 +171,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listProductsAdminStmt, err = db.PrepareContext(ctx, listProductsAdmin); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductsAdmin: %w", err)
 	}
+	if q.listProductsForInternalStmt, err = db.PrepareContext(ctx, listProductsForInternal); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductsForInternal: %w", err)
+	}
 	if q.listProductsPublicStmt, err = db.PrepareContext(ctx, listProductsPublic); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductsPublic: %w", err)
 	}
@@ -221,6 +227,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.addCartItemStmt != nil {
+		if cerr := q.addCartItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing addCartItemStmt: %w", cerr)
+		}
+	}
 	if q.addWishlistItemStmt != nil {
 		if cerr := q.addWishlistItemStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing addWishlistItemStmt: %w", cerr)
@@ -269,11 +280,6 @@ func (q *Queries) Close() error {
 	if q.createCartStmt != nil {
 		if cerr := q.createCartStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCartStmt: %w", cerr)
-		}
-	}
-	if q.createCartItemStmt != nil {
-		if cerr := q.createCartItemStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createCartItemStmt: %w", cerr)
 		}
 	}
 	if q.createCategoryStmt != nil {
@@ -349,6 +355,11 @@ func (q *Queries) Close() error {
 	if q.getCategoryByIDStmt != nil {
 		if cerr := q.getCategoryByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCategoryByIDStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryBySlugStmt != nil {
+		if cerr := q.getCategoryBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryBySlugStmt: %w", cerr)
 		}
 	}
 	if q.getCompletedOrderForReviewStmt != nil {
@@ -459,6 +470,11 @@ func (q *Queries) Close() error {
 	if q.listProductsAdminStmt != nil {
 		if cerr := q.listProductsAdminStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listProductsAdminStmt: %w", cerr)
+		}
+	}
+	if q.listProductsForInternalStmt != nil {
+		if cerr := q.listProductsForInternalStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductsForInternalStmt: %w", cerr)
 		}
 	}
 	if q.listProductsPublicStmt != nil {
@@ -580,6 +596,7 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                              DBTX
 	tx                              *sql.Tx
+	addCartItemStmt                 *sql.Stmt
 	addWishlistItemStmt             *sql.Stmt
 	checkReviewExistsStmt           *sql.Stmt
 	checkUserPurchasedProductStmt   *sql.Stmt
@@ -590,7 +607,6 @@ type Queries struct {
 	createAddressStmt               *sql.Stmt
 	createBrandStmt                 *sql.Stmt
 	createCartStmt                  *sql.Stmt
-	createCartItemStmt              *sql.Stmt
 	createCategoryStmt              *sql.Stmt
 	createOrderStmt                 *sql.Stmt
 	createOrderItemStmt             *sql.Stmt
@@ -606,6 +622,7 @@ type Queries struct {
 	getCartByUserIDStmt             *sql.Stmt
 	getCartDetailStmt               *sql.Stmt
 	getCategoryByIDStmt             *sql.Stmt
+	getCategoryBySlugStmt           *sql.Stmt
 	getCompletedOrderForReviewStmt  *sql.Stmt
 	getOrCreateWishlistStmt         *sql.Stmt
 	getOrderByIDStmt                *sql.Stmt
@@ -628,6 +645,7 @@ type Queries struct {
 	listOrdersStmt                  *sql.Stmt
 	listOrdersAdminStmt             *sql.Stmt
 	listProductsAdminStmt           *sql.Stmt
+	listProductsForInternalStmt     *sql.Stmt
 	listProductsPublicStmt          *sql.Stmt
 	restoreBrandStmt                *sql.Stmt
 	restoreCategoryStmt             *sql.Stmt
@@ -650,6 +668,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                              tx,
 		tx:                              tx,
+		addCartItemStmt:                 q.addCartItemStmt,
 		addWishlistItemStmt:             q.addWishlistItemStmt,
 		checkReviewExistsStmt:           q.checkReviewExistsStmt,
 		checkUserPurchasedProductStmt:   q.checkUserPurchasedProductStmt,
@@ -660,7 +679,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createAddressStmt:               q.createAddressStmt,
 		createBrandStmt:                 q.createBrandStmt,
 		createCartStmt:                  q.createCartStmt,
-		createCartItemStmt:              q.createCartItemStmt,
 		createCategoryStmt:              q.createCategoryStmt,
 		createOrderStmt:                 q.createOrderStmt,
 		createOrderItemStmt:             q.createOrderItemStmt,
@@ -676,6 +694,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCartByUserIDStmt:             q.getCartByUserIDStmt,
 		getCartDetailStmt:               q.getCartDetailStmt,
 		getCategoryByIDStmt:             q.getCategoryByIDStmt,
+		getCategoryBySlugStmt:           q.getCategoryBySlugStmt,
 		getCompletedOrderForReviewStmt:  q.getCompletedOrderForReviewStmt,
 		getOrCreateWishlistStmt:         q.getOrCreateWishlistStmt,
 		getOrderByIDStmt:                q.getOrderByIDStmt,
@@ -698,6 +717,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listOrdersStmt:                  q.listOrdersStmt,
 		listOrdersAdminStmt:             q.listOrdersAdminStmt,
 		listProductsAdminStmt:           q.listProductsAdminStmt,
+		listProductsForInternalStmt:     q.listProductsForInternalStmt,
 		listProductsPublicStmt:          q.listProductsPublicStmt,
 		restoreBrandStmt:                q.restoreBrandStmt,
 		restoreCategoryStmt:             q.restoreCategoryStmt,

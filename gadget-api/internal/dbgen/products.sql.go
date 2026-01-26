@@ -275,6 +275,42 @@ func (q *Queries) ListProductsAdmin(ctx context.Context, arg ListProductsAdminPa
 	return items, nil
 }
 
+const listProductsForInternal = `-- name: ListProductsForInternal :many
+SELECT id, name, price
+FROM products
+WHERE deleted_at IS NULL
+  AND is_active = true
+`
+
+type ListProductsForInternalRow struct {
+	ID    uuid.UUID `json:"id"`
+	Name  string    `json:"name"`
+	Price string    `json:"price"`
+}
+
+func (q *Queries) ListProductsForInternal(ctx context.Context) ([]ListProductsForInternalRow, error) {
+	rows, err := q.query(ctx, q.listProductsForInternalStmt, listProductsForInternal)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProductsForInternalRow
+	for rows.Next() {
+		var i ListProductsForInternalRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.Price); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProductsPublic = `-- name: ListProductsPublic :many
 SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, c.name as category_name, count(*) OVER() AS total_count
 FROM products p

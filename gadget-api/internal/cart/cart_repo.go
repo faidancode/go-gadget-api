@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:generate mockgen -source=cart_repo.go -destination=mock/cart_repo_mock.go -package=mock
+//go:generate mockgen -source=cart_repo.go -destination=../mock/cart/cart_repo_mock.go -package=mock
 type Repository interface {
 	CreateCart(ctx context.Context, userID uuid.UUID) (dbgen.Cart, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) (dbgen.Cart, error)
@@ -15,10 +15,10 @@ type Repository interface {
 	Count(ctx context.Context, cartID uuid.UUID) (int64, error)
 	GetDetail(ctx context.Context, userID uuid.UUID) ([]dbgen.GetCartDetailRow, error)
 
-	CreateItem(ctx context.Context, arg dbgen.CreateCartItemParams) (dbgen.CartItem, error)
+	AddItem(ctx context.Context, arg dbgen.AddCartItemParams) error
 	UpdateQty(ctx context.Context, arg dbgen.UpdateCartItemQtyParams) (dbgen.CartItem, error)
 
-	DeleteItem(ctx context.Context, cartID, productId uuid.UUID) error
+	DeleteItem(ctx context.Context, cartID, productID uuid.UUID) error
 	Delete(ctx context.Context, cartID uuid.UUID) error
 }
 
@@ -46,18 +46,18 @@ func (r *repository) GetDetail(ctx context.Context, userID uuid.UUID) ([]dbgen.G
 	return r.q.GetCartDetail(ctx, userID)
 }
 
-func (r *repository) CreateItem(ctx context.Context, arg dbgen.CreateCartItemParams) (dbgen.CartItem, error) {
-	return r.q.CreateCartItem(ctx, arg)
+func (r *repository) AddItem(ctx context.Context, arg dbgen.AddCartItemParams) error {
+	return r.q.AddCartItem(ctx, arg)
 }
 
 func (r *repository) UpdateQty(ctx context.Context, arg dbgen.UpdateCartItemQtyParams) (dbgen.CartItem, error) {
 	return r.q.UpdateCartItemQty(ctx, arg)
 }
 
-func (r *repository) DeleteItem(ctx context.Context, cartID, productId uuid.UUID) error {
+func (r *repository) DeleteItem(ctx context.Context, cartID, productID uuid.UUID) error {
 	return r.q.DeleteCartItem(ctx, dbgen.DeleteCartItemParams{
 		CartID:    cartID,
-		ProductID: productId,
+		ProductID: productID,
 	})
 }
 

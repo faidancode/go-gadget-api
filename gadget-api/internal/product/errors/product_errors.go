@@ -1,4 +1,4 @@
-package product
+package producterrors
 
 import (
 	"gadget-api/internal/pkg/apperror"

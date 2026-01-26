@@ -16,8 +16,7 @@ func NewController(s Service) *Controller {
 }
 
 func (c *Controller) Create(ctx *gin.Context) {
-	err := c.service.Create(ctx, ctx.Param("userId"))
-	if err != nil {
+	if err := c.service.Create(ctx, ctx.Param("userId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "CREATE_ERROR", "Gagal membuat cart", err.Error())
 		return
 	}
@@ -27,7 +26,6 @@ func (c *Controller) Create(ctx *gin.Context) {
 func (c *Controller) Count(ctx *gin.Context) {
 	count, err := c.service.Count(ctx, ctx.Param("userId"))
 	if err != nil {
-		// Menggunakan InternalServerError agar match dengan skenario service_error di test
 		response.Error(ctx, http.StatusInternalServerError, "COUNT_ERROR", "Gagal hitung cart", err.Error())
 		return
 	}
@@ -44,26 +42,27 @@ func (c *Controller) Detail(ctx *gin.Context) {
 }
 
 func (c *Controller) UpdateQty(ctx *gin.Context) {
-	var req struct {
-		Qty int32 `json:"qty"`
-	}
-
+	var req UpdateQtyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.Error(ctx, http.StatusBadRequest, "BAD_REQUEST", "Input tidak valid", err.Error())
 		return
 	}
 
-	err := c.service.UpdateQty(ctx, ctx.Param("userId"), ctx.Param("productId"), req.Qty)
-	if err != nil {
+	if err := c.service.UpdateQty(
+		ctx,
+		ctx.Param("userId"),
+		ctx.Param("productId"),
+		req,
+	); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "UPDATE_ERROR", "Gagal update quantity", err.Error())
 		return
 	}
+
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
 func (c *Controller) Increment(ctx *gin.Context) {
-	err := c.service.Increment(ctx, ctx.Param("userId"), ctx.Param("productId"))
-	if err != nil {
+	if err := c.service.Increment(ctx, ctx.Param("userId"), ctx.Param("productId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "INCREMENT_ERROR", "Gagal menambah item", err.Error())
 		return
 	}
@@ -71,8 +70,7 @@ func (c *Controller) Increment(ctx *gin.Context) {
 }
 
 func (c *Controller) Decrement(ctx *gin.Context) {
-	err := c.service.Decrement(ctx, ctx.Param("userId"), ctx.Param("productId"))
-	if err != nil {
+	if err := c.service.Decrement(ctx, ctx.Param("userId"), ctx.Param("productId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "DECREMENT_ERROR", "Gagal mengurangi item", err.Error())
 		return
 	}
@@ -80,8 +78,7 @@ func (c *Controller) Decrement(ctx *gin.Context) {
 }
 
 func (c *Controller) DeleteItem(ctx *gin.Context) {
-	err := c.service.DeleteItem(ctx, ctx.Param("userId"), ctx.Param("productId"))
-	if err != nil {
+	if err := c.service.DeleteItem(ctx, ctx.Param("userId"), ctx.Param("productId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "DELETE_ITEM_ERROR", "Gagal menghapus item", err.Error())
 		return
 	}

@@ -6,7 +6,7 @@ import "time"
 
 type CheckoutRequest struct {
 	UserID    string `json:"-"`
-	AddressID string `json:"address_id" binding:"required"`
+	AddressID string `json:"addressdId" binding:"required"`
 	Note      string `json:"note"`
 }
 
@@ -21,7 +21,7 @@ type ListOrderAdminRequest struct {
 	Page   int32  `json:"page"`
 	Limit  int32  `json:"limit"`
 	Status string `json:"status"`  // filter by status
-	UserID string `json:"user_id"` // filter by user
+	UserID string `json:"userdId"` // filter by user
 }
 
 type UpdateStatusRequest struct {
@@ -30,47 +30,47 @@ type UpdateStatusRequest struct {
 
 type UpdateStatusAdminRequest struct {
 	Status    string  `json:"status" binding:"required"`
-	ReceiptNo *string `json:"receipt_no"`
+	ReceiptNo *string `json:"receiptdNo"`
 }
 
 // ==================== RESPONSE STRUCTS ====================
 
 type CheckoutResponse struct {
 	ID          string    `json:"id"`
-	OrderNumber string    `json:"order_number"`
+	OrderNumber string    `json:"orderdNumber"`
 	Status      string    `json:"status"`
-	TotalPrice  float64   `json:"total_price"`
-	PlacedAt    time.Time `json:"placed_at"`
+	TotalPrice  float64   `json:"totalPrice"`
+	PlacedAt    time.Time `json:"placedAt"`
 }
 
 type OrderResponse struct {
 	ID          string              `json:"id"`
-	OrderNumber string              `json:"order_number"`
+	OrderNumber string              `json:"orderdNumber"`
 	Status      string              `json:"status"`
-	ReceiptNo   *string             `json:"receipt_no,omitempty"` // Tambahkan di sini
-	TotalPrice  float64             `json:"total_price"`
-	PlacedAt    time.Time           `json:"placed_at"`
+	ReceiptNo   *string             `json:"receiptdNo,omitempty"` // Tambahkan di sini
+	TotalPrice  float64             `json:"totalPrice"`
+	PlacedAt    time.Time           `json:"placedAt"`
 	Items       []OrderItemResponse `json:"items,omitempty"`
 }
 
 type OrderItemResponse struct {
-	ProductID    string  `json:"product_id"`
+	ProductID    string  `json:"productdId"`
 	NameSnapshot string  `json:"name"`
-	UnitPrice    float64 `json:"unit_price"`
+	UnitPrice    float64 `json:"unitPrice"`
 	Quantity     int32   `json:"quantity"`
-	Subtotal     float64 `json:"subtotal"` // unit_price * quantity
+	Subtotal     float64 `json:"subtotal"` // unitPrice * quantity
 }
 
 type OrderDetailResponse struct {
 	ID          string              `json:"id"`
-	OrderNumber string              `json:"order_number"`
-	UserID      string              `json:"user_id"`
+	OrderNumber string              `json:"orderdNumber"`
+	UserID      string              `json:"userdId"`
 	Status      string              `json:"status"`
-	TotalPrice  float64             `json:"total_price"`
+	TotalPrice  float64             `json:"totalPrice"`
 	Note        string              `json:"note"`
-	PlacedAt    time.Time           `json:"placed_at"`
-	CreatedAt   time.Time           `json:"created_at"`
-	UpdatedAt   time.Time           `json:"updated_at"`
+	PlacedAt    time.Time           `json:"placedAt"`
+	CreatedAt   time.Time           `json:"createdAt"`
+	UpdatedAt   time.Time           `json:"updatedAt"`
 	Items       []OrderItemResponse `json:"items"`
 }
 
@@ -90,10 +90,10 @@ type ListOrderAdminResponse struct {
 
 type OrderAdminResponse struct {
 	ID          string    `json:"id"`
-	OrderNumber string    `json:"order_number"`
-	UserID      string    `json:"user_id"`
-	UserEmail   string    `json:"user_email,omitempty"` // jika perlu join dengan user table
+	OrderNumber string    `json:"orderdNumber"`
+	UserID      string    `json:"userdId"`
+	UserEmail   string    `json:"userEmail,omitempty"` // jika perlu join dengan user table
 	Status      string    `json:"status"`
-	TotalPrice  float64   `json:"total_price"`
-	PlacedAt    time.Time `json:"placed_at"`
+	TotalPrice  float64   `json:"totalPrice"`
+	PlacedAt    time.Time `json:"placedAt"`
 }

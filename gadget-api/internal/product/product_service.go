@@ -7,6 +7,7 @@ import (
 	"gadget-api/internal/category"
 	"gadget-api/internal/dbgen"
 	"gadget-api/internal/pkg/constants"
+	producterrors "gadget-api/internal/product/errors"
 	"mime/multipart"
 	"strconv"
 	"strings"
@@ -102,9 +103,9 @@ func (s *service) GetBySlug(ctx context.Context, slug string) (ProductDetailResp
 	product, err := s.repo.GetBySlug(ctx, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ProductDetailResponse{}, ErrProductNotFound
+			return ProductDetailResponse{}, producterrors.ErrProductNotFound
 		}
-		return ProductDetailResponse{}, ErrProductFailed
+		return ProductDetailResponse{}, producterrors.ErrProductFailed
 	}
 
 	// 2. Get reviews (limit 5, newest first)
@@ -120,13 +121,13 @@ func (s *service) GetBySlug(ctx context.Context, slug string) (ProductDetailResp
 	}
 
 	// 4. Get total reviews count
-	totalReviews, err := s.reviewRepo.CountByProductID(ctx, product.ID)
+	ratingCount, err := s.reviewRepo.CountByProductID(ctx, product.ID)
 	if err != nil && err != sql.ErrNoRows {
-		totalReviews = 0
+		ratingCount = 0
 	}
 
 	// 5. Map to response
-	return s.mapToDetailResponse(product, reviews, avgRating, totalReviews), nil
+	return s.mapToDetailResponse(product, reviews, avgRating, ratingCount), nil
 }
 
 func (s *service) ListAdmin(
@@ -185,12 +186,12 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 	// 1. Validate category
 	catID, err := uuid.Parse(req.CategoryID)
 	if err != nil {
-		return ProductAdminResponse{}, ErrInvalidCategoryID
+		return ProductAdminResponse{}, producterrors.ErrInvalidCategoryID
 	}
 
 	_, err = s.categoryRepo.GetByID(ctx, catID)
 	if err != nil {
-		return ProductAdminResponse{}, ErrCategoryNotFound
+		return ProductAdminResponse{}, producterrors.ErrCategoryNotFound
 	}
 
 	// 2. Generate slug
@@ -200,7 +201,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 	// 3. Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return ProductAdminResponse{}, ErrProductFailed
+		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 	defer tx.Rollback()
 
@@ -217,7 +218,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 		ImageUrl:    sql.NullString{}, // Empty first
 	})
 	if err != nil {
-		return ProductAdminResponse{}, ErrProductFailed
+		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 
 	// 5. Upload image to Cloudinary (if provided)
@@ -246,7 +247,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 		if err != nil {
 			// Update failed, should delete uploaded image
 			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
-			return ProductAdminResponse{}, ErrProductFailed
+			return ProductAdminResponse{}, producterrors.ErrProductFailed
 		}
 	}
 
@@ -256,7 +257,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 		if imageURL != "" {
 			_ = s.cloudinaryRepo.DeleteImage(ctx, fmt.Sprintf("%s-%s", product.ID.String(), filename))
 		}
-		return ProductAdminResponse{}, ErrProductFailed
+		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 
 	// 8. Return created product
@@ -293,13 +294,13 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 	// 1. Validate product ID
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return ProductAdminResponse{}, ErrInvalidProductID
+		return ProductAdminResponse{}, producterrors.ErrInvalidProductID
 	}
 
 	// 2. Get existing product
 	existingProduct, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return ProductAdminResponse{}, ErrProductNotFound
+		return ProductAdminResponse{}, producterrors.ErrProductNotFound
 	}
 
 	// 3. Prepare update params
@@ -344,7 +345,7 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 	// 5. Start transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return ProductAdminResponse{}, ErrProductFailed
+		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 	defer tx.Rollback()
 
@@ -374,7 +375,7 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 		if newImageURL != "" {
 			_ = s.cloudinaryRepo.DeleteImage(ctx, fmt.Sprintf("%s-%s", id.String(), filename))
 		}
-		return ProductAdminResponse{}, ErrProductFailed
+		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 
 	// 8. Commit transaction
@@ -383,7 +384,7 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 		if newImageURL != "" {
 			_ = s.cloudinaryRepo.DeleteImage(ctx, fmt.Sprintf("%s-%s", id.String(), filename))
 		}
-		return ProductAdminResponse{}, ErrProductFailed
+		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 
 	// 9. Delete old image from Cloudinary (after successful update)
@@ -485,11 +486,12 @@ func (s *service) mapToDetailResponse(
 	product dbgen.GetProductBySlugRow,
 	reviews []dbgen.GetReviewsByProductIDRow,
 	avgRating float64,
-	totalReviews int64,
+	ratingCount int64,
 ) ProductDetailResponse {
 	price, _ := strconv.ParseFloat(product.Price, 64)
 
-	var reviewSummaries []ReviewSummary
+	reviewSummaries := make([]ReviewSummary, 0)
+
 	for _, r := range reviews {
 		reviewSummaries = append(reviewSummaries, ReviewSummary{
 			ID:        r.ID.String(),
@@ -512,7 +514,7 @@ func (s *service) mapToDetailResponse(
 		CategoryID:    product.CategoryID.String(),
 		Reviews:       reviewSummaries,
 		AverageRating: avgRating,
-		TotalReviews:  totalReviews,
+		RatingCount:   ratingCount,
 		CreatedAt:     product.CreatedAt,
 		UpdatedAt:     product.UpdatedAt,
 	}

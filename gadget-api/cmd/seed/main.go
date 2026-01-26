@@ -21,15 +21,22 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := seed.SeedUsers(db); err != nil {
+	// if err := seed.SeedUsers(db); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// if err := seed.SeedCustomers(db); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// if err := seed.SeedAll(db); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	if err := seed.SeedOrders(db); err != nil {
 		log.Fatal(err)
 	}
-
-	if err := seed.SeedCustomers(db); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := seed.SeedCategories(db); err != nil {
+	if err := seed.SeedReviews(db); err != nil {
 		log.Fatal(err)
 	}
 

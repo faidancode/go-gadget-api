@@ -67,6 +67,11 @@ ORDER BY
     p.created_at DESC
 LIMIT $1 OFFSET $2;
 
+-- name: ListProductsForInternal :many
+SELECT id, name, price
+FROM products
+WHERE deleted_at IS NULL
+  AND is_active = true;
 
 -- name: GetProductByID :one
 SELECT p.*, c.name as category_name 

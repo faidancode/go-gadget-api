@@ -69,6 +69,27 @@ func (q *Queries) GetCategoryByID(ctx context.Context, id uuid.UUID) (Category, 
 	return i, err
 }
 
+const getCategoryBySlug = `-- name: GetCategoryBySlug :one
+SELECT id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at FROM categories WHERE slug = $1 AND deleted_at IS NULL LIMIT 1
+`
+
+func (q *Queries) GetCategoryBySlug(ctx context.Context, slug string) (Category, error) {
+	row := q.queryRow(ctx, q.getCategoryBySlugStmt, getCategoryBySlug, slug)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.ImageUrl,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const listCategoriesAdmin = `-- name: ListCategoriesAdmin :many
 SELECT 
     id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at, 

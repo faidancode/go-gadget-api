@@ -35,6 +35,20 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
+// AddItem mocks base method.
+func (m *MockService) AddItem(ctx context.Context, userID string, req cart.AddItemRequest) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddItem", ctx, userID, req)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddItem indicates an expected call of AddItem.
+func (mr *MockServiceMockRecorder) AddItem(ctx, userID, req interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddItem", reflect.TypeOf((*MockService)(nil).AddItem), ctx, userID, req)
+}
+
 // Count mocks base method.
 func (m *MockService) Count(ctx context.Context, userID string) (int64, error) {
 	m.ctrl.T.Helper()
@@ -65,17 +79,17 @@ func (mr *MockServiceMockRecorder) Create(ctx, userID interface{}) *gomock.Call 
 }
 
 // Decrement mocks base method.
-func (m *MockService) Decrement(ctx context.Context, userID, productId string) error {
+func (m *MockService) Decrement(ctx context.Context, userID, productID string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decrement", ctx, userID, productId)
+	ret := m.ctrl.Call(m, "Decrement", ctx, userID, productID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Decrement indicates an expected call of Decrement.
-func (mr *MockServiceMockRecorder) Decrement(ctx, userID, productId interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) Decrement(ctx, userID, productID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrement", reflect.TypeOf((*MockService)(nil).Decrement), ctx, userID, productId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrement", reflect.TypeOf((*MockService)(nil).Decrement), ctx, userID, productID)
 }
 
 // Delete mocks base method.
@@ -93,17 +107,17 @@ func (mr *MockServiceMockRecorder) Delete(ctx, userID interface{}) *gomock.Call 
 }
 
 // DeleteItem mocks base method.
-func (m *MockService) DeleteItem(ctx context.Context, userID, productId string) error {
+func (m *MockService) DeleteItem(ctx context.Context, userID, productID string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteItem", ctx, userID, productId)
+	ret := m.ctrl.Call(m, "DeleteItem", ctx, userID, productID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteItem indicates an expected call of DeleteItem.
-func (mr *MockServiceMockRecorder) DeleteItem(ctx, userID, productId interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) DeleteItem(ctx, userID, productID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteItem", reflect.TypeOf((*MockService)(nil).DeleteItem), ctx, userID, productId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteItem", reflect.TypeOf((*MockService)(nil).DeleteItem), ctx, userID, productID)
 }
 
 // Detail mocks base method.
@@ -122,29 +136,29 @@ func (mr *MockServiceMockRecorder) Detail(ctx, userID interface{}) *gomock.Call 
 }
 
 // Increment mocks base method.
-func (m *MockService) Increment(ctx context.Context, userID, productId string) error {
+func (m *MockService) Increment(ctx context.Context, userID, productID string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Increment", ctx, userID, productId)
+	ret := m.ctrl.Call(m, "Increment", ctx, userID, productID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Increment indicates an expected call of Increment.
-func (mr *MockServiceMockRecorder) Increment(ctx, userID, productId interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) Increment(ctx, userID, productID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Increment", reflect.TypeOf((*MockService)(nil).Increment), ctx, userID, productId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Increment", reflect.TypeOf((*MockService)(nil).Increment), ctx, userID, productID)
 }
 
 // UpdateQty mocks base method.
-func (m *MockService) UpdateQty(ctx context.Context, userID, productId string, qty int32) error {
+func (m *MockService) UpdateQty(ctx context.Context, userID, productID string, req cart.UpdateQtyRequest) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateQty", ctx, userID, productId, qty)
+	ret := m.ctrl.Call(m, "UpdateQty", ctx, userID, productID, req)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateQty indicates an expected call of UpdateQty.
-func (mr *MockServiceMockRecorder) UpdateQty(ctx, userID, productId, qty interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) UpdateQty(ctx, userID, productID, req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateQty", reflect.TypeOf((*MockService)(nil).UpdateQty), ctx, userID, productId, qty)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateQty", reflect.TypeOf((*MockService)(nil).UpdateQty), ctx, userID, productID, req)
 }

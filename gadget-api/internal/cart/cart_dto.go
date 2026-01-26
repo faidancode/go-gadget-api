@@ -1,13 +1,13 @@
 package cart
 
 type AddItemRequest struct {
-	ProductID string `json:"book_id" binding:"required"`
-	Qty       int32  `json:"qty" binding:"required,min=1"`
-	Price     int32  `json:"price_cents" binding:"required"`
+	ProductID string `json:"productId" validate:"required"`
+	Qty       int32  `json:"qty" validate:"required,min=1"`
+	Price     int32  `json:"price" validate:"required"`
 }
 
 type UpdateQtyRequest struct {
-	Qty int32 `json:"qty" binding:"required,min=1"`
+	Qty int32 `json:"qty" validate:"required,min=1"`
 }
 
 type CartCountResponse struct {
@@ -16,10 +16,10 @@ type CartCountResponse struct {
 
 type CartItemDetailResponse struct {
 	ID        string `json:"id"`
-	ProductID string `json:"book_id"`
+	ProductID string `json:"productId"`
 	Qty       int32  `json:"qty"`
-	Price     int32  `json:"price_cents"`
-	CreatedAt string `json:"created_at"`
+	Price     int32  `json:"price"`
+	CreatedAt string `json:"createdAt"`
 }
 
 type CartDetailResponse struct {

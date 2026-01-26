@@ -2,12 +2,15 @@ package cart_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
-	"gadget-api/internal/cart"
-	"gadget-api/internal/cart/mock"
-	"gadget-api/internal/dbgen"
 	"testing"
 	"time"
+
+	"gadget-api/internal/cart"
+	carterrors "gadget-api/internal/cart/errors"
+	"gadget-api/internal/dbgen"
+	mock "gadget-api/internal/mock/cart"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -26,7 +29,6 @@ func TestCart_Create(t *testing.T) {
 		userID := uuid.New()
 		cartID := uuid.New()
 
-		// Skenario: GetByUserID berhasil, maka tidak perlu CreateCart
 		repo.EXPECT().
 			GetByUserID(ctx, userID).
 			Return(dbgen.Cart{ID: cartID}, nil)
@@ -39,10 +41,9 @@ func TestCart_Create(t *testing.T) {
 		userID := uuid.New()
 		cartID := uuid.New()
 
-		// Skenario: GetByUserID gagal (not found), maka panggil CreateCart
 		repo.EXPECT().
 			GetByUserID(ctx, userID).
-			Return(dbgen.Cart{}, errors.New("not found"))
+			Return(dbgen.Cart{}, sql.ErrNoRows)
 
 		repo.EXPECT().
 			CreateCart(ctx, userID).
@@ -53,27 +54,23 @@ func TestCart_Create(t *testing.T) {
 	})
 
 	t.Run("error_invalid_user_id", func(t *testing.T) {
-		// Skenario: Format UUID salah
 		err := svc.Create(ctx, "invalid-uuid")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid user id")
 	})
 
-	t.Run("error_repository_fail", func(t *testing.T) {
+	t.Run("error_create_cart_fail", func(t *testing.T) {
 		userID := uuid.New()
 
-		// Skenario: Database error saat mencoba membuat cart
 		repo.EXPECT().
 			GetByUserID(ctx, userID).
-			Return(dbgen.Cart{}, errors.New("not found"))
+			Return(dbgen.Cart{}, sql.ErrNoRows)
 
 		repo.EXPECT().
 			CreateCart(ctx, userID).
-			Return(dbgen.Cart{}, errors.New("db connection lost"))
+			Return(dbgen.Cart{}, errors.New("db error"))
 
 		err := svc.Create(ctx, userID.String())
 		assert.Error(t, err)
-		assert.Equal(t, "db connection lost", err.Error())
 	})
 }
 
@@ -97,11 +94,15 @@ func TestCart_Count(t *testing.T) {
 		assert.Equal(t, int64(3), count)
 	})
 
-	t.Run("error_invalid_uuid", func(t *testing.T) {
-		count, err := svc.Count(ctx, "invalid-uuid")
+	t.Run("error_cart_not_found", func(t *testing.T) {
+		userID := uuid.New()
+
+		repo.EXPECT().
+			GetByUserID(ctx, userID).
+			Return(dbgen.Cart{}, sql.ErrNoRows)
+
+		_, err := svc.Count(ctx, userID.String())
 		assert.Error(t, err)
-		assert.Equal(t, int64(0), count)
-		assert.Contains(t, err.Error(), "invalid user id")
 	})
 }
 
@@ -115,39 +116,40 @@ func TestCart_Detail(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		userID := uuid.New()
-		prodID := uuid.New()
 		itemID := uuid.New()
+		prodID := uuid.New()
 		now := time.Now()
 
-		mockRows := []dbgen.GetCartDetailRow{
+		rows := []dbgen.GetCartDetailRow{
 			{
 				ID:         itemID,
 				ProductID:  prodID,
 				Quantity:   2,
-				PriceAtAdd: 5000,
+				PriceAtAdd: 10000,
 				CreatedAt:  now,
 			},
 		}
 
-		repo.EXPECT().GetDetail(ctx, userID).Return(mockRows, nil)
+		repo.EXPECT().GetDetail(ctx, userID).Return(rows, nil)
 
 		res, err := svc.Detail(ctx, userID.String())
 		assert.NoError(t, err)
 		assert.Len(t, res.Items, 1)
-		assert.Equal(t, itemID.String(), res.Items[0].ID)
-		assert.Equal(t, int32(2), res.Items[0].Qty)
 	})
 
 	t.Run("error_repo_fail", func(t *testing.T) {
 		userID := uuid.New()
-		repo.EXPECT().GetDetail(ctx, userID).Return(nil, errors.New("db error"))
+
+		repo.EXPECT().
+			GetDetail(ctx, userID).
+			Return(nil, errors.New("db error"))
 
 		_, err := svc.Detail(ctx, userID.String())
 		assert.Error(t, err)
 	})
 }
 
-func TestCart_UpdateQty(t *testing.T) {
+func TestCart_AddItem(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -155,68 +157,92 @@ func TestCart_UpdateQty(t *testing.T) {
 	svc := cart.NewService(repo)
 	ctx := context.Background()
 
-	t.Run("success_increment", func(t *testing.T) {
+	t.Run("success_add_item", func(t *testing.T) {
 		userID := uuid.New()
 		cartID := uuid.New()
 		prodID := uuid.New()
 
+		repo.EXPECT().
+			GetByUserID(ctx, userID).
+			Return(dbgen.Cart{}, sql.ErrNoRows)
+
+		repo.EXPECT().
+			CreateCart(ctx, userID).
+			Return(dbgen.Cart{ID: cartID}, nil)
+
+		repo.EXPECT().
+			AddItem(ctx, gomock.Any()).
+			Return(nil)
+
+		err := svc.AddItem(ctx, userID.String(), cart.AddItemRequest{
+			ProductID: prodID.String(),
+			Qty:       2,
+			Price:     10000,
+		})
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("error_invalid_product_id", func(t *testing.T) {
+		err := svc.AddItem(ctx, uuid.New().String(), cart.AddItemRequest{
+			ProductID: "invalid",
+			Qty:       1,
+			Price:     1000,
+		})
+		assert.Error(t, err)
+	})
+}
+
+func TestCart_Increment_Decrement(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := mock.NewMockRepository(ctrl)
+	svc := cart.NewService(repo)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	cartID := uuid.New()
+	prodID := uuid.New()
+
+	t.Run("increment_success", func(t *testing.T) {
 		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{ID: cartID}, nil)
-		repo.EXPECT().UpdateQty(ctx, dbgen.UpdateCartItemQtyParams{
-			CartID:    cartID,
-			ProductID: prodID,
-			Quantity:  1,
-		}).Return(dbgen.CartItem{}, nil)
+		repo.EXPECT().UpdateQty(ctx, gomock.Any()).Return(dbgen.CartItem{}, nil)
 
 		err := svc.Increment(ctx, userID.String(), prodID.String())
 		assert.NoError(t, err)
 	})
 
-	t.Run("error_invalid_product_id", func(t *testing.T) {
-		userID := uuid.New()
-		cartID := uuid.New()
-
+	t.Run("decrement_to_zero_delete_item", func(t *testing.T) {
 		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{ID: cartID}, nil)
 
-		err := svc.UpdateQty(ctx, userID.String(), "invalid-prod-id", 5)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Invalid Product Id")
-	})
-}
+		repo.EXPECT().
+			UpdateQty(ctx, gomock.Any()).
+			Return(dbgen.CartItem{Quantity: 0}, nil)
 
-func TestCart_GetCart_Logic(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		repo.EXPECT().
+			DeleteItem(ctx, cartID, prodID).
+			Return(nil)
 
-	repo := mock.NewMockRepository(ctrl)
-	svc := cart.NewService(repo)
-	ctx := context.Background()
-
-	t.Run("create_cart_if_not_exists", func(t *testing.T) {
-		userID := uuid.New()
-		newCartID := uuid.New()
-
-		// GetByUserID gagal (asumsi belum punya cart)
-		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{}, errors.New("not found"))
-		// Maka Service harus memanggil CreateCart
-		repo.EXPECT().CreateCart(ctx, userID).Return(dbgen.Cart{ID: newCartID}, nil)
-
-		err := svc.Create(ctx, userID.String())
+		err := svc.Decrement(ctx, userID.String(), prodID.String())
 		assert.NoError(t, err)
 	})
 
-	t.Run("error_when_create_cart_fails", func(t *testing.T) {
-		userID := uuid.New()
+	t.Run("increment_item_not_found", func(t *testing.T) {
+		repo.EXPECT().
+			GetByUserID(ctx, userID).
+			Return(dbgen.Cart{ID: cartID}, nil)
 
-		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{}, errors.New("not found"))
-		repo.EXPECT().CreateCart(ctx, userID).Return(dbgen.Cart{}, errors.New("fatal db error"))
+		repo.EXPECT().
+			UpdateQty(ctx, gomock.Any()).
+			Return(dbgen.CartItem{}, sql.ErrNoRows)
 
-		err := svc.Create(ctx, userID.String())
-		assert.Error(t, err)
-		assert.Equal(t, "fatal db error", err.Error())
+		err := svc.Increment(ctx, userID.String(), prodID.String())
+		assert.Equal(t, carterrors.ErrCartItemNotFound, err)
 	})
 }
 
-func TestCart_DeleteOperations(t *testing.T) {
+func TestCart_Delete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

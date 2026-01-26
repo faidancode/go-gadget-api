@@ -12,6 +12,32 @@ import (
 	"github.com/google/uuid"
 )
 
+const addCartItem = `-- name: AddCartItem :exec
+INSERT INTO cart_items (cart_id, product_id, quantity, price_at_add)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (cart_id, product_id)
+DO UPDATE SET
+  quantity = cart_items.quantity + EXCLUDED.quantity,
+  updated_at = NOW()
+`
+
+type AddCartItemParams struct {
+	CartID     uuid.UUID `json:"cart_id"`
+	ProductID  uuid.UUID `json:"product_id"`
+	Quantity   int32     `json:"quantity"`
+	PriceAtAdd int32     `json:"price_at_add"`
+}
+
+func (q *Queries) AddCartItem(ctx context.Context, arg AddCartItemParams) error {
+	_, err := q.exec(ctx, q.addCartItemStmt, addCartItem,
+		arg.CartID,
+		arg.ProductID,
+		arg.Quantity,
+		arg.PriceAtAdd,
+	)
+	return err
+}
+
 const countCartItems = `-- name: CountCartItems :one
 SELECT COALESCE(SUM(quantity), 0)::bigint
 FROM cart_items
@@ -45,44 +71,9 @@ func (q *Queries) CreateCart(ctx context.Context, userID uuid.UUID) (Cart, error
 	return i, err
 }
 
-const createCartItem = `-- name: CreateCartItem :one
-INSERT INTO cart_items (cart_id, product_id, quantity, price_at_add)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (cart_id, product_id)
-DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
-RETURNING id, cart_id, product_id, quantity, price_at_add, created_at, updated_at, deleted_at
-`
-
-type CreateCartItemParams struct {
-	CartID     uuid.UUID `json:"cart_id"`
-	ProductID  uuid.UUID `json:"product_id"`
-	Quantity   int32     `json:"quantity"`
-	PriceAtAdd int32     `json:"price_at_add"`
-}
-
-func (q *Queries) CreateCartItem(ctx context.Context, arg CreateCartItemParams) (CartItem, error) {
-	row := q.queryRow(ctx, q.createCartItemStmt, createCartItem,
-		arg.CartID,
-		arg.ProductID,
-		arg.Quantity,
-		arg.PriceAtAdd,
-	)
-	var i CartItem
-	err := row.Scan(
-		&i.ID,
-		&i.CartID,
-		&i.ProductID,
-		&i.Quantity,
-		&i.PriceAtAdd,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
 const deleteCart = `-- name: DeleteCart :exec
-DELETE FROM carts WHERE id = $1
+DELETE FROM carts
+WHERE id = $1
 `
 
 func (q *Queries) DeleteCart(ctx context.Context, id uuid.UUID) error {
@@ -91,7 +82,8 @@ func (q *Queries) DeleteCart(ctx context.Context, id uuid.UUID) error {
 }
 
 const deleteCartItem = `-- name: DeleteCartItem :exec
-DELETE FROM cart_items WHERE cart_id = $1 AND product_id = $2
+DELETE FROM cart_items
+WHERE cart_id = $1 AND product_id = $2
 `
 
 type DeleteCartItemParams struct {
@@ -105,7 +97,10 @@ func (q *Queries) DeleteCartItem(ctx context.Context, arg DeleteCartItemParams) 
 }
 
 const getCartByUserID = `-- name: GetCartByUserID :one
-SELECT id, user_id, created_at, updated_at, deleted_at FROM carts WHERE user_id = $1 LIMIT 1
+SELECT id, user_id, created_at, updated_at, deleted_at
+FROM carts
+WHERE user_id = $1
+LIMIT 1
 `
 
 func (q *Queries) GetCartByUserID(ctx context.Context, userID uuid.UUID) (Cart, error) {
@@ -123,11 +118,11 @@ func (q *Queries) GetCartByUserID(ctx context.Context, userID uuid.UUID) (Cart, 
 
 const getCartDetail = `-- name: GetCartDetail :many
 SELECT
-    ci.id,
-    ci.product_id,
-    ci.quantity,
-    ci.price_at_add,
-    ci.created_at
+  ci.id,
+  ci.product_id,
+  ci.quantity,
+  ci.price_at_add,
+  ci.created_at
 FROM carts c
 JOIN cart_items ci ON ci.cart_id = c.id
 WHERE c.user_id = $1

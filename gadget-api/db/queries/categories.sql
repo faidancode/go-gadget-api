@@ -41,6 +41,9 @@ LIMIT $1 OFFSET $2;
 -- name: GetCategoryByID :one
 SELECT * FROM categories WHERE id = $1 AND deleted_at IS NULL LIMIT 1;
 
+-- name: GetCategoryBySlug :one
+SELECT * FROM categories WHERE slug = $1 AND deleted_at IS NULL LIMIT 1;
+
 -- name: CreateCategory :one
 INSERT INTO categories (name, slug, description, image_url)
 VALUES ($1, $2, $3, $4)

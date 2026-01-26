@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"gadget-api/internal/product"
+	producterrors "gadget-api/internal/product/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -273,7 +274,7 @@ func TestGetProductByID(t *testing.T) {
 	t.Run("not_found", func(t *testing.T) {
 		svc := &fakeProductService{
 			GetByIDFn: func(ctx context.Context, pid string) (product.ProductAdminResponse, error) {
-				return product.ProductAdminResponse{}, product.ErrProductNotFound
+				return product.ProductAdminResponse{}, producterrors.ErrProductNotFound
 			},
 		}
 
@@ -316,7 +317,7 @@ func TestGetProductBySlug(t *testing.T) {
 	t.Run("not_found", func(t *testing.T) {
 		svc := &fakeProductService{
 			GetBySlugFn: func(ctx context.Context, slug string) (product.ProductDetailResponse, error) {
-				return product.ProductDetailResponse{}, product.ErrProductNotFound
+				return product.ProductDetailResponse{}, producterrors.ErrProductNotFound
 			},
 		}
 
@@ -361,7 +362,7 @@ func TestDeleteProduct(t *testing.T) {
 	t.Run("not_found", func(t *testing.T) {
 		svc := &fakeProductService{
 			DeleteFn: func(ctx context.Context, pid string) error {
-				return product.ErrProductNotFound
+				return producterrors.ErrProductNotFound
 			},
 		}
 
