@@ -10,6 +10,14 @@ FROM carts
 WHERE user_id = $1
 LIMIT 1;
 
+-- name: GetCartItemByCartAndProduct :one
+SELECT *
+FROM cart_items
+WHERE cart_id = $1
+  AND product_id = $2
+LIMIT 1;
+
+
 -- name: CountCartItems :one
 SELECT COALESCE(SUM(quantity), 0)::bigint
 FROM cart_items
@@ -48,3 +56,21 @@ FROM carts c
 JOIN cart_items ci ON ci.cart_id = c.id
 WHERE c.user_id = $1
 ORDER BY ci.created_at DESC;
+
+-- name: DeleteAllCartItems :exec
+DELETE FROM cart_items
+WHERE cart_id = $1;
+
+-- name: IncrementCartItemQty :one
+UPDATE cart_items
+SET quantity = quantity + 1,
+    updated_at = NOW()
+WHERE cart_id = $1 AND product_id = $2
+RETURNING *;
+
+-- name: DecrementCartItemQty :one
+UPDATE cart_items
+SET quantity = quantity - 1,
+    updated_at = NOW()
+WHERE cart_id = $1 AND product_id = $2
+RETURNING *;

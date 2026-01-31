@@ -1,21 +1,35 @@
-
 -- name: ListProductsPublic :many
-SELECT p.*, c.name as category_name, count(*) OVER() AS total_count
+SELECT 
+  p.*, 
+  c.name AS category_name,
+  count(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
-WHERE p.deleted_at IS NULL 
+WHERE 
+  p.deleted_at IS NULL
   AND p.is_active = true
-  -- Gunakan sintaks ini agar sqlc membuat field CategoryID (NullUUID)
-  AND (sqlc.narg('category_id')::uuid IS NULL OR p.category_id = sqlc.narg('category_id')::uuid)
-  AND (sqlc.narg('search')::text IS NULL OR p.name ILIKE '%' || sqlc.narg('search')::text || '%')
-  AND (p.price >= sqlc.arg('min_price')::decimal)
-  AND (p.price <= sqlc.arg('max_price')::decimal)
+  
+  -- Perbaikan filter kategori
+  AND (
+    COALESCE(cardinality(sqlc.narg('category_ids')::uuid[]), 0) = 0
+    OR p.category_id = ANY(sqlc.narg('category_ids')::uuid[])
+  )
+
+  AND (
+    sqlc.narg('search')::text IS NULL
+    OR p.name ILIKE '%' || sqlc.narg('search')::text || '%'
+  )
+
+  -- Pastikan casting aman
+  AND p.price >= sqlc.arg('min_price')::numeric
+  AND p.price <= sqlc.arg('max_price')::numeric
+
 ORDER BY 
-    CASE WHEN sqlc.arg('sort_by')::text = 'newest' THEN p.created_at END DESC,
-    CASE WHEN sqlc.arg('sort_by')::text = 'oldest' THEN p.created_at END ASC,
-    CASE WHEN sqlc.arg('sort_by')::text = 'price_high' THEN p.price END DESC,
-    CASE WHEN sqlc.arg('sort_by')::text = 'price_low' THEN p.price END ASC,
-    p.created_at DESC
+  CASE WHEN LOWER(sqlc.arg('sort_by')::text) = 'newest' THEN p.created_at END DESC,
+  CASE WHEN LOWER(sqlc.arg('sort_by')::text) = 'oldest' THEN p.created_at END ASC,
+  CASE WHEN LOWER(sqlc.arg('sort_by')::text) = 'price_high' THEN p.price END DESC,
+  CASE WHEN LOWER(sqlc.arg('sort_by')::text) = 'price_low' THEN p.price END ASC,
+  p.created_at DESC
 LIMIT $1 OFFSET $2;
 
 -- name: ListProductsAdmin :many
@@ -78,6 +92,13 @@ SELECT p.*, c.name as category_name
 FROM products p
 JOIN categories c ON p.category_id = c.id
 WHERE p.id = $1 AND p.deleted_at IS NULL LIMIT 1;
+
+-- name: GetIDsBySlugs :many
+SELECT id
+FROM categories
+WHERE slug = ANY($1::text[])
+AND deleted_at IS NULL;
+
 
 -- name: GetProductBySlug :one
 SELECT p.*, c.name as category_name 

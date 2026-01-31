@@ -71,6 +71,45 @@ func (q *Queries) CreateCart(ctx context.Context, userID uuid.UUID) (Cart, error
 	return i, err
 }
 
+const decrementCartItemQty = `-- name: DecrementCartItemQty :one
+UPDATE cart_items
+SET quantity = quantity - 1,
+    updated_at = NOW()
+WHERE cart_id = $1 AND product_id = $2
+RETURNING id, cart_id, product_id, quantity, price_at_add, created_at, updated_at, deleted_at
+`
+
+type DecrementCartItemQtyParams struct {
+	CartID    uuid.UUID `json:"cart_id"`
+	ProductID uuid.UUID `json:"product_id"`
+}
+
+func (q *Queries) DecrementCartItemQty(ctx context.Context, arg DecrementCartItemQtyParams) (CartItem, error) {
+	row := q.queryRow(ctx, q.decrementCartItemQtyStmt, decrementCartItemQty, arg.CartID, arg.ProductID)
+	var i CartItem
+	err := row.Scan(
+		&i.ID,
+		&i.CartID,
+		&i.ProductID,
+		&i.Quantity,
+		&i.PriceAtAdd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const deleteAllCartItems = `-- name: DeleteAllCartItems :exec
+DELETE FROM cart_items
+WHERE cart_id = $1
+`
+
+func (q *Queries) DeleteAllCartItems(ctx context.Context, cartID uuid.UUID) error {
+	_, err := q.exec(ctx, q.deleteAllCartItemsStmt, deleteAllCartItems, cartID)
+	return err
+}
+
 const deleteCart = `-- name: DeleteCart :exec
 DELETE FROM carts
 WHERE id = $1
@@ -164,6 +203,64 @@ func (q *Queries) GetCartDetail(ctx context.Context, userID uuid.UUID) ([]GetCar
 		return nil, err
 	}
 	return items, nil
+}
+
+const getCartItemByCartAndProduct = `-- name: GetCartItemByCartAndProduct :one
+SELECT id, cart_id, product_id, quantity, price_at_add, created_at, updated_at, deleted_at
+FROM cart_items
+WHERE cart_id = $1
+  AND product_id = $2
+LIMIT 1
+`
+
+type GetCartItemByCartAndProductParams struct {
+	CartID    uuid.UUID `json:"cart_id"`
+	ProductID uuid.UUID `json:"product_id"`
+}
+
+func (q *Queries) GetCartItemByCartAndProduct(ctx context.Context, arg GetCartItemByCartAndProductParams) (CartItem, error) {
+	row := q.queryRow(ctx, q.getCartItemByCartAndProductStmt, getCartItemByCartAndProduct, arg.CartID, arg.ProductID)
+	var i CartItem
+	err := row.Scan(
+		&i.ID,
+		&i.CartID,
+		&i.ProductID,
+		&i.Quantity,
+		&i.PriceAtAdd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const incrementCartItemQty = `-- name: IncrementCartItemQty :one
+UPDATE cart_items
+SET quantity = quantity + 1,
+    updated_at = NOW()
+WHERE cart_id = $1 AND product_id = $2
+RETURNING id, cart_id, product_id, quantity, price_at_add, created_at, updated_at, deleted_at
+`
+
+type IncrementCartItemQtyParams struct {
+	CartID    uuid.UUID `json:"cart_id"`
+	ProductID uuid.UUID `json:"product_id"`
+}
+
+func (q *Queries) IncrementCartItemQty(ctx context.Context, arg IncrementCartItemQtyParams) (CartItem, error) {
+	row := q.queryRow(ctx, q.incrementCartItemQtyStmt, incrementCartItemQty, arg.CartID, arg.ProductID)
+	var i CartItem
+	err := row.Scan(
+		&i.ID,
+		&i.CartID,
+		&i.ProductID,
+		&i.Quantity,
+		&i.PriceAtAdd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }
 
 const updateCartItemQty = `-- name: UpdateCartItemQty :one

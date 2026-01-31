@@ -81,6 +81,21 @@ func (mr *MockRepositoryMockRecorder) GetByID(ctx, id interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
 }
 
+// GetIDsBySlugs mocks base method.
+func (m *MockRepository) GetIDsBySlugs(ctx context.Context, slugs []string) ([]uuid.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIDsBySlugs", ctx, slugs)
+	ret0, _ := ret[0].([]uuid.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetIDsBySlugs indicates an expected call of GetIDsBySlugs.
+func (mr *MockRepositoryMockRecorder) GetIDsBySlugs(ctx, slugs interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIDsBySlugs", reflect.TypeOf((*MockRepository)(nil).GetIDsBySlugs), ctx, slugs)
+}
+
 // ListAdmin mocks base method.
 func (m *MockRepository) ListAdmin(ctx context.Context, arg dbgen.ListCategoriesAdminParams) ([]dbgen.ListCategoriesAdminRow, error) {
 	m.ctrl.T.Helper()

@@ -332,3 +332,16 @@ func (s *service) mapAdminRowsToResponse(rows []dbgen.ListCategoriesAdminRow) []
 	}
 	return res
 }
+
+func (s *service) MapSlugsToCategoryIDs(ctx context.Context, slugs []string) ([]uuid.UUID, error) {
+	ids, err := s.repo.GetIDsBySlugs(ctx, slugs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ids) != len(slugs) {
+		return nil, fmt.Errorf("beberapa kategori tidak ditemukan")
+	}
+
+	return ids, nil
+}

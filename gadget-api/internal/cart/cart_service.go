@@ -33,10 +33,12 @@ type Service interface {
 type service struct {
 	repo     Repository
 	validate *validator.Validate
+	db       *sql.DB
 }
 
-func NewService(r Repository) Service {
+func NewService(db *sql.DB, r Repository) Service {
 	return &service{
+		db:       db,
 		repo:     r,
 		validate: validator.New(),
 	}
@@ -86,10 +88,6 @@ func (s *service) getOrCreateCart(ctx context.Context, uid uuid.UUID) (uuid.UUID
 	return cart.ID, nil
 }
 
-// ========================
-// service methods
-// ========================
-
 func (s *service) Create(ctx context.Context, userID string) error {
 	uid, err := s.parseUserID(userID)
 	if err != nil {
@@ -97,6 +95,63 @@ func (s *service) Create(ctx context.Context, userID string) error {
 	}
 	_, err = s.getOrCreateCart(ctx, uid)
 	return err
+}
+
+func (s *service) AddItem(ctx context.Context, userID string, req AddItemRequest) error {
+	// validate input
+	if err := s.validate.Struct(req); err != nil {
+		return carterrors.MapValidationError(err)
+	}
+
+	uid, err := s.parseUserID(userID)
+	if err != nil {
+		return err
+	}
+
+	pid, err := s.parseProductID(req.ProductID)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	repo := s.repo.WithTx(tx)
+
+	// get or create cart (LOCKED inside tx)
+	cartID, err := func() (uuid.UUID, error) {
+		cart, err := repo.GetByUserID(ctx, uid)
+		if err == nil {
+			return cart.ID, nil
+		}
+		if err != sql.ErrNoRows {
+			return uuid.Nil, err
+		}
+
+		cart, err = repo.CreateCart(ctx, uid)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		return cart.ID, nil
+	}()
+	if err != nil {
+		return err
+	}
+
+	// insert new item
+	if err := repo.AddItem(ctx, dbgen.AddCartItemParams{
+		CartID:     cartID,
+		ProductID:  pid,
+		Quantity:   req.Qty,
+		PriceAtAdd: req.Price,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (s *service) Count(ctx context.Context, userID string) (int64, error) {
@@ -138,34 +193,6 @@ func (s *service) Detail(ctx context.Context, userID string) (CartDetailResponse
 	return CartDetailResponse{Items: items}, nil
 }
 
-func (s *service) AddItem(ctx context.Context, userID string, req AddItemRequest) error {
-	if err := s.validate.Struct(req); err != nil {
-		return carterrors.MapValidationError(err)
-	}
-
-	uid, err := s.parseUserID(userID)
-	if err != nil {
-		return err
-	}
-
-	pid, err := s.parseProductID(req.ProductID)
-	if err != nil {
-		return err
-	}
-
-	cartID, err := s.getOrCreateCart(ctx, uid)
-	if err != nil {
-		return err
-	}
-
-	return s.repo.AddItem(ctx, dbgen.AddCartItemParams{
-		CartID:     cartID,
-		ProductID:  pid,
-		Quantity:   req.Qty,
-		PriceAtAdd: req.Price,
-	})
-}
-
 func (s *service) UpdateQty(ctx context.Context, userID, productID string, req UpdateQtyRequest) error {
 	if err := s.validate.Struct(req); err != nil {
 		return carterrors.MapValidationError(err)
@@ -185,22 +212,32 @@ func (s *service) UpdateQty(ctx context.Context, userID, productID string, req U
 		return err
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	repo := s.repo.WithTx(tx)
+
 	cartID, err := s.getCartOnly(ctx, uid)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.repo.UpdateQty(ctx, dbgen.UpdateCartItemQtyParams{
+	_, err = repo.UpdateQty(ctx, dbgen.UpdateCartItemQtyParams{
 		CartID:    cartID,
 		ProductID: pid,
 		Quantity:  req.Qty,
 	})
-
 	if err == sql.ErrNoRows {
 		return carterrors.ErrCartItemNotFound
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	return tx.Commit()
 }
 
 func (s *service) Increment(ctx context.Context, userID, productID string) error {
@@ -220,11 +257,7 @@ func (s *service) Increment(ctx context.Context, userID, productID string) error
 	}
 
 	// komentar: increment = qty + 1 via UpdateQty
-	_, err = s.repo.UpdateQty(ctx, dbgen.UpdateCartItemQtyParams{
-		CartID:    cartID,
-		ProductID: pid,
-		Quantity:  1,
-	})
+	_, err = s.repo.IncrementQty(ctx, cartID, pid)
 
 	if err == sql.ErrNoRows {
 		return carterrors.ErrCartItemNotFound
@@ -249,13 +282,7 @@ func (s *service) Decrement(ctx context.Context, userID, productID string) error
 		return err
 	}
 
-	// komentar:
-	// decrement TIDAK boleh bikin qty <= 0
-	item, err := s.repo.UpdateQty(ctx, dbgen.UpdateCartItemQtyParams{
-		CartID:    cartID,
-		ProductID: pid,
-		Quantity:  -1,
-	})
+	item, err := s.repo.DecrementQty(ctx, cartID, pid)
 
 	if err == sql.ErrNoRows {
 		return carterrors.ErrCartItemNotFound
@@ -293,10 +320,26 @@ func (s *service) Delete(ctx context.Context, userID string) error {
 		return err
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	repo := s.repo.WithTx(tx)
+
 	cartID, err := s.getCartOnly(ctx, uid)
 	if err != nil {
 		return err
 	}
 
-	return s.repo.Delete(ctx, cartID)
+	if err := repo.DeleteAllItem(ctx, cartID); err != nil {
+		return err
+	}
+
+	if err := repo.Delete(ctx, cartID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

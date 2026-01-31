@@ -18,6 +18,7 @@ type Repository interface {
 	Update(ctx context.Context, arg dbgen.UpdateCategoryParams) (dbgen.Category, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Restore(ctx context.Context, id uuid.UUID) (dbgen.Category, error)
+	GetIDsBySlugs(ctx context.Context, slugs []string) ([]uuid.UUID, error)
 }
 
 type repository struct {
@@ -42,6 +43,12 @@ func (r *repository) ListAdmin(ctx context.Context, arg dbgen.ListCategoriesAdmi
 
 func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.Category, error) {
 	return r.queries.GetCategoryByID(ctx, id)
+}
+func (r *repository) GetIDsBySlugs(ctx context.Context, slugs []string) ([]uuid.UUID, error) {
+	if len(slugs) == 0 {
+		return []uuid.UUID{}, nil // return empty slice langsung supaya aman
+	}
+	return r.queries.GetIDsBySlugs(ctx, slugs)
 }
 
 func (r *repository) Update(ctx context.Context, arg dbgen.UpdateCategoryParams) (dbgen.Category, error) {

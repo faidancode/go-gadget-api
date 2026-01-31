@@ -126,16 +126,18 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		// ========================
 		// CART (AUTH REQUIRED)
 		// ========================
-		cart := v1.Group("/cart/:userId")
-		cart.Use(middleware.AuthMiddleware())
+		carts := v1.Group("/carts")
+		carts.Use(middleware.AuthMiddleware())
+		carts.Use(middleware.ExtractUserID())
 		{
-			cart.POST("", reg.Cart.Create)
-			cart.GET("", reg.Cart.Detail)
-			cart.GET("/count", reg.Cart.Count)
-			cart.DELETE("", reg.Cart.Delete)
+			carts.POST("", reg.Cart.Create)
+			carts.GET("/detail", reg.Cart.Detail)
+			carts.GET("/count", reg.Cart.Count)
+			carts.DELETE("", reg.Cart.Delete)
 
-			items := cart.Group("/items/:productId")
+			items := carts.Group("/items/:productId")
 			{
+				items.POST("", reg.Cart.AddItem)
 				items.PATCH("", reg.Cart.UpdateQty)
 				items.POST("/increment", reg.Cart.Increment)
 				items.POST("/decrement", reg.Cart.Decrement)
@@ -156,13 +158,13 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 			orders.PATCH("/:id/cancel", reg.Order.Cancel)
 			orders.PATCH("/:id/status", reg.Order.UpdateStatusByCustomer)
 
-			// Admin Routes (Management)
-			adminOrders := orders.Group("/admin")
-			adminOrders.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
-			{
-				adminOrders.GET("", reg.Order.ListAdmin)
-				adminOrders.PATCH("/:id/status", reg.Order.UpdateStatusByAdmin)
-			}
+		}
+		// Admin Routes (Management)
+		adminOrders := v1.Group("/admin/orders")
+		adminOrders.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
+		{
+			adminOrders.GET("", reg.Order.ListAdmin)
+			adminOrders.PATCH("/:id/status", reg.Order.UpdateStatusByAdmin)
 		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createProduct = `-- name: CreateProduct :one
@@ -58,6 +59,36 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.DeletedAt,
 	)
 	return i, err
+}
+
+const getIDsBySlugs = `-- name: GetIDsBySlugs :many
+SELECT id
+FROM categories
+WHERE slug = ANY($1::text[])
+AND deleted_at IS NULL
+`
+
+func (q *Queries) GetIDsBySlugs(ctx context.Context, dollar_1 []string) ([]uuid.UUID, error) {
+	rows, err := q.query(ctx, q.getIDsBySlugsStmt, getIDsBySlugs, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getProductByID = `-- name: GetProductByID :one
@@ -312,33 +343,48 @@ func (q *Queries) ListProductsForInternal(ctx context.Context) ([]ListProductsFo
 }
 
 const listProductsPublic = `-- name: ListProductsPublic :many
-SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, c.name as category_name, count(*) OVER() AS total_count
+SELECT 
+  p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, 
+  c.name AS category_name,
+  count(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
-WHERE p.deleted_at IS NULL 
+WHERE 
+  p.deleted_at IS NULL
   AND p.is_active = true
-  -- Gunakan sintaks ini agar sqlc membuat field CategoryID (NullUUID)
-  AND ($3::uuid IS NULL OR p.category_id = $3::uuid)
-  AND ($4::text IS NULL OR p.name ILIKE '%' || $4::text || '%')
-  AND (p.price >= $5::decimal)
-  AND (p.price <= $6::decimal)
+  
+  -- Perbaikan filter kategori
+  AND (
+    COALESCE(cardinality($3::uuid[]), 0) = 0
+    OR p.category_id = ANY($3::uuid[])
+  )
+
+  AND (
+    $4::text IS NULL
+    OR p.name ILIKE '%' || $4::text || '%'
+  )
+
+  -- Pastikan casting aman
+  AND p.price >= $5::numeric
+  AND p.price <= $6::numeric
+
 ORDER BY 
-    CASE WHEN $7::text = 'newest' THEN p.created_at END DESC,
-    CASE WHEN $7::text = 'oldest' THEN p.created_at END ASC,
-    CASE WHEN $7::text = 'price_high' THEN p.price END DESC,
-    CASE WHEN $7::text = 'price_low' THEN p.price END ASC,
-    p.created_at DESC
+  CASE WHEN LOWER($7::text) = 'newest' THEN p.created_at END DESC,
+  CASE WHEN LOWER($7::text) = 'oldest' THEN p.created_at END ASC,
+  CASE WHEN LOWER($7::text) = 'price_high' THEN p.price END DESC,
+  CASE WHEN LOWER($7::text) = 'price_low' THEN p.price END ASC,
+  p.created_at DESC
 LIMIT $1 OFFSET $2
 `
 
 type ListProductsPublicParams struct {
-	Limit      int32          `json:"limit"`
-	Offset     int32          `json:"offset"`
-	CategoryID uuid.NullUUID  `json:"category_id"`
-	Search     sql.NullString `json:"search"`
-	MinPrice   string         `json:"min_price"`
-	MaxPrice   string         `json:"max_price"`
-	SortBy     string         `json:"sort_by"`
+	Limit       int32          `json:"limit"`
+	Offset      int32          `json:"offset"`
+	CategoryIds []uuid.UUID    `json:"category_ids"`
+	Search      sql.NullString `json:"search"`
+	MinPrice    string         `json:"min_price"`
+	MaxPrice    string         `json:"max_price"`
+	SortBy      string         `json:"sort_by"`
 }
 
 type ListProductsPublicRow struct {
@@ -363,7 +409,7 @@ func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublic
 	rows, err := q.query(ctx, q.listProductsPublicStmt, listProductsPublic,
 		arg.Limit,
 		arg.Offset,
-		arg.CategoryID,
+		pq.Array(arg.CategoryIds),
 		arg.Search,
 		arg.MinPrice,
 		arg.MaxPrice,

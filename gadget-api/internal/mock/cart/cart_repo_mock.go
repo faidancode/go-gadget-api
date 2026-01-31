@@ -6,6 +6,7 @@ package mock
 
 import (
 	context "context"
+	cart "gadget-api/internal/cart"
 	dbgen "gadget-api/internal/dbgen"
 	reflect "reflect"
 
@@ -80,6 +81,21 @@ func (mr *MockRepositoryMockRecorder) CreateCart(ctx, userID interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCart", reflect.TypeOf((*MockRepository)(nil).CreateCart), ctx, userID)
 }
 
+// DecrementQty mocks base method.
+func (m *MockRepository) DecrementQty(ctx context.Context, cartID, productID uuid.UUID) (dbgen.CartItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DecrementQty", ctx, cartID, productID)
+	ret0, _ := ret[0].(dbgen.CartItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DecrementQty indicates an expected call of DecrementQty.
+func (mr *MockRepositoryMockRecorder) DecrementQty(ctx, cartID, productID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecrementQty", reflect.TypeOf((*MockRepository)(nil).DecrementQty), ctx, cartID, productID)
+}
+
 // Delete mocks base method.
 func (m *MockRepository) Delete(ctx context.Context, cartID uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -92,6 +108,20 @@ func (m *MockRepository) Delete(ctx context.Context, cartID uuid.UUID) error {
 func (mr *MockRepositoryMockRecorder) Delete(ctx, cartID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRepository)(nil).Delete), ctx, cartID)
+}
+
+// DeleteAllItem mocks base method.
+func (m *MockRepository) DeleteAllItem(ctx context.Context, cartID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAllItem", ctx, cartID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAllItem indicates an expected call of DeleteAllItem.
+func (mr *MockRepositoryMockRecorder) DeleteAllItem(ctx, cartID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAllItem", reflect.TypeOf((*MockRepository)(nil).DeleteAllItem), ctx, cartID)
 }
 
 // DeleteItem mocks base method.
@@ -138,6 +168,36 @@ func (mr *MockRepositoryMockRecorder) GetDetail(ctx, userID interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDetail", reflect.TypeOf((*MockRepository)(nil).GetDetail), ctx, userID)
 }
 
+// GetItemByCartAndProduct mocks base method.
+func (m *MockRepository) GetItemByCartAndProduct(ctx context.Context, cartID, productID uuid.UUID) (dbgen.CartItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetItemByCartAndProduct", ctx, cartID, productID)
+	ret0, _ := ret[0].(dbgen.CartItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetItemByCartAndProduct indicates an expected call of GetItemByCartAndProduct.
+func (mr *MockRepositoryMockRecorder) GetItemByCartAndProduct(ctx, cartID, productID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetItemByCartAndProduct", reflect.TypeOf((*MockRepository)(nil).GetItemByCartAndProduct), ctx, cartID, productID)
+}
+
+// IncrementQty mocks base method.
+func (m *MockRepository) IncrementQty(ctx context.Context, cartID, productID uuid.UUID) (dbgen.CartItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IncrementQty", ctx, cartID, productID)
+	ret0, _ := ret[0].(dbgen.CartItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IncrementQty indicates an expected call of IncrementQty.
+func (mr *MockRepositoryMockRecorder) IncrementQty(ctx, cartID, productID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementQty", reflect.TypeOf((*MockRepository)(nil).IncrementQty), ctx, cartID, productID)
+}
+
 // UpdateQty mocks base method.
 func (m *MockRepository) UpdateQty(ctx context.Context, arg dbgen.UpdateCartItemQtyParams) (dbgen.CartItem, error) {
 	m.ctrl.T.Helper()
@@ -151,4 +211,18 @@ func (m *MockRepository) UpdateQty(ctx context.Context, arg dbgen.UpdateCartItem
 func (mr *MockRepositoryMockRecorder) UpdateQty(ctx, arg interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateQty", reflect.TypeOf((*MockRepository)(nil).UpdateQty), ctx, arg)
+}
+
+// WithTx mocks base method.
+func (m *MockRepository) WithTx(tx dbgen.DBTX) cart.Repository {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithTx", tx)
+	ret0, _ := ret[0].(cart.Repository)
+	return ret0
+}
+
+// WithTx indicates an expected call of WithTx.
+func (mr *MockRepositoryMockRecorder) WithTx(tx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTx", reflect.TypeOf((*MockRepository)(nil).WithTx), tx)
 }

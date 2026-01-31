@@ -9,6 +9,7 @@ import (
 	"gadget-api/internal/auth"
 	"gadget-api/internal/bootstrap"
 	"gadget-api/internal/brand"
+	"gadget-api/internal/cart"
 	"gadget-api/internal/category"
 	"gadget-api/internal/cloudinary"
 	"gadget-api/internal/dbgen"
@@ -69,12 +70,18 @@ func main() {
 		product.NewService(db, productRepo, categoryRepo, review.NewRepository(queries), cloudinaryService),
 	)
 
+	cartRepo := cart.NewRepository(queries)
+	cartController := cart.NewController(
+		cart.NewService(db, cartRepo),
+	)
+
 	registry := ControllerRegistry{
 		Auth:     authController,
 		Brand:    brandController,
 		Category: categoryController,
 		Product:  productController,
 		Review:   reviewController,
+		Cart:     cartController,
 	}
 
 	// Router

@@ -12,26 +12,26 @@ type PaginationMeta struct {
 }
 
 type ApiEnvelope struct {
-	Success bool                   `json:"success"`
-	Data    interface{}            `json:"data"`
-	Meta    *PaginationMeta        `json:"meta"`
-	Error   map[string]interface{} `json:"error"`
+	Ok    bool                   `json:"ok"`
+	Data  interface{}            `json:"data"`
+	Meta  *PaginationMeta        `json:"meta"`
+	Error map[string]interface{} `json:"error"`
 }
 
 func Success(c *gin.Context, status int, data interface{}, meta *PaginationMeta) {
 	c.JSON(status, ApiEnvelope{
-		Success: true,
-		Data:    data,
-		Meta:    meta,
-		Error:   nil,
+		Ok:    true,
+		Data:  data,
+		Meta:  meta,
+		Error: nil,
 	})
 }
 
 func Error(c *gin.Context, status int, errorCode string, message string, details interface{}) {
 	c.JSON(status, ApiEnvelope{
-		Success: false,
-		Data:    nil,
-		Meta:    nil,
+		Ok:   false,
+		Data: nil,
+		Meta: nil,
 		Error: map[string]interface{}{
 			"code":    errorCode,
 			"message": message,

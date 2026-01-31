@@ -6,7 +6,7 @@ import "time"
 
 type CheckoutRequest struct {
 	UserID    string `json:"-"`
-	AddressID string `json:"addressdId" binding:"required"`
+	AddressID string `json:"addressId" binding:"required"`
 	Note      string `json:"note"`
 }
 
@@ -30,14 +30,14 @@ type UpdateStatusRequest struct {
 
 type UpdateStatusAdminRequest struct {
 	Status    string  `json:"status" binding:"required"`
-	ReceiptNo *string `json:"receiptdNo"`
+	ReceiptNo *string `json:"receiptNo"`
 }
 
 // ==================== RESPONSE STRUCTS ====================
 
 type CheckoutResponse struct {
 	ID          string    `json:"id"`
-	OrderNumber string    `json:"orderdNumber"`
+	OrderNumber string    `json:"orderNumber"`
 	Status      string    `json:"status"`
 	TotalPrice  float64   `json:"totalPrice"`
 	PlacedAt    time.Time `json:"placedAt"`
@@ -45,16 +45,16 @@ type CheckoutResponse struct {
 
 type OrderResponse struct {
 	ID          string              `json:"id"`
-	OrderNumber string              `json:"orderdNumber"`
+	OrderNumber string              `json:"orderNumber"`
 	Status      string              `json:"status"`
-	ReceiptNo   *string             `json:"receiptdNo,omitempty"` // Tambahkan di sini
+	ReceiptNo   *string             `json:"receiptNo,omitempty"` // Tambahkan di sini
 	TotalPrice  float64             `json:"totalPrice"`
 	PlacedAt    time.Time           `json:"placedAt"`
 	Items       []OrderItemResponse `json:"items,omitempty"`
 }
 
 type OrderItemResponse struct {
-	ProductID    string  `json:"productdId"`
+	ProductID    string  `json:"productId"`
 	NameSnapshot string  `json:"name"`
 	UnitPrice    float64 `json:"unitPrice"`
 	Quantity     int32   `json:"quantity"`
@@ -64,7 +64,7 @@ type OrderItemResponse struct {
 type OrderDetailResponse struct {
 	ID          string              `json:"id"`
 	OrderNumber string              `json:"orderdNumber"`
-	UserID      string              `json:"userdId"`
+	UserID      string              `json:"userId"`
 	Status      string              `json:"status"`
 	TotalPrice  float64             `json:"totalPrice"`
 	Note        string              `json:"note"`
@@ -90,8 +90,8 @@ type ListOrderAdminResponse struct {
 
 type OrderAdminResponse struct {
 	ID          string    `json:"id"`
-	OrderNumber string    `json:"orderdNumber"`
-	UserID      string    `json:"userdId"`
+	OrderNumber string    `json:"orderNumber"`
+	UserID      string    `json:"userId"`
 	UserEmail   string    `json:"userEmail,omitempty"` // jika perlu join dengan user table
 	Status      string    `json:"status"`
 	TotalPrice  float64   `json:"totalPrice"`

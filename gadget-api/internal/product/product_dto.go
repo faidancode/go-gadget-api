@@ -4,15 +4,27 @@ import "time"
 
 // ==================== REQUEST STRUCTS ====================
 
-// ListPublicRequest digunakan untuk menampung query params dari Customer
+// ListPublicQuery Bind query string (controller)
+// ListPublicRequest Business input (service)
+
 type ListPublicRequest struct {
-	Page       int
-	Limit      int
-	Search     string
-	CategoryID string
-	MinPrice   float64
-	MaxPrice   float64
-	SortBy     string
+	Page        int
+	Limit       int
+	Search      string
+	CategoryIDs []string
+	MinPrice    float64
+	MaxPrice    float64
+	SortBy      string
+}
+
+type ListPublicQuery struct {
+	Page        int      `form:"page,default=1"`
+	Limit       int      `form:"limit,default=10"`
+	Search      string   `form:"search"`
+	CategoryIDs []string `form:"category_ids"`
+	MinPrice    float64  `form:"min_price"`
+	MaxPrice    float64  `form:"max_price"`
+	SortBy      string   `form:"sort_by,default=newest"`
 }
 
 type ListProductAdminRequest struct {
@@ -22,6 +34,15 @@ type ListProductAdminRequest struct {
 	Category string
 	SortBy   string
 	SortDir  string // asc | desc
+}
+
+type ListAdminQuery struct {
+	Page       int    `form:"page,default=1"`
+	Limit      int    `form:"limit,default=10"`
+	Search     string `form:"search"`
+	CategoryID string `form:"category_id"`
+	SortBy     string `form:"sort_by,default=created_at"`
+	SortDir    string `form:"sort_dir,default=desc"` // asc | desc
 }
 
 type CreateProductRequest struct {
@@ -50,6 +71,7 @@ type UpdateProductRequest struct {
 // ProductPublicResponse untuk list produk (ringkas)
 type ProductPublicResponse struct {
 	ID           string  `json:"id"`
+	CategoryId   string  `json:"categoryId"`
 	CategoryName string  `json:"categoryName"`
 	Name         string  `json:"name"`
 	Slug         string  `json:"slug"`

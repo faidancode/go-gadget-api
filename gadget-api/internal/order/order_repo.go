@@ -29,16 +29,12 @@ func NewRepository(q *dbgen.Queries) Repository {
 }
 
 func (r *repository) WithTx(tx dbgen.DBTX) Repository {
-	// Lakukan type assertion dari interface dbgen.DBTX ke *sql.Tx
-	// Karena s.db.BeginTx(ctx, nil) di service menghasilkan *sql.Tx
 	if sqlTx, ok := tx.(*sql.Tx); ok {
 		return &repository{
 			queries: r.queries.WithTx(sqlTx),
 		}
 	}
 
-	// Jika gagal (misal yang dipassing adalah *sql.DB),
-	// Anda bisa mengembalikan repository standar atau menangani error-nya
 	return r
 }
 

@@ -22,44 +22,29 @@ func NewController(s Service) *Controller {
 
 // 1. GET PUBLIC LIST (Customers)
 func (ctrl *Controller) GetPublicList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	minPrice, _ := strconv.ParseFloat(c.DefaultQuery("min_price", "0"), 64)
-	maxPrice, _ := strconv.ParseFloat(c.DefaultQuery("max_price", "0"), 64)
-
-	req := ListPublicRequest{
-		Page:       page,
-		Limit:      limit,
-		Search:     c.Query("search"),
-		CategoryID: c.Query("category_id"),
-		MinPrice:   minPrice,
-		MaxPrice:   maxPrice,
-		SortBy:     c.DefaultQuery("sort_by", "newest"),
+	var q ListPublicQuery
+	if err := c.ShouldBindQuery(&q); err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_QUERY", "Query tidak valid", err.Error())
+		return
 	}
 
-	// Support route: /products/category/:categoryId
-	if c.Param("categoryId") != "" {
-		req.CategoryID = c.Param("categoryId")
+	req := ListPublicRequest{
+		Page:        q.Page,
+		Limit:       q.Limit,
+		Search:      q.Search,
+		CategoryIDs: q.CategoryIDs,
+		MinPrice:    q.MinPrice,
+		MaxPrice:    q.MaxPrice,
+		SortBy:      q.SortBy,
 	}
 
 	data, total, err := ctrl.service.ListPublic(c.Request.Context(), req)
 	if err != nil {
-		response.Error(
-			c,
-			http.StatusInternalServerError,
-			"FETCH_ERROR",
-			"Gagal mengambil data produk",
-			err.Error(),
-		)
+		response.Error(c, http.StatusInternalServerError, "FETCH_ERROR", "Gagal mengambil data produk", err.Error())
 		return
 	}
 
-	response.Success(
-		c,
-		http.StatusOK,
-		data,
-		ctrl.makePagination(page, limit, total),
-	)
+	response.Success(c, http.StatusOK, data, ctrl.makePagination(q.Page, q.Limit, total))
 }
 
 // 2. GET ADMIN LIST (Dashboard)

@@ -195,19 +195,34 @@ func (ctrl *Controller) ListAdmin(c *gin.Context) {
 // PATCH /admin/orders/:id/status
 func (c *Controller) UpdateStatusByAdmin(ctx *gin.Context) {
 	id := ctx.Param("id")
+
 	var req UpdateStatusAdminRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	res, err := c.service.UpdateStatusByAdmin(ctx.Request.Context(), id, req.Status, req.ReceiptNo)
+	res, err := c.service.UpdateStatusByAdmin(
+		ctx.Request.Context(),
+		id,
+		req.Status,
+		req.ReceiptNo,
+	)
 	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
+		switch err {
+		case ErrOrderNotFound:
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case ErrInvalidOrderID,
+			ErrInvalidStatusTransition,
+			ErrReceiptRequired:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		}
 		return
 	}
 
-	ctx.JSON(200, res)
+	ctx.JSON(http.StatusOK, res)
 }
 
 // PATCH /api/v1/orders/:id/complete

@@ -1,5 +1,9 @@
 package cart
 
+type CreateCartRequest struct {
+	Items []AddItemRequest `json:"items" validate:"dive"`
+}
+
 type AddItemRequest struct {
 	ProductID string `json:"productId" validate:"required"`
 	Qty       int32  `json:"qty" validate:"required,min=1"`

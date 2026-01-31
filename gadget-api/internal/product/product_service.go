@@ -8,6 +8,7 @@ import (
 	"gadget-api/internal/dbgen"
 	"gadget-api/internal/pkg/constants"
 	producterrors "gadget-api/internal/product/errors"
+	"log"
 	"mime/multipart"
 	"strconv"
 	"strings"
@@ -68,34 +69,62 @@ func NewService(db *sql.DB, repo Repository, categoryRepo category.Repository, r
 }
 
 func (s *service) ListPublic(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error) {
+	// 1. Log awal request untuk melacak input dari user
+	log.Printf("[ListPublic] Incoming request: Page=%d, Limit=%d, Search='%s', Categories=%v, Price Range=%.2f-%.2f",
+		req.Page, req.Limit, req.Search, req.CategoryIDs, req.MinPrice, req.MaxPrice)
+
 	offset := (req.Page - 1) * req.Limit
 
 	if req.MaxPrice == 0 {
 		req.MaxPrice = 999999999
 	}
 
-	params := dbgen.ListProductsPublicParams{
-		Limit:    int32(req.Limit),
-		Offset:   int32(offset),
-		Search:   dbgen.NewNullString(req.Search),
-		MinPrice: fmt.Sprintf("%.2f", req.MinPrice),
-		MaxPrice: fmt.Sprintf("%.2f", req.MaxPrice),
-		SortBy:   req.SortBy,
+	var categoryIDs []uuid.UUID
+	if len(req.CategoryIDs) > 0 {
+		var err error
+		categoryIDs, err = s.categoryRepo.GetIDsBySlugs(ctx, req.CategoryIDs)
+		if err != nil {
+			// 2. Log error jika mapping slug ke ID gagal
+			log.Printf("[ListPublic] Error mapping slugs to IDs: %v", err)
+			return nil, 0, err
+		}
+		log.Printf("[ListPublic] Mapped Category Slugs to IDs: %v", categoryIDs)
 	}
 
-	if req.CategoryID != "" {
-		uid, err := uuid.Parse(req.CategoryID)
-		if err == nil {
-			params.CategoryID = uuid.NullUUID{UUID: uid, Valid: true}
-		}
+	if len(categoryIDs) == 0 {
+		categoryIDs = nil
 	}
+
+	params := dbgen.ListProductsPublicParams{
+		CategoryIds: categoryIDs,
+		Limit:       int32(req.Limit),
+		Offset:      int32(offset),
+		Search:      dbgen.NewNullString(req.Search),
+		MinPrice:    fmt.Sprintf("%.2f", req.MinPrice),
+		MaxPrice:    fmt.Sprintf("%.2f", req.MaxPrice),
+		SortBy:      req.SortBy,
+	}
+
+	// 3. Log sebelum memanggil repository (berguna untuk melihat final query params)
+	log.Printf("[ListPublic] Querying repository with params: %+v", params)
 
 	rows, err := s.repo.ListPublic(ctx, params)
 	if err != nil {
+		// 4. Log error dari sisi database/repo
+		log.Printf("[ListPublic] Repository error: %v", err)
 		return nil, 0, err
 	}
 
-	return s.mapToPublicResponse(rows)
+	results, total, err := s.mapToPublicResponse(rows)
+	if err != nil {
+		log.Printf("[ListPublic] Error mapping to response: %v", err)
+		return nil, 0, err
+	}
+
+	// 5. Log sukses dengan jumlah data yang didapat
+	log.Printf("[ListPublic] Success: Found %d records, Total: %d", len(results), total)
+
+	return results, total, nil
 }
 
 func (s *service) GetBySlug(ctx context.Context, slug string) (ProductDetailResponse, error) {
@@ -451,6 +480,7 @@ func (s *service) mapToPublicResponse(rows []dbgen.ListProductsPublicRow) ([]Pro
 		res = append(res, ProductPublicResponse{
 			ID:           row.ID.String(),
 			CategoryName: row.CategoryName,
+			CategoryId:   row.CategoryID.String(),
 			Name:         row.Name,
 			Slug:         row.Slug,
 			Price:        priceFloat,

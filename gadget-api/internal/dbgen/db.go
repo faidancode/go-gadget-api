@@ -75,6 +75,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
 	}
+	if q.decrementCartItemQtyStmt, err = db.PrepareContext(ctx, decrementCartItemQty); err != nil {
+		return nil, fmt.Errorf("error preparing query DecrementCartItemQty: %w", err)
+	}
+	if q.deleteAllCartItemsStmt, err = db.PrepareContext(ctx, deleteAllCartItems); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAllCartItems: %w", err)
+	}
 	if q.deleteCartStmt, err = db.PrepareContext(ctx, deleteCart); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCart: %w", err)
 	}
@@ -99,6 +105,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCartDetailStmt, err = db.PrepareContext(ctx, getCartDetail); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartDetail: %w", err)
 	}
+	if q.getCartItemByCartAndProductStmt, err = db.PrepareContext(ctx, getCartItemByCartAndProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCartItemByCartAndProduct: %w", err)
+	}
 	if q.getCategoryByIDStmt, err = db.PrepareContext(ctx, getCategoryByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoryByID: %w", err)
 	}
@@ -107,6 +116,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getCompletedOrderForReviewStmt, err = db.PrepareContext(ctx, getCompletedOrderForReview); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCompletedOrderForReview: %w", err)
+	}
+	if q.getIDsBySlugsStmt, err = db.PrepareContext(ctx, getIDsBySlugs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetIDsBySlugs: %w", err)
 	}
 	if q.getOrCreateWishlistStmt, err = db.PrepareContext(ctx, getOrCreateWishlist); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOrCreateWishlist: %w", err)
@@ -143,6 +155,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getWishlistItemsStmt, err = db.PrepareContext(ctx, getWishlistItems); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWishlistItems: %w", err)
+	}
+	if q.incrementCartItemQtyStmt, err = db.PrepareContext(ctx, incrementCartItemQty); err != nil {
+		return nil, fmt.Errorf("error preparing query IncrementCartItemQty: %w", err)
 	}
 	if q.listAddressesAdminStmt, err = db.PrepareContext(ctx, listAddressesAdmin); err != nil {
 		return nil, fmt.Errorf("error preparing query ListAddressesAdmin: %w", err)
@@ -312,6 +327,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
 		}
 	}
+	if q.decrementCartItemQtyStmt != nil {
+		if cerr := q.decrementCartItemQtyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing decrementCartItemQtyStmt: %w", cerr)
+		}
+	}
+	if q.deleteAllCartItemsStmt != nil {
+		if cerr := q.deleteAllCartItemsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAllCartItemsStmt: %w", cerr)
+		}
+	}
 	if q.deleteCartStmt != nil {
 		if cerr := q.deleteCartStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteCartStmt: %w", cerr)
@@ -352,6 +377,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCartDetailStmt: %w", cerr)
 		}
 	}
+	if q.getCartItemByCartAndProductStmt != nil {
+		if cerr := q.getCartItemByCartAndProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartItemByCartAndProductStmt: %w", cerr)
+		}
+	}
 	if q.getCategoryByIDStmt != nil {
 		if cerr := q.getCategoryByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCategoryByIDStmt: %w", cerr)
@@ -365,6 +395,11 @@ func (q *Queries) Close() error {
 	if q.getCompletedOrderForReviewStmt != nil {
 		if cerr := q.getCompletedOrderForReviewStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCompletedOrderForReviewStmt: %w", cerr)
+		}
+	}
+	if q.getIDsBySlugsStmt != nil {
+		if cerr := q.getIDsBySlugsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getIDsBySlugsStmt: %w", cerr)
 		}
 	}
 	if q.getOrCreateWishlistStmt != nil {
@@ -425,6 +460,11 @@ func (q *Queries) Close() error {
 	if q.getWishlistItemsStmt != nil {
 		if cerr := q.getWishlistItemsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWishlistItemsStmt: %w", cerr)
+		}
+	}
+	if q.incrementCartItemQtyStmt != nil {
+		if cerr := q.incrementCartItemQtyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing incrementCartItemQtyStmt: %w", cerr)
 		}
 	}
 	if q.listAddressesAdminStmt != nil {
@@ -613,6 +653,8 @@ type Queries struct {
 	createProductStmt               *sql.Stmt
 	createReviewStmt                *sql.Stmt
 	createUserStmt                  *sql.Stmt
+	decrementCartItemQtyStmt        *sql.Stmt
+	deleteAllCartItemsStmt          *sql.Stmt
 	deleteCartStmt                  *sql.Stmt
 	deleteCartItemStmt              *sql.Stmt
 	deleteReviewStmt                *sql.Stmt
@@ -621,9 +663,11 @@ type Queries struct {
 	getBrandByIDStmt                *sql.Stmt
 	getCartByUserIDStmt             *sql.Stmt
 	getCartDetailStmt               *sql.Stmt
+	getCartItemByCartAndProductStmt *sql.Stmt
 	getCategoryByIDStmt             *sql.Stmt
 	getCategoryBySlugStmt           *sql.Stmt
 	getCompletedOrderForReviewStmt  *sql.Stmt
+	getIDsBySlugsStmt               *sql.Stmt
 	getOrCreateWishlistStmt         *sql.Stmt
 	getOrderByIDStmt                *sql.Stmt
 	getOrderItemsStmt               *sql.Stmt
@@ -636,6 +680,7 @@ type Queries struct {
 	getUserByIDStmt                 *sql.Stmt
 	getWishlistByUserIDStmt         *sql.Stmt
 	getWishlistItemsStmt            *sql.Stmt
+	incrementCartItemQtyStmt        *sql.Stmt
 	listAddressesAdminStmt          *sql.Stmt
 	listAddressesByUserStmt         *sql.Stmt
 	listBrandsAdminStmt             *sql.Stmt
@@ -685,6 +730,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createProductStmt:               q.createProductStmt,
 		createReviewStmt:                q.createReviewStmt,
 		createUserStmt:                  q.createUserStmt,
+		decrementCartItemQtyStmt:        q.decrementCartItemQtyStmt,
+		deleteAllCartItemsStmt:          q.deleteAllCartItemsStmt,
 		deleteCartStmt:                  q.deleteCartStmt,
 		deleteCartItemStmt:              q.deleteCartItemStmt,
 		deleteReviewStmt:                q.deleteReviewStmt,
@@ -693,9 +740,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getBrandByIDStmt:                q.getBrandByIDStmt,
 		getCartByUserIDStmt:             q.getCartByUserIDStmt,
 		getCartDetailStmt:               q.getCartDetailStmt,
+		getCartItemByCartAndProductStmt: q.getCartItemByCartAndProductStmt,
 		getCategoryByIDStmt:             q.getCategoryByIDStmt,
 		getCategoryBySlugStmt:           q.getCategoryBySlugStmt,
 		getCompletedOrderForReviewStmt:  q.getCompletedOrderForReviewStmt,
+		getIDsBySlugsStmt:               q.getIDsBySlugsStmt,
 		getOrCreateWishlistStmt:         q.getOrCreateWishlistStmt,
 		getOrderByIDStmt:                q.getOrderByIDStmt,
 		getOrderItemsStmt:               q.getOrderItemsStmt,
@@ -708,6 +757,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserByIDStmt:                 q.getUserByIDStmt,
 		getWishlistByUserIDStmt:         q.getWishlistByUserIDStmt,
 		getWishlistItemsStmt:            q.getWishlistItemsStmt,
+		incrementCartItemQtyStmt:        q.incrementCartItemQtyStmt,
 		listAddressesAdminStmt:          q.listAddressesAdminStmt,
 		listAddressesByUserStmt:         q.listAddressesByUserStmt,
 		listBrandsAdminStmt:             q.listBrandsAdminStmt,
