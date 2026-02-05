@@ -8,16 +8,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Controller struct {
+type Handler struct {
 	service Service
 }
 
-func NewController(s Service) *Controller {
-	return &Controller{service: s}
+func NewHandler(s Service) *Handler {
+	return &Handler{service: s}
 }
 
 // GET /addresses
-func (ctrl *Controller) List(c *gin.Context) {
+func (ctrl *Handler) List(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	res, err := ctrl.service.List(c.Request.Context(), userID)
@@ -30,7 +30,7 @@ func (ctrl *Controller) List(c *gin.Context) {
 }
 
 // POST /addresses
-func (ctrl *Controller) Create(c *gin.Context) {
+func (ctrl *Handler) Create(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	var req CreateAddressRequest
@@ -50,7 +50,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 }
 
 // PUT /addresses/:id
-func (ctrl *Controller) Update(c *gin.Context) {
+func (ctrl *Handler) Update(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id := c.Param("id")
 
@@ -70,7 +70,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 }
 
 // DELETE /addresses/:id
-func (ctrl *Controller) Delete(c *gin.Context) {
+func (ctrl *Handler) Delete(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id := c.Param("id")
 
@@ -83,7 +83,7 @@ func (ctrl *Controller) Delete(c *gin.Context) {
 }
 
 // GET /admin/addresses
-func (ctrl *Controller) ListAdmin(c *gin.Context) {
+func (ctrl *Handler) ListAdmin(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 

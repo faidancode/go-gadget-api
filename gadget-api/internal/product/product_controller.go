@@ -12,16 +12,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Controller struct {
+type Handler struct {
 	service Service
 }
 
-func NewController(s Service) *Controller {
-	return &Controller{service: s}
+func NewHandler(s Service) *Handler {
+	return &Handler{service: s}
 }
 
 // 1. GET PUBLIC LIST (Customers)
-func (ctrl *Controller) GetPublicList(c *gin.Context) {
+func (ctrl *Handler) GetPublicList(c *gin.Context) {
 	var q ListPublicQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_QUERY", "Query tidak valid", err.Error())
@@ -48,7 +48,7 @@ func (ctrl *Controller) GetPublicList(c *gin.Context) {
 }
 
 // 2. GET ADMIN LIST (Dashboard)
-func (ctrl *Controller) GetAdminList(c *gin.Context) {
+func (ctrl *Handler) GetAdminList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -84,7 +84,7 @@ func (ctrl *Controller) GetAdminList(c *gin.Context) {
 }
 
 // 3. CREATE PRODUCT
-func (ctrl *Controller) Create(c *gin.Context) {
+func (ctrl *Handler) Create(c *gin.Context) {
 	// 1. Parse multipart form
 	err := c.Request.ParseMultipartForm(10 << 20) // 10 MB max
 	if err != nil {
@@ -165,7 +165,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 }
 
 // 4. GET BY ID (Admin / Detail)
-func (ctrl *Controller) GetByID(c *gin.Context) {
+func (ctrl *Handler) GetByID(c *gin.Context) {
 	res, err := ctrl.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
@@ -181,7 +181,7 @@ func (ctrl *Controller) GetByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Controller) GetBySlug(c *gin.Context) {
+func (ctrl *Handler) GetBySlug(c *gin.Context) {
 	res, err := ctrl.service.GetBySlug(c.Request.Context(), c.Param("slug"))
 	if err != nil {
 		response.Error(
@@ -198,7 +198,7 @@ func (ctrl *Controller) GetBySlug(c *gin.Context) {
 }
 
 // 5. UPDATE PRODUCT
-func (ctrl *Controller) Update(c *gin.Context) {
+func (ctrl *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 
 	// 1. Parse multipart form
@@ -270,7 +270,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 }
 
 // 6. DELETE PRODUCT (Soft Delete)
-func (ctrl *Controller) Delete(c *gin.Context) {
+func (ctrl *Handler) Delete(c *gin.Context) {
 	if err := ctrl.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
 		response.Error(
 			c,
@@ -286,7 +286,7 @@ func (ctrl *Controller) Delete(c *gin.Context) {
 }
 
 // 7. RESTORE PRODUCT
-func (ctrl *Controller) Restore(c *gin.Context) {
+func (ctrl *Handler) Restore(c *gin.Context) {
 	res, err := ctrl.service.Restore(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
@@ -303,7 +303,7 @@ func (ctrl *Controller) Restore(c *gin.Context) {
 }
 
 // Helper: Pagination Meta
-func (ctrl *Controller) makePagination(page, limit int, total int64) *response.PaginationMeta {
+func (ctrl *Handler) makePagination(page, limit int, total int64) *response.PaginationMeta {
 	totalPages := 0
 	if limit > 0 {
 		totalPages = int((total + int64(limit) - 1) / int64(limit))

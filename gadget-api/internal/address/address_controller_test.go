@@ -46,11 +46,11 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func newTestController(svc address.Service) *address.Controller {
-	return address.NewController(svc)
+func newTestHandler(svc address.Service) *address.Handler {
+	return address.NewHandler(svc)
 }
 
-func TestAddressController_Create_Success(t *testing.T) {
+func TestAddressHandler_Create_Success(t *testing.T) {
 	userID := uuid.New().String()
 
 	svc := &fakeAddressService{
@@ -61,7 +61,7 @@ func TestAddressController_Create_Success(t *testing.T) {
 	}
 
 	router := setupTestRouter()
-	ctrl := newTestController(svc)
+	ctrl := newTestHandler(svc)
 
 	router.POST("/addresses", func(c *gin.Context) {
 		c.Set("user_id", userID)
@@ -93,9 +93,9 @@ func TestAddressController_Create_Success(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestAddressController_Create_InvalidBody(t *testing.T) {
+func TestAddressHandler_Create_InvalidBody(t *testing.T) {
 	router := setupTestRouter()
-	ctrl := newTestController(&fakeAddressService{})
+	ctrl := newTestHandler(&fakeAddressService{})
 
 	router.POST("/addresses", func(c *gin.Context) {
 		c.Set("user_id", uuid.New().String())
@@ -111,7 +111,7 @@ func TestAddressController_Create_InvalidBody(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestAddressController_Create_ServiceError(t *testing.T) {
+func TestAddressHandler_Create_ServiceError(t *testing.T) {
 	userID := uuid.New().String()
 
 	svc := &fakeAddressService{
@@ -121,7 +121,7 @@ func TestAddressController_Create_ServiceError(t *testing.T) {
 	}
 
 	router := setupTestRouter()
-	ctrl := address.NewController(svc)
+	ctrl := address.NewHandler(svc)
 
 	router.POST("/addresses", func(c *gin.Context) {
 		c.Set("user_id", userID)
@@ -153,7 +153,7 @@ func TestAddressController_Create_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestAddressController_List_Success(t *testing.T) {
+func TestAddressHandler_List_Success(t *testing.T) {
 	userID := uuid.New().String()
 
 	svc := &fakeAddressService{
@@ -163,7 +163,7 @@ func TestAddressController_List_Success(t *testing.T) {
 	}
 
 	router := setupTestRouter()
-	ctrl := newTestController(svc)
+	ctrl := newTestHandler(svc)
 
 	router.GET("/addresses", func(c *gin.Context) {
 		c.Set("user_id", userID)
@@ -178,7 +178,7 @@ func TestAddressController_List_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestAddressController_List_Failed(t *testing.T) {
+func TestAddressHandler_List_Failed(t *testing.T) {
 	svc := &fakeAddressService{
 		listFn: func(ctx context.Context, uid string) ([]address.AddressResponse, error) {
 			return nil, errors.New("db error")
@@ -186,7 +186,7 @@ func TestAddressController_List_Failed(t *testing.T) {
 	}
 
 	router := setupTestRouter()
-	ctrl := newTestController(svc)
+	ctrl := newTestHandler(svc)
 
 	router.GET("/addresses", func(c *gin.Context) {
 		c.Set("user_id", uuid.New().String())
@@ -201,7 +201,7 @@ func TestAddressController_List_Failed(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestAddressController_Delete_Success(t *testing.T) {
+func TestAddressHandler_Delete_Success(t *testing.T) {
 	svc := &fakeAddressService{
 		deleteFn: func(ctx context.Context, id, userID string) error {
 			return nil
@@ -209,7 +209,7 @@ func TestAddressController_Delete_Success(t *testing.T) {
 	}
 
 	router := setupTestRouter()
-	ctrl := newTestController(svc)
+	ctrl := newTestHandler(svc)
 
 	router.DELETE("/addresses/:id", func(c *gin.Context) {
 		c.Set("user_id", uuid.New().String())
@@ -224,7 +224,7 @@ func TestAddressController_Delete_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestAddressController_Delete_Failed(t *testing.T) {
+func TestAddressHandler_Delete_Failed(t *testing.T) {
 	svc := &fakeAddressService{
 		deleteFn: func(ctx context.Context, id, userID string) error {
 			return errors.New("delete failed")
@@ -232,7 +232,7 @@ func TestAddressController_Delete_Failed(t *testing.T) {
 	}
 
 	router := setupTestRouter()
-	ctrl := newTestController(svc)
+	ctrl := newTestHandler(svc)
 
 	router.DELETE("/addresses/:id", func(c *gin.Context) {
 		c.Set("user_id", uuid.New().String())

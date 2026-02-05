@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"fmt"
-	"gadget-api/internal/auth"
+	autherrors "gadget-api/internal/auth/errors"
 	"gadget-api/internal/pkg/response"
 	"log"
 	"os"
@@ -20,7 +20,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		tokenString, err := c.Cookie("access_token")
 		if err != nil {
 			// Menggunakan ErrUnauthorized
-			response.Error(c, auth.ErrUnauthorized.HTTPStatus, auth.ErrUnauthorized.Code, auth.ErrUnauthorized.Message, nil)
+			response.Error(c, autherrors.ErrUnauthorized.HTTPStatus, autherrors.ErrUnauthorized.Code, autherrors.ErrUnauthorized.Message, nil)
 			c.Abort()
 			return
 		}
@@ -35,9 +35,9 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			// Cek jika error spesifik expired, jika tidak gunakan InvalidToken
-			errObj := auth.ErrInvalidToken
+			errObj := autherrors.ErrInvalidToken
 			if strings.Contains(err.Error(), "expired") {
-				errObj = auth.ErrTokenExpired
+				errObj = autherrors.ErrTokenExpired
 			}
 
 			response.Error(c, errObj.HTTPStatus, errObj.Code, errObj.Message, nil)
@@ -57,7 +57,7 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 		// Ambil role dari context
 		userRole, exists := c.Get("role")
 		if !exists {
-			response.Error(c, auth.ErrForbidden.HTTPStatus, auth.ErrForbidden.Code, auth.ErrForbidden.Message, nil)
+			response.Error(c, autherrors.ErrForbidden.HTTPStatus, autherrors.ErrForbidden.Code, autherrors.ErrForbidden.Message, nil)
 			c.Abort()
 			return
 		}
@@ -73,7 +73,7 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 
 		if !isAllowed {
 			// Menggunakan ErrForbidden
-			response.Error(c, auth.ErrForbidden.HTTPStatus, auth.ErrForbidden.Code, auth.ErrForbidden.Message, nil)
+			response.Error(c, autherrors.ErrForbidden.HTTPStatus, autherrors.ErrForbidden.Code, autherrors.ErrForbidden.Message, nil)
 			c.Abort()
 			return
 		}

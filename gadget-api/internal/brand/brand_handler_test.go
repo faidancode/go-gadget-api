@@ -94,7 +94,7 @@ func TestCreateBrand(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.POST("/brands", ctrl.Create)
 
 		// Menggunakan multipart form seperti di Product
@@ -120,7 +120,7 @@ func TestCreateBrand(t *testing.T) {
 	t.Run("validation_error_missing_name", func(t *testing.T) {
 		svc := &fakeBrandService{}
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.POST("/brands", ctrl.Create)
 
 		body, ct, _ := createMultipartForm(map[string]string{"description": "No Name"}, "", "", nil)
@@ -142,7 +142,7 @@ func TestCreateBrand(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.POST("/brands", ctrl.Create)
 
 		body, ct, _ := createMultipartForm(
@@ -175,7 +175,7 @@ func TestUpdateBrand(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.PUT("/brands/:id", ctrl.Update)
 
 		body, ct, _ := createMultipartForm(
@@ -198,7 +198,7 @@ func TestUpdateBrand(t *testing.T) {
 		svc := &fakeBrandService{}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.PUT("/brands/:id", ctrl.Update)
 
 		body, ct, _ := createMultipartForm(map[string]string{"name": "X"}, "", "", nil)
@@ -222,7 +222,7 @@ func TestListPublicBrands(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/brands", ctrl.ListPublic)
 
 		req := httptest.NewRequest(http.MethodGet, "/brands?page=1&limit=10", nil)
@@ -240,7 +240,7 @@ func TestListPublicBrands(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/brands", ctrl.ListPublic)
 
 		req := httptest.NewRequest(http.MethodGet, "/brands?page=1&limit=10", nil)
@@ -252,7 +252,7 @@ func TestListPublicBrands(t *testing.T) {
 
 }
 
-func TestBrandController_ListAdmin(t *testing.T) {
+func TestBrandHandler_ListAdmin(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := &fakeBrandService{
 			ListAdminFn: func(ctx context.Context, req brand.ListBrandRequest) ([]brand.BrandAdminResponse, int64, error) {
@@ -267,7 +267,7 @@ func TestBrandController_ListAdmin(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/admin/brands", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/brands?page=1&limit=10", nil)
@@ -288,7 +288,7 @@ func TestBrandController_ListAdmin(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/admin/brands", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/brands", nil)
@@ -303,7 +303,7 @@ func TestBrandController_ListAdmin(t *testing.T) {
 		svc := &fakeBrandService{}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/admin/brands", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/brands?page=abc&limit=10", nil)
@@ -322,7 +322,7 @@ func TestBrandController_ListAdmin(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/admin/brands", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/brands?page=1&limit=10", nil)
@@ -346,7 +346,7 @@ func TestGetBrandByID(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/brands/:id", ctrl.GetByID)
 
 		req := httptest.NewRequest(http.MethodGet, "/brands/"+id, nil)
@@ -360,7 +360,7 @@ func TestGetBrandByID(t *testing.T) {
 		svc := &fakeBrandService{}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.GET("/brands/:id", ctrl.GetByID)
 
 		req := httptest.NewRequest(http.MethodGet, "/brands/invalid-uuid", nil)
@@ -382,7 +382,7 @@ func TestDeleteBrand(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.DELETE("/brands/:id", ctrl.Delete)
 
 		req := httptest.NewRequest(http.MethodDelete, "/brands/"+id, nil)
@@ -396,7 +396,7 @@ func TestDeleteBrand(t *testing.T) {
 		svc := &fakeBrandService{}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.DELETE("/brands/:id", ctrl.Delete)
 
 		req := httptest.NewRequest(http.MethodDelete, "/brands/invalid-uuid", nil)
@@ -414,7 +414,7 @@ func TestDeleteBrand(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := brand.NewController(svc)
+		ctrl := brand.NewHandler(svc)
 		r.DELETE("/brands/:id", ctrl.Delete)
 
 		req := httptest.NewRequest(http.MethodDelete, "/brands/"+id, nil)

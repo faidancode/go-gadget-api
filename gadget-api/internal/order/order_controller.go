@@ -10,19 +10,19 @@ import (
 	"github.com/google/uuid"
 )
 
-type Controller struct {
+type Handler struct {
 	service Service
 }
 
-func NewController(svc Service) *Controller {
-	return &Controller{service: svc}
+func NewHandler(svc Service) *Handler {
+	return &Handler{service: svc}
 }
 
 // ==================== CUSTOMER ENDPOINTS ====================
 
 // Checkout creates a new order from user's cart
 // POST /orders
-func (ctrl *Controller) Checkout(c *gin.Context) {
+func (ctrl *Handler) Checkout(c *gin.Context) {
 	var req CheckoutRequest
 
 	userID, exists := c.Get("user_id")
@@ -62,7 +62,7 @@ func (ctrl *Controller) Checkout(c *gin.Context) {
 
 // List retrieves all orders for the authenticated user
 // GET /orders?page=1&limit=10
-func (ctrl *Controller) List(c *gin.Context) {
+func (ctrl *Handler) List(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		response.Error(
@@ -109,7 +109,7 @@ func (ctrl *Controller) List(c *gin.Context) {
 
 // Detail retrieves a single order by ID
 // GET /orders/:id
-func (ctrl *Controller) Detail(c *gin.Context) {
+func (ctrl *Handler) Detail(c *gin.Context) {
 	orderID := c.Param("id")
 	if orderID == "" {
 		httpErr := apperror.ToHTTP(ErrInvalidOrderID)
@@ -129,7 +129,7 @@ func (ctrl *Controller) Detail(c *gin.Context) {
 
 // Cancel cancels an order (only for PENDING status)
 // PATCH /orders/:id/cancel
-func (ctrl *Controller) Cancel(c *gin.Context) {
+func (ctrl *Handler) Cancel(c *gin.Context) {
 	orderID := c.Param("id")
 	if orderID == "" {
 		httpErr := apperror.ToHTTP(ErrInvalidOrderID)
@@ -152,7 +152,7 @@ func (ctrl *Controller) Cancel(c *gin.Context) {
 
 // ListAdmin retrieves all orders with filters (admin only)
 // GET /admin/orders
-func (ctrl *Controller) ListAdmin(c *gin.Context) {
+func (ctrl *Handler) ListAdmin(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
 
@@ -193,7 +193,7 @@ func (ctrl *Controller) ListAdmin(c *gin.Context) {
 
 // UpdateStatus updates order status (admin only)
 // PATCH /admin/orders/:id/status
-func (c *Controller) UpdateStatusByAdmin(ctx *gin.Context) {
+func (c *Handler) UpdateStatusByAdmin(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	var req UpdateStatusAdminRequest
@@ -226,7 +226,7 @@ func (c *Controller) UpdateStatusByAdmin(ctx *gin.Context) {
 }
 
 // PATCH /api/v1/orders/:id/complete
-func (c *Controller) UpdateStatusByCustomer(ctx *gin.Context) {
+func (c *Handler) UpdateStatusByCustomer(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	// Ambil UserID dari middleware Auth

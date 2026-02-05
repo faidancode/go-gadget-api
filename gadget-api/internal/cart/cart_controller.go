@@ -8,15 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Controller struct {
+type Handler struct {
 	service Service
 }
 
-func NewController(s Service) *Controller {
-	return &Controller{service: s}
+func NewHandler(s Service) *Handler {
+	return &Handler{service: s}
 }
 
-func (c *Controller) Create(ctx *gin.Context) {
+func (c *Handler) Create(ctx *gin.Context) {
 	userID := ctx.GetString("user_id_validated")
 	if err := c.service.Create(ctx, userID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "CREATE_ERROR", "Gagal membuat cart", err.Error())
@@ -25,7 +25,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 	response.Success(ctx, http.StatusCreated, nil, nil)
 }
 
-func (c *Controller) AddItem(ctx *gin.Context) {
+func (c *Handler) AddItem(ctx *gin.Context) {
 	userID := ctx.GetString("user_id_validated")
 	productID := ctx.Param("productId")
 
@@ -49,7 +49,7 @@ func (c *Controller) AddItem(ctx *gin.Context) {
 	response.Success(ctx, http.StatusCreated, nil, nil)
 }
 
-func (c *Controller) Count(ctx *gin.Context) {
+func (c *Handler) Count(ctx *gin.Context) {
 	userID := ctx.GetString("user_id_validated")
 
 	count, err := c.service.Count(ctx, userID)
@@ -61,7 +61,7 @@ func (c *Controller) Count(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, CartCountResponse{Count: count}, nil)
 }
 
-func (c *Controller) Detail(ctx *gin.Context) {
+func (c *Handler) Detail(ctx *gin.Context) {
 	userID := ctx.GetString("user_id_validated")
 	res, err := c.service.Detail(ctx, userID)
 	if err != nil {
@@ -72,7 +72,7 @@ func (c *Controller) Detail(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, res, nil)
 }
 
-func (c *Controller) UpdateQty(ctx *gin.Context) {
+func (c *Handler) UpdateQty(ctx *gin.Context) {
 	userID := ctx.GetString("user_id")
 	if userID == "" {
 		response.Error(
@@ -116,7 +116,7 @@ func (c *Controller) UpdateQty(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Controller) Increment(ctx *gin.Context) {
+func (c *Handler) Increment(ctx *gin.Context) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		response.Error(
@@ -135,7 +135,7 @@ func (c *Controller) Increment(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Controller) Decrement(ctx *gin.Context) {
+func (c *Handler) Decrement(ctx *gin.Context) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		response.Error(
@@ -154,7 +154,7 @@ func (c *Controller) Decrement(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Controller) DeleteItem(ctx *gin.Context) {
+func (c *Handler) DeleteItem(ctx *gin.Context) {
 	if err := c.service.DeleteItem(ctx, ctx.Param("userId"), ctx.Param("productId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "DELETE_ITEM_ERROR", "Gagal menghapus item", err.Error())
 		return
@@ -162,7 +162,7 @@ func (c *Controller) DeleteItem(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Controller) Delete(ctx *gin.Context) {
+func (c *Handler) Delete(ctx *gin.Context) {
 	if err := c.service.Delete(ctx, ctx.Param("userId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "DELETE_ERROR", "Gagal hapus cart", err.Error())
 		return

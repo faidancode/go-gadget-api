@@ -94,7 +94,7 @@ func TestCreateCategory(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.POST("/categorys", ctrl.Create)
 
 		// Menggunakan multipart form seperti di Product
@@ -120,7 +120,7 @@ func TestCreateCategory(t *testing.T) {
 	t.Run("validation_error_missing_name", func(t *testing.T) {
 		svc := &fakeCategoryService{}
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.POST("/categorys", ctrl.Create)
 
 		body, ct, _ := createMultipartForm(map[string]string{"description": "No Name"}, "", "", nil)
@@ -142,7 +142,7 @@ func TestCreateCategory(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.POST("/categorys", ctrl.Create)
 
 		body, ct, _ := createMultipartForm(
@@ -175,7 +175,7 @@ func TestUpdateCategory(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.PUT("/categorys/:id", ctrl.Update)
 
 		body, ct, _ := createMultipartForm(
@@ -198,7 +198,7 @@ func TestUpdateCategory(t *testing.T) {
 		svc := &fakeCategoryService{}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.PUT("/categorys/:id", ctrl.Update)
 
 		body, ct, _ := createMultipartForm(map[string]string{"name": "X"}, "", "", nil)
@@ -222,7 +222,7 @@ func TestListPublicCategorys(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/categorys", ctrl.ListPublic)
 
 		req := httptest.NewRequest(http.MethodGet, "/categorys?page=1&limit=10", nil)
@@ -240,7 +240,7 @@ func TestListPublicCategorys(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/categorys", ctrl.ListPublic)
 
 		req := httptest.NewRequest(http.MethodGet, "/categorys?page=1&limit=10", nil)
@@ -252,7 +252,7 @@ func TestListPublicCategorys(t *testing.T) {
 
 }
 
-func TestCategoryController_ListAdmin(t *testing.T) {
+func TestCategoryHandler_ListAdmin(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := &fakeCategoryService{
 			ListAdminFn: func(ctx context.Context, req category.ListCategoryRequest) ([]category.CategoryAdminResponse, int64, error) {
@@ -267,7 +267,7 @@ func TestCategoryController_ListAdmin(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/admin/categorys", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/categorys?page=1&limit=10", nil)
@@ -288,7 +288,7 @@ func TestCategoryController_ListAdmin(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/admin/categorys", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/categorys", nil)
@@ -303,7 +303,7 @@ func TestCategoryController_ListAdmin(t *testing.T) {
 		svc := &fakeCategoryService{}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/admin/categorys", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/categorys?page=abc&limit=10", nil)
@@ -322,7 +322,7 @@ func TestCategoryController_ListAdmin(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/admin/categorys", ctrl.ListAdmin)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/categorys?page=1&limit=10", nil)
@@ -346,7 +346,7 @@ func TestGetCategoryByID(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/categorys/:id", ctrl.GetByID)
 
 		req := httptest.NewRequest(http.MethodGet, "/categorys/"+id, nil)
@@ -360,7 +360,7 @@ func TestGetCategoryByID(t *testing.T) {
 		svc := &fakeCategoryService{}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.GET("/categorys/:id", ctrl.GetByID)
 
 		req := httptest.NewRequest(http.MethodGet, "/categorys/invalid-uuid", nil)
@@ -382,7 +382,7 @@ func TestDeleteCategory(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.DELETE("/categorys/:id", ctrl.Delete)
 
 		req := httptest.NewRequest(http.MethodDelete, "/categorys/"+id, nil)
@@ -396,7 +396,7 @@ func TestDeleteCategory(t *testing.T) {
 		svc := &fakeCategoryService{}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.DELETE("/categorys/:id", ctrl.Delete)
 
 		req := httptest.NewRequest(http.MethodDelete, "/categorys/invalid-uuid", nil)
@@ -414,7 +414,7 @@ func TestDeleteCategory(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		ctrl := category.NewController(svc)
+		ctrl := category.NewHandler(svc)
 		r.DELETE("/categorys/:id", ctrl.Delete)
 
 		req := httptest.NewRequest(http.MethodDelete, "/categorys/"+id, nil)

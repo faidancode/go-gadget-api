@@ -10,15 +10,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Controller struct {
+type Handler struct {
 	service *Service
 }
 
-func NewController(s *Service) *Controller {
-	return &Controller{service: s}
+func NewHandler(s *Service) *Handler {
+	return &Handler{service: s}
 }
 
-func (ctrl *Controller) Login(c *gin.Context) {
+func (ctrl *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// Response Error Seragam
@@ -71,7 +71,7 @@ func (ctrl *Controller) Login(c *gin.Context) {
 	response.Success(c, http.StatusOK, responseData, nil)
 }
 
-func (ctrl *Controller) Me(c *gin.Context) {
+func (ctrl *Handler) Me(c *gin.Context) {
 	// asumsi middleware sudah set userID di context
 	log.Printf("auth context: %+v\n", c.Keys)
 
@@ -93,9 +93,9 @@ func (ctrl *Controller) Me(c *gin.Context) {
 	response.Success(c, http.StatusOK, userResp, nil)
 }
 
-// auth/auth_controller.go
+// auth/auth_Handler.go
 
-func (ctrl *Controller) Logout(c *gin.Context) {
+func (ctrl *Handler) Logout(c *gin.Context) {
 	// Ambil isProd dari config
 	isProd := os.Getenv("APP_ENV") == "production" // atau dari config Anda
 
@@ -124,7 +124,7 @@ func (ctrl *Controller) Logout(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Logout success.", nil)
 }
 
-func (ctrl *Controller) Register(c *gin.Context) {
+func (ctrl *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
@@ -140,7 +140,7 @@ func (ctrl *Controller) Register(c *gin.Context) {
 	response.Success(c, http.StatusCreated, res, nil)
 }
 
-func (ctrl *Controller) RefreshToken(c *gin.Context) {
+func (ctrl *Handler) RefreshToken(c *gin.Context) {
 	// 1. Deteksi Client
 	clientHeader := c.GetHeader("X-Client-Type")
 	userAgent := c.GetHeader("User-Agent")

@@ -49,17 +49,17 @@ func (f *fakeReviewService) Delete(ctx context.Context, r, u string) error {
 
 type reviewTestDeps struct {
 	svc  *fakeReviewService
-	ctrl *review.Controller
+	ctrl *review.Handler
 	w    *httptest.ResponseRecorder
 	ctx  *gin.Context
 }
 
-func setupReviewControllerTest() *reviewTestDeps {
+func setupReviewHandlerTest() *reviewTestDeps {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	svc := &fakeReviewService{}
-	ctrl := review.NewController(svc)
+	ctrl := review.NewHandler(svc)
 
 	return &reviewTestDeps{
 		svc:  svc,
@@ -80,9 +80,9 @@ func (d *reviewTestDeps) performRequest(method, path string, body interface{}) {
 
 // ==================== CREATE REVIEW ====================
 
-func TestReviewController_Create(t *testing.T) {
+func TestReviewHandler_Create(t *testing.T) {
 	t.Run("positive - success create", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		userID := uuid.New().String()
 		slug := "iphone-15"
 		req := review.CreateReviewRequest{Rating: 5, Comment: "Mantapsssssssssss"}
@@ -102,7 +102,7 @@ func TestReviewController_Create(t *testing.T) {
 	})
 
 	t.Run("negative - service returns unauthorized", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		d.ctx.Params = gin.Params{{Key: "slug", Value: "iphone"}}
 		d.performRequest(http.MethodPost, "/", review.CreateReviewRequest{Rating: 5})
 
@@ -117,9 +117,9 @@ func TestReviewController_Create(t *testing.T) {
 
 // ==================== GET BY PRODUCT SLUG ====================
 
-func TestReviewController_GetReviewsByProductSlug(t *testing.T) {
+func TestReviewHandler_GetReviewsByProductSlug(t *testing.T) {
 	t.Run("positive - get reviews", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		d.ctx.Params = gin.Params{{Key: "slug", Value: "iphone"}}
 		d.performRequest(http.MethodGet, "/?page=1&limit=10", nil)
 
@@ -134,9 +134,9 @@ func TestReviewController_GetReviewsByProductSlug(t *testing.T) {
 
 // ==================== GET BY USER ID ====================
 
-func TestReviewController_GetReviewsByUserID(t *testing.T) {
+func TestReviewHandler_GetReviewsByUserID(t *testing.T) {
 	t.Run("positive - get user reviews", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		authID := uuid.New().String()
 		targetUserID := uuid.New().String()
 
@@ -153,7 +153,7 @@ func TestReviewController_GetReviewsByUserID(t *testing.T) {
 	})
 
 	t.Run("negative - forbidden via service", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		d.ctx.Set("user_id", uuid.New().String())
 		d.ctx.Params = gin.Params{{Key: "userId", Value: uuid.New().String()}}
 		d.performRequest(http.MethodGet, "/", nil)
@@ -169,9 +169,9 @@ func TestReviewController_GetReviewsByUserID(t *testing.T) {
 
 // ==================== ELIGIBILITY ====================
 
-func TestReviewController_CheckReviewEligibility(t *testing.T) {
+func TestReviewHandler_CheckReviewEligibility(t *testing.T) {
 	t.Run("positive - eligible", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		d.ctx.Set("user_id", uuid.New().String())
 		d.ctx.Params = gin.Params{{Key: "slug", Value: "iphone"}}
 		d.performRequest(http.MethodGet, "/", nil)
@@ -187,9 +187,9 @@ func TestReviewController_CheckReviewEligibility(t *testing.T) {
 
 // ==================== UPDATE REVIEW ====================
 
-func TestReviewController_UpdateReview(t *testing.T) {
+func TestReviewHandler_UpdateReview(t *testing.T) {
 	t.Run("positive - success update", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		userID := uuid.New().String()
 		reviewID := uuid.New().String()
 		req := review.UpdateReviewRequest{Rating: 4, Comment: "Updated Comment"}
@@ -209,9 +209,9 @@ func TestReviewController_UpdateReview(t *testing.T) {
 
 // ==================== DELETE REVIEW ====================
 
-func TestReviewController_DeleteReview(t *testing.T) {
+func TestReviewHandler_DeleteReview(t *testing.T) {
 	t.Run("positive - success delete", func(t *testing.T) {
-		d := setupReviewControllerTest()
+		d := setupReviewHandlerTest()
 		userID := uuid.New().String()
 		reviewID := uuid.New().String()
 

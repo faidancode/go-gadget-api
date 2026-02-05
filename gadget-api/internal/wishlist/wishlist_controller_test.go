@@ -51,13 +51,13 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func newTestController(svc wishlist.Service) *wishlist.Controller {
-	return wishlist.NewController(svc)
+func newTestHandler(svc wishlist.Service) *wishlist.Handler {
+	return wishlist.NewHandler(svc)
 }
 
 // ==================== CREATE TESTS ====================
 
-func TestWishlistController_Create(t *testing.T) {
+func TestWishlistHandler_Create(t *testing.T) {
 	t.Run("success_add_item", func(t *testing.T) {
 		userID := uuid.New().String()
 		productID := uuid.New().String()
@@ -73,7 +73,7 @@ func TestWishlistController_Create(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -89,7 +89,7 @@ func TestWishlistController_Create(t *testing.T) {
 	})
 
 	t.Run("error_user_not_authenticated", func(t *testing.T) {
-		ctrl := newTestController(&fakeWishlistService{})
+		ctrl := newTestHandler(&fakeWishlistService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -103,7 +103,7 @@ func TestWishlistController_Create(t *testing.T) {
 	})
 
 	t.Run("error_invalid_json", func(t *testing.T) {
-		ctrl := newTestController(&fakeWishlistService{})
+		ctrl := newTestHandler(&fakeWishlistService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -117,7 +117,7 @@ func TestWishlistController_Create(t *testing.T) {
 	})
 
 	t.Run("error_missing_product_id", func(t *testing.T) {
-		ctrl := newTestController(&fakeWishlistService{})
+		ctrl := newTestHandler(&fakeWishlistService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -138,7 +138,7 @@ func TestWishlistController_Create(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -159,7 +159,7 @@ func TestWishlistController_Create(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -176,7 +176,7 @@ func TestWishlistController_Create(t *testing.T) {
 
 // ==================== LIST TESTS ====================
 
-func TestWishlistController_List(t *testing.T) {
+func TestWishlistHandler_List(t *testing.T) {
 	t.Run("success_list_items", func(t *testing.T) {
 		userID := uuid.New().String()
 		wishlistID := uuid.New().String()
@@ -215,7 +215,7 @@ func TestWishlistController_List(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -243,7 +243,7 @@ func TestWishlistController_List(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -257,7 +257,7 @@ func TestWishlistController_List(t *testing.T) {
 	})
 
 	t.Run("error_user_not_authenticated", func(t *testing.T) {
-		ctrl := newTestController(&fakeWishlistService{})
+		ctrl := newTestHandler(&fakeWishlistService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -275,7 +275,7 @@ func TestWishlistController_List(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -290,7 +290,7 @@ func TestWishlistController_List(t *testing.T) {
 
 // ==================== DELETE TESTS ====================
 
-func TestWishlistController_Delete(t *testing.T) {
+func TestWishlistHandler_Delete(t *testing.T) {
 	t.Run("success_delete_item", func(t *testing.T) {
 		userID := uuid.New().String()
 		productID := uuid.New().String()
@@ -303,7 +303,7 @@ func TestWishlistController_Delete(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -319,7 +319,7 @@ func TestWishlistController_Delete(t *testing.T) {
 	})
 
 	t.Run("error_user_not_authenticated", func(t *testing.T) {
-		ctrl := newTestController(&fakeWishlistService{})
+		ctrl := newTestHandler(&fakeWishlistService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -333,7 +333,7 @@ func TestWishlistController_Delete(t *testing.T) {
 	})
 
 	t.Run("error_invalid_json", func(t *testing.T) {
-		ctrl := newTestController(&fakeWishlistService{})
+		ctrl := newTestHandler(&fakeWishlistService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -347,7 +347,7 @@ func TestWishlistController_Delete(t *testing.T) {
 	})
 
 	t.Run("error_missing_product_id", func(t *testing.T) {
-		ctrl := newTestController(&fakeWishlistService{})
+		ctrl := newTestHandler(&fakeWishlistService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -368,7 +368,7 @@ func TestWishlistController_Delete(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -389,7 +389,7 @@ func TestWishlistController_Delete(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -410,7 +410,7 @@ func TestWishlistController_Delete(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 

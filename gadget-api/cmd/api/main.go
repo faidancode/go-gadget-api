@@ -46,42 +46,42 @@ func main() {
 	}
 
 	// DI
-	authController := auth.NewController(
+	authHandler := auth.NewHandler(
 		auth.NewService(auth.NewRepository(queries)),
 	)
 
 	categoryRepo := category.NewRepository(queries)
-	categoryController := category.NewController(
+	categoryHandler := category.NewHandler(
 		category.NewService(db, categoryRepo, cloudinaryService),
 	)
 
 	brandRepo := brand.NewRepository(queries)
-	brandController := brand.NewController(
+	brandHandler := brand.NewHandler(
 		brand.NewService(db, brandRepo, cloudinaryService),
 	)
 
 	productRepo := product.NewRepository(queries)
 
-	reviewController := review.NewController(
+	reviewHandler := review.NewHandler(
 		review.NewService(db, review.NewRepository(queries), productRepo),
 	)
 
-	productController := product.NewController(
+	productHandler := product.NewHandler(
 		product.NewService(db, productRepo, categoryRepo, review.NewRepository(queries), cloudinaryService),
 	)
 
 	cartRepo := cart.NewRepository(queries)
-	cartController := cart.NewController(
+	cartHandler := cart.NewHandler(
 		cart.NewService(db, cartRepo),
 	)
 
-	registry := ControllerRegistry{
-		Auth:     authController,
-		Brand:    brandController,
-		Category: categoryController,
-		Product:  productController,
-		Review:   reviewController,
-		Cart:     cartController,
+	registry := HandlerRegistry{
+		Auth:     authHandler,
+		Brand:    brandHandler,
+		Category: categoryHandler,
+		Product:  productHandler,
+		Review:   reviewHandler,
+		Cart:     cartHandler,
 	}
 
 	// Router

@@ -637,7 +637,7 @@ import (
 )
 
 func TestOrderService_Checkout(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	db, mock, err := sqlmock.New()
@@ -750,7 +750,7 @@ func TestOrderService_Checkout(t *testing.T) {
 }
 
 func TestOrderService_List(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	db, _, _ := sqlmock.New()
@@ -792,7 +792,7 @@ func TestOrderService_List(t *testing.T) {
 }
 
 func TestOrderService_ListAdmin(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	db, _, _ := sqlmock.New()
@@ -818,7 +818,7 @@ func TestOrderService_ListAdmin(t *testing.T) {
 }
 
 func TestOrderService_Detail(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	db, _, _ := sqlmock.New()
@@ -849,7 +849,7 @@ func TestOrderService_Detail(t *testing.T) {
 }
 
 func TestOrderService_Cancel(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	db, mock, _ := sqlmock.New()
@@ -902,7 +902,7 @@ func TestOrderService_Cancel(t *testing.T) {
 }
 
 func TestOrderService_UpdateStatus(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	db, mock, _ := sqlmock.New()
@@ -949,7 +949,7 @@ type Controller struct {
 	service Service
 }
 
-func NewController(svc Service) *Controller {
+func NewHandler(svc Service) *Controller {
 	return &Controller{service: svc}
 }
 
@@ -1243,8 +1243,8 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func newTestController(svc order.Service) *order.Controller {
-	return order.NewController(svc)
+func newTestController(svc order.Service) *order.Handler {
+	return order.NewHandler(svc)
 }
 
 // ==================== CHECKOUT TESTS ====================

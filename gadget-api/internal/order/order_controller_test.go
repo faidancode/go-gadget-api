@@ -77,8 +77,8 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func newTestController(svc order.Service) *order.Controller {
-	return order.NewController(svc)
+func newTestHandler(svc order.Service) *order.Handler {
+	return order.NewHandler(svc)
 }
 
 func addAuthCookie(req *http.Request) {
@@ -88,7 +88,7 @@ func addAuthCookie(req *http.Request) {
 	})
 }
 
-func TestOrderController_Checkout(t *testing.T) {
+func TestOrderHandler_Checkout(t *testing.T) {
 	t.Run("success_checkout", func(t *testing.T) {
 		userID := uuid.New().String()
 		svc := &fakeOrderService{
@@ -98,7 +98,7 @@ func TestOrderController_Checkout(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.POST("/orders", func(c *gin.Context) {
 			c.Set("user_id", userID)
@@ -118,7 +118,7 @@ func TestOrderController_Checkout(t *testing.T) {
 	})
 
 	t.Run("invalid_json_payload", func(t *testing.T) {
-		ctrl := newTestController(&fakeOrderService{})
+		ctrl := newTestHandler(&fakeOrderService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(`{invalid}`))
@@ -134,7 +134,7 @@ func TestOrderController_Checkout(t *testing.T) {
 				return order.OrderResponse{}, order.ErrCartEmpty
 			},
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"address_id":"a"}`))
@@ -152,7 +152,7 @@ func TestOrderController_Checkout(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -173,7 +173,7 @@ func TestOrderController_Checkout(t *testing.T) {
 
 }
 
-func TestOrderController_List(t *testing.T) {
+func TestOrderHandler_List(t *testing.T) {
 	t.Run("success_list_orders", func(t *testing.T) {
 		userID := uuid.New().String()
 		svc := &fakeOrderService{
@@ -181,7 +181,7 @@ func TestOrderController_List(t *testing.T) {
 				return []order.OrderResponse{{OrderNumber: "ORD-001"}}, 1, nil
 			},
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/orders?page=1&limit=10", nil)
@@ -198,7 +198,7 @@ func TestOrderController_List(t *testing.T) {
 				return nil, 0, errors.New("db error")
 			},
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -211,7 +211,7 @@ func TestOrderController_List(t *testing.T) {
 
 // ==================== DETAIL & CANCEL TESTS ====================
 
-func TestOrderController_Detail(t *testing.T) {
+func TestOrderHandler_Detail(t *testing.T) {
 	t.Run("success_get_detail", func(t *testing.T) {
 		orderID := uuid.New().String()
 		svc := &fakeOrderService{
@@ -219,7 +219,7 @@ func TestOrderController_Detail(t *testing.T) {
 				return order.OrderResponse{OrderNumber: "ORD-123"}, nil
 			},
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.GET("/orders/:id", ctrl.Detail)
 
@@ -238,7 +238,7 @@ func TestOrderController_Detail(t *testing.T) {
 				return order.OrderResponse{}, order.ErrOrderNotFound
 			},
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.GET("/orders/:id", ctrl.Detail)
 
@@ -251,13 +251,13 @@ func TestOrderController_Detail(t *testing.T) {
 	})
 }
 
-func TestOrderController_Cancel(t *testing.T) {
+func TestOrderHandler_Cancel(t *testing.T) {
 	t.Run("success_cancel", func(t *testing.T) {
 		orderID := uuid.New().String()
 		svc := &fakeOrderService{
 			cancelFunc: func(ctx context.Context, id string) error { return nil },
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.PATCH("/orders/:id/cancel", ctrl.Cancel)
 
@@ -273,7 +273,7 @@ func TestOrderController_Cancel(t *testing.T) {
 		svc := &fakeOrderService{
 			cancelFunc: func(ctx context.Context, id string) error { return order.ErrOrderNotFound },
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.PATCH("/orders/:id/cancel", ctrl.Cancel)
 
@@ -288,7 +288,7 @@ func TestOrderController_Cancel(t *testing.T) {
 
 // ==================== ADMIN TESTS ====================
 
-func TestOrderController_ListAdmin(t *testing.T) {
+func TestOrderHandler_ListAdmin(t *testing.T) {
 	t.Run("success_list_admin", func(t *testing.T) {
 		svc := &fakeOrderService{
 			listAdminFunc: func(ctx context.Context, status, search string, page, limit int) ([]order.OrderResponse, int64, error) {
@@ -296,7 +296,7 @@ func TestOrderController_ListAdmin(t *testing.T) {
 				return []order.OrderResponse{{OrderNumber: "ADM-001"}}, 1, nil
 			},
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/admin/orders?status=SHIPPED&page=1&limit=20", nil)
@@ -307,7 +307,7 @@ func TestOrderController_ListAdmin(t *testing.T) {
 	})
 }
 
-func TestOrderController_UpdateStatusByAdmin(t *testing.T) {
+func TestOrderHandler_UpdateStatusByAdmin(t *testing.T) {
 	t.Run("success_update_status", func(t *testing.T) {
 		orderID := uuid.New().String()
 		receipt := "RESI-123"
@@ -318,7 +318,7 @@ func TestOrderController_UpdateStatusByAdmin(t *testing.T) {
 				return order.OrderResponse{Status: "SHIPPED"}, nil
 			},
 		}
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.PATCH("/admin/orders/:id/status", ctrl.UpdateStatusByAdmin)
 
@@ -339,7 +339,7 @@ func TestOrderController_UpdateStatusByAdmin(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.PATCH("/admin/orders/:id/status", ctrl.UpdateStatusByAdmin)
 

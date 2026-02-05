@@ -9,15 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Controller struct {
+type Handler struct {
 	service Service
 }
 
-func NewController(svc Service) *Controller {
-	return &Controller{service: svc}
+func NewHandler(svc Service) *Handler {
+	return &Handler{service: svc}
 }
 
-func (ctrl *Controller) Create(c *gin.Context) {
+func (ctrl *Handler) Create(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	productSlug := c.Param("slug")
 
@@ -42,7 +42,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 	response.Success(c, http.StatusCreated, res, nil)
 }
 
-func (ctrl *Controller) GetReviewsByProductSlug(c *gin.Context) {
+func (ctrl *Handler) GetReviewsByProductSlug(c *gin.Context) {
 	productSlug := c.Param("slug")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -57,8 +57,8 @@ func (ctrl *Controller) GetReviewsByProductSlug(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Controller) GetReviewsByUserID(c *gin.Context) {
-	// 1. Validasi HTTP input di controller
+func (ctrl *Handler) GetReviewsByUserID(c *gin.Context) {
+	// 1. Validasi HTTP input di Handler
 	authenticatedUserID, exists := c.Get("user_id")
 	if !exists {
 		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated", nil)
@@ -93,7 +93,7 @@ func (ctrl *Controller) GetReviewsByUserID(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Controller) CheckReviewEligibility(c *gin.Context) {
+func (ctrl *Handler) CheckReviewEligibility(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	userIDStr, _ := userID.(string)
 	productSlug := c.Param("slug")
@@ -108,7 +108,7 @@ func (ctrl *Controller) CheckReviewEligibility(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Controller) UpdateReview(c *gin.Context) {
+func (ctrl *Handler) UpdateReview(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	reviewID := c.Param("id")
 
@@ -131,7 +131,7 @@ func (ctrl *Controller) UpdateReview(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Controller) DeleteReview(c *gin.Context) {
+func (ctrl *Handler) DeleteReview(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	reviewID := c.Param("id")
 

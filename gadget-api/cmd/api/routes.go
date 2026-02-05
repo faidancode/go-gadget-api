@@ -13,17 +13,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ControllerRegistry struct {
-	Auth     *auth.Controller
-	Category *category.Controller
-	Brand    *brand.Controller
-	Product  *product.Controller
-	Review   *review.Controller
-	Cart     *cart.Controller
-	Order    *order.Controller
+type HandlerRegistry struct {
+	Auth     *auth.Handler
+	Category *category.Handler
+	Brand    *brand.Handler
+	Product  *product.Handler
+	Review   *review.Handler
+	Cart     *cart.Handler
+	Order    *order.Handler
 }
 
-func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
+func setupRoutes(r *gin.Engine, reg HandlerRegistry) {
 	r.Use(middleware.RequestID())
 
 	v1 := r.Group("/api/v1")
@@ -31,14 +31,6 @@ func setupRoutes(r *gin.Engine, reg ControllerRegistry) {
 		// ========================
 		// AUTH (PUBLIC)
 		// ========================
-		auth := v1.Group("/auth")
-		{
-			auth.GET("/me", middleware.AuthMiddleware(), reg.Auth.Me)
-			auth.POST("/login", reg.Auth.Login)
-			auth.POST("/refresh", reg.Auth.RefreshToken)
-			auth.POST("/logout", reg.Auth.Logout)
-			auth.POST("/register", reg.Auth.Register)
-		}
 
 		// ========================
 		// CATEGORY

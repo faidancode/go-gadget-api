@@ -4,7 +4,7 @@ import "time"
 
 // ==================== REQUEST STRUCTS ====================
 
-// ListPublicQuery Bind query string (controller)
+// ListPublicQuery Bind query string (Handler)
 // ListPublicRequest Business input (service)
 
 type ListPublicRequest struct {

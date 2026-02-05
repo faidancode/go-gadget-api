@@ -64,8 +64,8 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func newTestController(svc cart.Service) *cart.Controller {
-	return cart.NewController(svc)
+func newTestHandler(svc cart.Service) *cart.Handler {
+	return cart.NewHandler(svc)
 }
 
 // Helper untuk menambahkan cookie auth ke request
@@ -78,7 +78,7 @@ func addAuthCookie(req *http.Request) {
 
 // ==================== TEST CASES ====================
 
-func TestCartController_Create(t *testing.T) {
+func TestCartHandler_Create(t *testing.T) {
 	t.Run("success_create_cart", func(t *testing.T) {
 		userID := "user-123"
 		svc := &fakeCartService{
@@ -89,16 +89,16 @@ func TestCartController_Create(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		// 1. Set context sesuai dengan yang diharapkan oleh ExtractUserID/Controller
+		// 1. Set context sesuai dengan yang diharapkan oleh ExtractUserID/Handler
 		// Sesuai file extract_user.go Anda:
-		c.Set("user_id", userID)           // Diperlukan jika controller pakai c.Get("user_id")
-		c.Set("user_id_validated", userID) // Diperlukan jika controller pakai c.Get("user_id_validated")
+		c.Set("user_id", userID)           // Diperlukan jika Handler pakai c.Get("user_id")
+		c.Set("user_id_validated", userID) // Diperlukan jika Handler pakai c.Get("user_id_validated")
 
-		// 2. Jika controller menggunakan c.Param("userId")
+		// 2. Jika Handler menggunakan c.Param("userId")
 		c.Params = gin.Params{{Key: "userId", Value: userID}}
 
 		ctrl.Create(c)
@@ -107,7 +107,7 @@ func TestCartController_Create(t *testing.T) {
 	})
 }
 
-func TestCartController_Count(t *testing.T) {
+func TestCartHandler_Count(t *testing.T) {
 	t.Run("success_get_count", func(t *testing.T) {
 		svc := &fakeCartService{
 			CountFn: func(ctx context.Context, userID string) (int64, error) {
@@ -115,7 +115,7 @@ func TestCartController_Count(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 
 		// Simulasi route dengan middleware minimal
@@ -134,7 +134,7 @@ func TestCartController_Count(t *testing.T) {
 	})
 }
 
-func TestCartController_UpdateQty(t *testing.T) {
+func TestCartHandler_UpdateQty(t *testing.T) {
 	t.Run("success_update_qty", func(t *testing.T) {
 		svc := &fakeCartService{
 			UpdateQtyFn: func(ctx context.Context, userID, productID string, req cart.UpdateQtyRequest) error {
@@ -143,7 +143,7 @@ func TestCartController_UpdateQty(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestController(svc)
+		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.PUT("/cart/items/:productId", func(c *gin.Context) {
 			c.Set("user_id", "user-1")
@@ -162,7 +162,7 @@ func TestCartController_UpdateQty(t *testing.T) {
 	})
 
 	t.Run("bad_request_invalid_json", func(t *testing.T) {
-		ctrl := newTestController(&fakeCartService{})
+		ctrl := newTestHandler(&fakeCartService{})
 		r := setupTestRouter()
 		r.PUT("/cart/items/:productId", func(c *gin.Context) {
 			c.Set("user_id", "user-1")
@@ -180,13 +180,13 @@ func TestCartController_UpdateQty(t *testing.T) {
 	})
 }
 
-func TestCartController_IncrementDecrement(t *testing.T) {
+func TestCartHandler_IncrementDecrement(t *testing.T) {
 	svc := &fakeCartService{
 		IncrementFn: func(ctx context.Context, userID, productID string) error { return nil },
 		DecrementFn: func(ctx context.Context, userID, productID string) error { return nil },
 	}
 
-	ctrl := newTestController(svc)
+	ctrl := newTestHandler(svc)
 	r := setupTestRouter()
 
 	// Helper wrapper untuk simulasi auth context
@@ -217,13 +217,13 @@ func TestCartController_IncrementDecrement(t *testing.T) {
 	})
 }
 
-func TestCartController_Delete(t *testing.T) {
+func TestCartHandler_Delete(t *testing.T) {
 	svc := &fakeCartService{
 		DeleteItemFn: func(ctx context.Context, userID, productID string) error { return nil },
 		DeleteFn:     func(ctx context.Context, userID string) error { return nil },
 	}
 
-	ctrl := newTestController(svc)
+	ctrl := newTestHandler(svc)
 	r := setupTestRouter()
 
 	r.DELETE("/cart/items/:productId", func(c *gin.Context) {

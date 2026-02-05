@@ -195,7 +195,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 ## Service Test
 
 func TestService_Create(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
@@ -263,7 +263,7 @@ func TestService_Create(t *testing.T) {
 }
 
 func TestService_Update(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	repo := mock.NewMockRepository(ctrl)
@@ -417,7 +417,7 @@ func TestUpdateProduct(t *testing.T) {
 ## Task
 1. Buatkan functio upload image ke cloudinary
 2. Tambahkan ini pada service test, ini sebagai contoh saja:
-ctrl := gomock.NewController(t)
+ctrl := gomock.NewHandler(t)
 	defer ctrl.Finish()
 
 	db, mock, err := sqlmock.New()
@@ -442,6 +442,6 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func newTestController(svc order.Service) *order.Controller {
-	return order.NewController(svc)
+func newTestController(svc order.Service) *order.Handler {
+	return order.NewHandler(svc)
 }

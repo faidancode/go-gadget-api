@@ -109,7 +109,7 @@ type Controller struct {
 	service *Service
 }
 
-func NewController(s *Service) *Controller {
+func NewHandler(s *Service) *Controller {
 	return &Controller{service: s}
 }
 

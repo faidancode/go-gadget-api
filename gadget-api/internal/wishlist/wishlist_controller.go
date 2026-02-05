@@ -8,17 +8,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Controller struct {
+type Handler struct {
 	service Service
 }
 
-func NewController(svc Service) *Controller {
-	return &Controller{service: svc}
+func NewHandler(svc Service) *Handler {
+	return &Handler{service: svc}
 }
 
-// Create adds a product to user's wishlist
 // POST /wishlist
-func (ctrl *Controller) Create(c *gin.Context) {
+func (ctrl *Handler) Create(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		response.Error(
@@ -54,9 +53,8 @@ func (ctrl *Controller) Create(c *gin.Context) {
 	response.Success(c, http.StatusCreated, res, nil)
 }
 
-// List retrieves all items in user's wishlist
 // GET /wishlist
-func (ctrl *Controller) List(c *gin.Context) {
+func (ctrl *Handler) List(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		response.Error(
@@ -79,9 +77,8 @@ func (ctrl *Controller) List(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-// Delete removes a product from user's wishlist
 // DELETE /wishlist
-func (ctrl *Controller) Delete(c *gin.Context) {
+func (ctrl *Handler) Delete(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		response.Error(

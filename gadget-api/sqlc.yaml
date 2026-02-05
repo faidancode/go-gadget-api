@@ -1,11 +1,11 @@
 version: "2"
 sql:
-  - schema: "db/migrations"
-    queries: "db/queries"
+  - schema: "internal/shared/database/migrations"
+    queries: "internal/shared/database/queries"
     engine: "postgresql"
     gen:
       go:
         package: "dbgen"
-        out: "internal/dbgen"
+        out: "internal/shared/database/dbgen"
         emit_json_tags: true
         emit_prepared_queries: true

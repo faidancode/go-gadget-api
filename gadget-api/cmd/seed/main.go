@@ -2,10 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"gadget-api/internal/shared/database/seed"
 	"log"
 	"os"
-
-	"gadget-api/db/seed"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -21,17 +20,17 @@ func main() {
 	}
 	defer db.Close()
 
-	// if err := seed.SeedUsers(db); err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err := seed.SeedUsers(db); err != nil {
+		log.Fatal(err)
+	}
 
-	// if err := seed.SeedCustomers(db); err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err := seed.SeedCustomers(db); err != nil {
+		log.Fatal(err)
+	}
 
-	// if err := seed.SeedAll(db); err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err := seed.SeedAll(db); err != nil {
+		log.Fatal(err)
+	}
 
 	if err := seed.SeedOrders(db); err != nil {
 		log.Fatal(err)

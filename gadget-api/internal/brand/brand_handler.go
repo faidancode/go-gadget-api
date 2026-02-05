@@ -12,15 +12,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type Controller struct {
+type Handler struct {
 	service Service
 }
 
-func NewController(s Service) *Controller {
-	return &Controller{service: s}
+func NewHandler(s Service) *Handler {
+	return &Handler{service: s}
 }
 
-func (ctrl *Controller) ListPublic(c *gin.Context) {
+func (ctrl *Handler) ListPublic(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -43,7 +43,7 @@ func (ctrl *Controller) ListPublic(c *gin.Context) {
 	})
 }
 
-func (ctrl *Controller) ListAdmin(c *gin.Context) {
+func (ctrl *Handler) ListAdmin(c *gin.Context) {
 	var req ListBrandRequest
 
 	// Bind query parameters ke struct (page, limit, search, sort_col, sort_dir)
@@ -80,10 +80,10 @@ func (ctrl *Controller) ListAdmin(c *gin.Context) {
 	})
 }
 
-func (ctrl *Controller) GetByID(c *gin.Context) {
+func (ctrl *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	// ✅ Validasi UUID di controller
+	// ✅ Validasi UUID di Handler
 	if _, err := uuid.Parse(id); err != nil {
 		response.Error(
 			c,
@@ -111,7 +111,7 @@ func (ctrl *Controller) GetByID(c *gin.Context) {
 }
 
 // 3. CREATE BRAND
-func (ctrl *Controller) Create(c *gin.Context) {
+func (ctrl *Handler) Create(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// 1. Parse multipart form (max 10 MB)
@@ -196,7 +196,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 	)
 }
 
-func (ctrl *Controller) Update(c *gin.Context) {
+func (ctrl *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 	if _, err := uuid.Parse(id); err != nil {
 		response.Error(
@@ -264,7 +264,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Controller) Delete(c *gin.Context) {
+func (ctrl *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	// 1. Validasi UUID lebih awal
@@ -294,7 +294,7 @@ func (ctrl *Controller) Delete(c *gin.Context) {
 	response.Success(c, http.StatusOK, nil, nil)
 }
 
-func (ctrl *Controller) Restore(c *gin.Context) {
+func (ctrl *Handler) Restore(c *gin.Context) {
 	res, err := ctrl.service.Restore(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
