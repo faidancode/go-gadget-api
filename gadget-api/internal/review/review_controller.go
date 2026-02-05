@@ -93,21 +93,6 @@ func (ctrl *Handler) GetReviewsByUserID(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Handler) CheckReviewEligibility(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	userIDStr, _ := userID.(string)
-	productSlug := c.Param("slug")
-
-	res, err := ctrl.service.CheckEligibility(c.Request.Context(), userIDStr, productSlug)
-	if err != nil {
-		httpErr := apperror.ToHTTP(err)
-		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
-		return
-	}
-
-	response.Success(c, http.StatusOK, res, nil)
-}
-
 func (ctrl *Handler) UpdateReview(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	reviewID := c.Param("id")

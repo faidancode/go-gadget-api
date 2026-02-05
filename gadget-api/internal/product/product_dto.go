@@ -127,3 +127,8 @@ type ProductAdminResponse struct {
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
+
+type EligibilityResponse struct {
+	CanReview bool   `json:"canReview"`
+	Reason    string `json:"reason,omitempty"`
+}

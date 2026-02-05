@@ -1,6 +1,7 @@
 package product
 
 import (
+	"context"
 	"fmt"
 	"gadget-api/internal/pkg/apperror"
 	"gadget-api/internal/pkg/httpx"
@@ -12,16 +13,31 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct {
-	service Service
+type ReviewService interface {
+	CheckEligibility(
+		ctx context.Context,
+		userID string,
+		productSlug string,
+	) (EligibilityResponse, error)
 }
 
-func NewHandler(s Service) *Handler {
-	return &Handler{service: s}
+type Handler struct {
+	productService Service
+	reviewService  ReviewService
+}
+
+func NewHandler(
+	productService Service,
+	reviewService ReviewService,
+) *Handler {
+	return &Handler{
+		productService: productService,
+		reviewService:  reviewService,
+	}
 }
 
 // 1. GET PUBLIC LIST (Customers)
-func (ctrl *Handler) GetPublicList(c *gin.Context) {
+func (h *Handler) GetPublicList(c *gin.Context) {
 	var q ListPublicQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_QUERY", "Query tidak valid", err.Error())
@@ -38,17 +54,17 @@ func (ctrl *Handler) GetPublicList(c *gin.Context) {
 		SortBy:      q.SortBy,
 	}
 
-	data, total, err := ctrl.service.ListPublic(c.Request.Context(), req)
+	data, total, err := h.productService.ListPublic(c.Request.Context(), req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FETCH_ERROR", "Gagal mengambil data produk", err.Error())
 		return
 	}
 
-	response.Success(c, http.StatusOK, data, ctrl.makePagination(q.Page, q.Limit, total))
+	response.Success(c, http.StatusOK, data, h.makePagination(q.Page, q.Limit, total))
 }
 
 // 2. GET ADMIN LIST (Dashboard)
-func (ctrl *Handler) GetAdminList(c *gin.Context) {
+func (h *Handler) GetAdminList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -63,7 +79,7 @@ func (ctrl *Handler) GetAdminList(c *gin.Context) {
 		SortDir:  sort.SortDir,
 	}
 
-	data, total, err := ctrl.service.ListAdmin(c.Request.Context(), req)
+	data, total, err := h.productService.ListAdmin(c.Request.Context(), req)
 	if err != nil {
 		response.Error(
 			c,
@@ -79,12 +95,12 @@ func (ctrl *Handler) GetAdminList(c *gin.Context) {
 		c,
 		http.StatusOK,
 		data,
-		ctrl.makePagination(page, limit, total),
+		h.makePagination(page, limit, total),
 	)
 }
 
 // 3. CREATE PRODUCT
-func (ctrl *Handler) Create(c *gin.Context) {
+func (h *Handler) Create(c *gin.Context) {
 	// 1. Parse multipart form
 	err := c.Request.ParseMultipartForm(10 << 20) // 10 MB max
 	if err != nil {
@@ -154,7 +170,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 	}
 
 	// 5. Call service
-	res, err := ctrl.service.Create(c.Request.Context(), req, file, filename)
+	res, err := h.productService.Create(c.Request.Context(), req, file, filename)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -165,8 +181,8 @@ func (ctrl *Handler) Create(c *gin.Context) {
 }
 
 // 4. GET BY ID (Admin / Detail)
-func (ctrl *Handler) GetByID(c *gin.Context) {
-	res, err := ctrl.service.GetByID(c.Request.Context(), c.Param("id"))
+func (h *Handler) GetByID(c *gin.Context) {
+	res, err := h.productService.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
 			c,
@@ -181,8 +197,8 @@ func (ctrl *Handler) GetByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Handler) GetBySlug(c *gin.Context) {
-	res, err := ctrl.service.GetBySlug(c.Request.Context(), c.Param("slug"))
+func (h *Handler) GetBySlug(c *gin.Context) {
+	res, err := h.productService.GetBySlug(c.Request.Context(), c.Param("slug"))
 	if err != nil {
 		response.Error(
 			c,
@@ -191,6 +207,21 @@ func (ctrl *Handler) GetBySlug(c *gin.Context) {
 			"Produk tidak ditemukan",
 			nil,
 		)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res, nil)
+}
+
+func (h *Handler) CheckReviewEligibility(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	userIDStr, _ := userID.(string)
+	productSlug := c.Param("slug")
+
+	res, err := h.reviewService.CheckEligibility(c.Request.Context(), userIDStr, productSlug)
+	if err != nil {
+		httpErr := apperror.ToHTTP(err)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 
@@ -198,7 +229,7 @@ func (ctrl *Handler) GetBySlug(c *gin.Context) {
 }
 
 // 5. UPDATE PRODUCT
-func (ctrl *Handler) Update(c *gin.Context) {
+func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 
 	// 1. Parse multipart form
@@ -259,7 +290,7 @@ func (ctrl *Handler) Update(c *gin.Context) {
 	}
 
 	// 4. Call service
-	res, err := ctrl.service.Update(c.Request.Context(), id, req, file, filename)
+	res, err := h.productService.Update(c.Request.Context(), id, req, file, filename)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -270,8 +301,8 @@ func (ctrl *Handler) Update(c *gin.Context) {
 }
 
 // 6. DELETE PRODUCT (Soft Delete)
-func (ctrl *Handler) Delete(c *gin.Context) {
-	if err := ctrl.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
+func (h *Handler) Delete(c *gin.Context) {
+	if err := h.productService.Delete(c.Request.Context(), c.Param("id")); err != nil {
 		response.Error(
 			c,
 			http.StatusInternalServerError,
@@ -286,8 +317,8 @@ func (ctrl *Handler) Delete(c *gin.Context) {
 }
 
 // 7. RESTORE PRODUCT
-func (ctrl *Handler) Restore(c *gin.Context) {
-	res, err := ctrl.service.Restore(c.Request.Context(), c.Param("id"))
+func (h *Handler) Restore(c *gin.Context) {
+	res, err := h.productService.Restore(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
 			c,
@@ -303,7 +334,7 @@ func (ctrl *Handler) Restore(c *gin.Context) {
 }
 
 // Helper: Pagination Meta
-func (ctrl *Handler) makePagination(page, limit int, total int64) *response.PaginationMeta {
+func (h *Handler) makePagination(page, limit int, total int64) *response.PaginationMeta {
 	totalPages := 0
 	if limit > 0 {
 		totalPages = int((total + int64(limit) - 1) / int64(limit))

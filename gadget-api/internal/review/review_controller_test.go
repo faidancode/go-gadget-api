@@ -167,24 +167,6 @@ func TestReviewHandler_GetReviewsByUserID(t *testing.T) {
 	})
 }
 
-// ==================== ELIGIBILITY ====================
-
-func TestReviewHandler_CheckReviewEligibility(t *testing.T) {
-	t.Run("positive - eligible", func(t *testing.T) {
-		d := setupReviewHandlerTest()
-		d.ctx.Set("user_id", uuid.New().String())
-		d.ctx.Params = gin.Params{{Key: "slug", Value: "iphone"}}
-		d.performRequest(http.MethodGet, "/", nil)
-
-		d.svc.checkEligibilityFunc = func(ctx context.Context, uid, s string) (review.ReviewEligibilityResponse, error) {
-			return review.ReviewEligibilityResponse{CanReview: true}, nil
-		}
-
-		d.ctrl.CheckReviewEligibility(d.ctx)
-		assert.Equal(t, http.StatusOK, d.w.Code)
-	})
-}
-
 // ==================== UPDATE REVIEW ====================
 
 func TestReviewHandler_UpdateReview(t *testing.T) {
