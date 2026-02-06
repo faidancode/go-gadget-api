@@ -3,7 +3,8 @@ package category
 import (
 	"context"
 	"fmt"
-	"go-gadget-api/internal/dbgen" // Menggunakan package gadget-api
+	"go-gadget-api/internal/shared/database/dbgen" // Menggunakan package gadget-api
+	"go-gadget-api/internal/shared/database/helper"
 	"log"
 	"strings"
 )
@@ -28,8 +29,8 @@ func SeedCategories(repo Repository) {
 		_, err := repo.Create(ctx, dbgen.CreateCategoryParams{
 			Name:        cat.Name,
 			Slug:        slug,
-			Description: dbgen.NewNullString(cat.Description),
-			ImageUrl:    dbgen.NewNullString(cat.ImageUrl),
+			Description: helper.StringToNull(&cat.Description),
+			ImageUrl:    helper.StringToNull(&cat.ImageUrl),
 		})
 
 		if err != nil {

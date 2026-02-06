@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"log"
 
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/security"
+	"go-gadget-api/internal/shared/database/dbgen"
 )
 
 func SeedCustomers(db *sql.DB) error {

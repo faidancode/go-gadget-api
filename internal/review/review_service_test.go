@@ -5,18 +5,18 @@ import (
 	"database/sql"
 	"testing"
 
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/review"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	productMock "go-gadget-api/internal/mock/product"
 	reviewMock "go-gadget-api/internal/mock/review"
 	reviewerrors "go-gadget-api/internal/review/errors"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 // ======================= HELPERS =======================

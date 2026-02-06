@@ -10,7 +10,7 @@ import (
 	multipart "mime/multipart"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCloudinaryService is a mock of CloudinaryService interface.

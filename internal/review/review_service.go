@@ -3,10 +3,10 @@ package review
 import (
 	"context"
 	"database/sql"
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/product"
 	reviewerrors "go-gadget-api/internal/review/errors"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"

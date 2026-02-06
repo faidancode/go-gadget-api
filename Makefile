@@ -80,11 +80,11 @@ docker-down:
 
 .PHONY: docker-infra
 docker-infra:
-	docker-compose up -d postgres redis kafka
+	docker-compose up -d postgres redis kafka kafka-ui
 
 .PHONY: docker-infra-stop
 docker-infra-stop:
-	docker-compose stop postgres redis kafka
+	docker-compose stop postgres redis kafka kafka-ui
 
 .PHONY: docker-logs
 docker-logs:
@@ -94,6 +94,20 @@ docker-logs:
 .PHONY: docker-migrate
 docker-migrate:
 	docker-compose run --rm migrator
+
+# =========================
+# MONITORING
+# =========================
+
+# Cek status container proyek ini saja
+.PHONY: ps
+ps:
+	docker compose ps
+
+# Cek semua container yang ada di komputer dengan format tabel
+.PHONY: docker-ls
+docker-ls:
+	docker ps -a
 
 # =========================
 # DATABASE (DEV ONLY)

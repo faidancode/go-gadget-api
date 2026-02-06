@@ -6,9 +6,10 @@ import (
 	"fmt"
 	categoryerrors "go-gadget-api/internal/category/errors"
 	"go-gadget-api/internal/cloudinary"
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/constants"
+	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/shared/database/helper"
 	"mime/multipart"
 	"strings"
 
@@ -101,7 +102,7 @@ func (s *service) ListAdmin(ctx context.Context, req ListCategoryRequest) ([]Cat
 	params := dbgen.ListCategoriesAdminParams{
 		Limit:   int32(limit),
 		Offset:  int32(offset),
-		Search:  dbgen.NewNullString(req.Search),
+		Search:  helper.StringToNull(&req.Search),
 		SortCol: sortCol,
 		SortDir: sortDir,
 	}
@@ -146,7 +147,7 @@ func (s *service) Create(ctx context.Context, req CreateCategoryRequest, file mu
 	category, err := qtx.Create(ctx, dbgen.CreateCategoryParams{
 		Name:        req.Name,
 		Slug:        req.Slug,
-		Description: dbgen.NewNullString(req.Description),
+		Description: helper.StringToNull(&req.Description),
 		ImageUrl:    sql.NullString{},
 	})
 	if err != nil {
@@ -171,7 +172,7 @@ func (s *service) Create(ctx context.Context, req CreateCategoryRequest, file mu
 			Name:        category.Name,
 			Slug:        category.Slug,
 			Description: category.Description,
-			ImageUrl:    dbgen.NewNullString(imageURL),
+			ImageUrl:    helper.StringToNull(&imageURL),
 			IsActive:    category.IsActive,
 		})
 		if err != nil {
@@ -247,7 +248,7 @@ func (s *service) Update(
 			return CategoryAdminResponse{}, categoryerrors.ErrImageUploadFailed
 		}
 
-		newImageURL = dbgen.NewNullString(imageURL)
+		newImageURL = helper.StringToNull(&imageURL)
 	} else {
 		newImageURL = category.ImageUrl
 	}
@@ -257,7 +258,7 @@ func (s *service) Update(
 		ID:          category.ID,
 		Name:        req.Name,
 		Slug:        req.Slug,
-		Description: dbgen.NewNullString(req.Description),
+		Description: helper.StringToNull(&req.Description),
 		ImageUrl:    newImageURL,
 		IsActive:    category.IsActive,
 	})

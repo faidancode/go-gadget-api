@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"go-gadget-api/internal/dbgen"
+	"go-gadget-api/internal/shared/database/dbgen"
 	"log"
 	"math/rand"
 	"strconv"

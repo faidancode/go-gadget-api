@@ -6,9 +6,10 @@ import (
 	"fmt"
 	branderrors "go-gadget-api/internal/brand/errors"
 	"go-gadget-api/internal/cloudinary"
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/constants"
+	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/shared/database/helper"
 	"mime/multipart"
 	"strings"
 
@@ -101,7 +102,7 @@ func (s *service) ListAdmin(ctx context.Context, req ListBrandRequest) ([]BrandA
 	params := dbgen.ListBrandsAdminParams{
 		Limit:   int32(limit),
 		Offset:  int32(offset),
-		Search:  dbgen.NewNullString(req.Search),
+		Search:  helper.StringToNull(&req.Search),
 		SortCol: sortCol,
 		SortDir: sortDir,
 	}
@@ -147,7 +148,7 @@ func (s *service) Create(ctx context.Context, req CreateBrandRequest, file multi
 	brand, err := qtx.Create(ctx, dbgen.CreateBrandParams{
 		Name:        req.Name,
 		Slug:        req.Slug,
-		Description: dbgen.NewNullString(req.Description),
+		Description: helper.StringToNull(&req.Description),
 		ImageUrl:    sql.NullString{},
 	})
 	if err != nil {
@@ -172,7 +173,7 @@ func (s *service) Create(ctx context.Context, req CreateBrandRequest, file multi
 			Name:        brand.Name,
 			Slug:        brand.Slug,
 			Description: brand.Description,
-			ImageUrl:    dbgen.NewNullString(imageURL),
+			ImageUrl:    helper.StringToNull(&imageURL),
 			IsActive:    brand.IsActive,
 		})
 		if err != nil {
@@ -248,7 +249,7 @@ func (s *service) Update(
 			return BrandAdminResponse{}, branderrors.ErrImageUploadFailed
 		}
 
-		newImageURL = dbgen.NewNullString(imageURL)
+		newImageURL = helper.StringToNull(&imageURL)
 	} else {
 		newImageURL = brand.ImageUrl
 	}
@@ -258,7 +259,7 @@ func (s *service) Update(
 		ID:          brand.ID,
 		Name:        req.Name,
 		Slug:        req.Slug,
-		Description: dbgen.NewNullString(req.Description),
+		Description: helper.StringToNull(&req.Description),
 		ImageUrl:    newImageURL,
 		IsActive:    brand.IsActive,
 	})

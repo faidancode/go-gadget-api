@@ -7,8 +7,8 @@ import (
 
 	autherrors "go-gadget-api/internal/auth/errors"
 	carterrors "go-gadget-api/internal/cart/errors"
-	"go-gadget-api/internal/dbgen"
 	producterrors "go-gadget-api/internal/product/errors"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"

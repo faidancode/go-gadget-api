@@ -50,10 +50,27 @@ services:
       - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - ALLOW_PLAINTEXT_LISTENER=yes
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      test:
+          [
+            "CMD-SHELL",
+            "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"
+          ]
       interval: 10s
       timeout: 10s
-      retries: 5
+      retries: 10       # Memberi kesempatan lebih banyak
+      start_period: 30s # Memberi waktu Kafka untuk 'pemanasan'
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: go_gadget_kafka_ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - DYNAMIC_CONFIG_ENABLED=true    
 
   # Aplikasi Go
   app:

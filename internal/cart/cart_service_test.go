@@ -9,13 +9,13 @@ import (
 
 	"go-gadget-api/internal/cart"
 	carterrors "go-gadget-api/internal/cart/errors"
-	"go-gadget-api/internal/dbgen"
 	mock "go-gadget-api/internal/mock/cart"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCart_Create(t *testing.T) {

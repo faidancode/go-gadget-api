@@ -9,16 +9,17 @@ import (
 	"time"
 
 	"go-gadget-api/internal/brand"
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/constants"
+	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/shared/database/helper"
 
 	brandMock "go-gadget-api/internal/mock/brand"
 	cloudinaryMock "go-gadget-api/internal/mock/cloudinary"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 // ======================= HELPERS =======================
@@ -140,7 +141,7 @@ func TestBrandService_ListAdmin(t *testing.T) {
 			ListAdmin(ctx, dbgen.ListBrandsAdminParams{
 				Limit:   int32(5),
 				Offset:  int32(0),
-				Search:  dbgen.NewNullString("Apple"),
+				Search:  helper.RawStringToNull("Apple"),
 				SortCol: "name",
 				SortDir: "asc",
 			}).
@@ -161,7 +162,7 @@ func TestBrandService_ListAdmin(t *testing.T) {
 			ListAdmin(ctx, dbgen.ListBrandsAdminParams{
 				Limit:   int32(10), // Default limit
 				Offset:  int32(0),
-				Search:  dbgen.NewNullString(""),
+				Search:  helper.RawStringToNull(""),
 				SortCol: "created_at", // Default sort
 				SortDir: "desc",       // Default dir
 			}).
@@ -214,7 +215,7 @@ func TestBrandService_Create(t *testing.T) {
 
 		// 4. Final Get
 		deps.repo.EXPECT().GetByID(ctx, brandID).Return(dbgen.Brand{
-			ID: brandID, Name: req.Name, ImageUrl: dbgen.NewNullString(imgURL),
+			ID: brandID, Name: req.Name, ImageUrl: helper.StringToNull(&imgURL),
 		}, nil)
 
 		res, err := deps.service.Create(ctx, req, fakeFile, filename)
@@ -264,7 +265,7 @@ func TestBrandService_Update(t *testing.T) {
 				ID:       id,
 				Name:     "Apple",
 				ImageUrl: sql.NullString{},
-				IsActive: dbgen.NewNullBool(true),
+				IsActive: helper.RawBoolToNull(true),
 			}, nil)
 
 		deps.repo.EXPECT().
@@ -290,11 +291,9 @@ func TestBrandService_Update(t *testing.T) {
 		deps.repo.EXPECT().
 			GetByID(ctx, id).
 			Return(dbgen.Brand{
-				ID: id,
-				ImageUrl: dbgen.NewNullString(
-					"https://res.cloudinary.com/demo/image/upload/v1769161193/go-gadget/brands/brand-old.png",
-				),
-				IsActive: dbgen.NewNullBool(true),
+				ID:       id,
+				ImageUrl: helper.RawStringToNull("https://res.cloudinary.com/demo/image/upload/v1769161193/go-gadget/brands/brand-old.png"),
+				IsActive: helper.RawBoolToNull(true),
 			}, nil)
 
 		deps.cloudinary.EXPECT().
@@ -314,7 +313,7 @@ func TestBrandService_Update(t *testing.T) {
 			Return(dbgen.Brand{
 				ID:       id,
 				Name:     req.Name,
-				ImageUrl: dbgen.NewNullString(imgURL),
+				ImageUrl: helper.StringToNull(&imgURL),
 			}, nil)
 
 		res, err := deps.service.Update(ctx, id.String(), req, fakeFile, "new.png")

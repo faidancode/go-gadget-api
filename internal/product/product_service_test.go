@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/constants"
 	"go-gadget-api/internal/product"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	categoryMock "go-gadget-api/internal/mock/category"
 	cloudinaryMock "go-gadget-api/internal/mock/cloudinary"
@@ -18,9 +18,9 @@ import (
 	reviewMock "go-gadget-api/internal/mock/review"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 //

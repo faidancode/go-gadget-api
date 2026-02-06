@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"go-gadget-api/internal/dbgen"
+	"go-gadget-api/internal/shared/database/dbgen"
 	"log"
 	"math/rand"
 )

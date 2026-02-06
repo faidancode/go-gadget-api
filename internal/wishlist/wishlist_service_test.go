@@ -3,16 +3,16 @@ package wishlist_test
 import (
 	"context"
 	"database/sql"
-	"go-gadget-api/internal/dbgen"
 	wishlistMock "go-gadget-api/internal/mock/wishlist"
+	"go-gadget-api/internal/shared/database/dbgen"
 	"go-gadget-api/internal/wishlist"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestWishlistService_Create(t *testing.T) {

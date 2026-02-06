@@ -9,7 +9,7 @@ import (
 	address "go-gadget-api/internal/address"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockService is a mock of Service interface.

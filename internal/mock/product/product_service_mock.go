@@ -6,13 +6,13 @@ package mock
 
 import (
 	context "context"
-	dbgen "go-gadget-api/internal/dbgen"
 	product "go-gadget-api/internal/product"
+	dbgen "go-gadget-api/internal/shared/database/dbgen"
 	multipart "mime/multipart"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockReviewRepository is a mock of ReviewRepository interface.

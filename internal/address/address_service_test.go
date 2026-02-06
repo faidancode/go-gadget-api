@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"go-gadget-api/internal/address"
-	"go-gadget-api/internal/dbgen"
 	mockAddress "go-gadget-api/internal/mock/address"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestAddressService_ListByUser_Success(t *testing.T) {

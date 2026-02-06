@@ -111,6 +111,17 @@ type OrderItem struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type OutboxEvent struct {
+	ID            uuid.UUID       `json:"id"`
+	AggregateType string          `json:"aggregate_type"`
+	AggregateID   uuid.UUID       `json:"aggregate_id"`
+	EventType     string          `json:"event_type"`
+	Payload       json.RawMessage `json:"payload"`
+	Status        string          `json:"status"`
+	CreatedAt     time.Time       `json:"created_at"`
+	ProcessedAt   sql.NullTime    `json:"processed_at"`
+}
+
 type Product struct {
 	ID          uuid.UUID      `json:"id"`
 	CategoryID  uuid.UUID      `json:"category_id"`

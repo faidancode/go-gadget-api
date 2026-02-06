@@ -6,7 +6,7 @@ import (
 	"time"
 
 	autherrors "go-gadget-api/internal/auth/errors"
-	"go-gadget-api/internal/dbgen"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

@@ -3,7 +3,8 @@ package address
 import (
 	"context"
 	"database/sql"
-	"go-gadget-api/internal/dbgen"
+	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/shared/database/helper"
 
 	"github.com/google/uuid"
 )
@@ -75,11 +76,11 @@ func (s *service) Create(ctx context.Context, req CreateAddressRequest) (Address
 		RecipientName:  req.RecipientName,
 		RecipientPhone: req.RecipientPhone,
 		Street:         req.Street,
-		Subdistrict:    dbgen.ToText(req.Subdistrict),
-		District:       dbgen.ToText(req.District),
-		City:           dbgen.ToText(req.City),
-		Province:       dbgen.ToText(req.Province),
-		PostalCode:     dbgen.ToText(req.PostalCode),
+		Subdistrict:    helper.StringToNull(&req.Subdistrict),
+		District:       helper.StringToNull(&req.District),
+		City:           helper.StringToNull(&req.City),
+		Province:       helper.StringToNull(&req.Province),
+		PostalCode:     helper.StringToNull(&req.PostalCode),
 		IsPrimary:      req.IsPrimary,
 	})
 	if err != nil {
@@ -117,11 +118,11 @@ func (s *service) Update(ctx context.Context, addressID string, userID string, r
 		RecipientName:  req.RecipientName,
 		RecipientPhone: req.RecipientPhone,
 		Street:         req.Street,
-		Subdistrict:    dbgen.ToText(req.Subdistrict),
-		District:       dbgen.ToText(req.District),
-		City:           dbgen.ToText(req.City),
-		Province:       dbgen.ToText(req.Province),
-		PostalCode:     dbgen.ToText(req.PostalCode),
+		Subdistrict:    helper.StringToNull(&req.Subdistrict),
+		District:       helper.StringToNull(&req.District),
+		City:           helper.StringToNull(&req.City),
+		Province:       helper.StringToNull(&req.Province),
+		PostalCode:     helper.StringToNull(&req.PostalCode),
 		IsPrimary:      req.IsPrimary,
 	})
 	if err != nil {

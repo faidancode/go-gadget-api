@@ -3,7 +3,7 @@ package address
 import (
 	"context"
 	"database/sql"
-	"go-gadget-api/internal/dbgen"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	"github.com/google/uuid"
 )

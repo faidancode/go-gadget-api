@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"go-gadget-api/internal/category"
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/pkg/constants"
 	producterrors "go-gadget-api/internal/product/errors"
+	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/shared/database/helper"
 	"log"
 	"mime/multipart"
 	"strconv"
@@ -99,7 +100,7 @@ func (s *service) ListPublic(ctx context.Context, req ListPublicRequest) ([]Prod
 		CategoryIds: categoryIDs,
 		Limit:       int32(req.Limit),
 		Offset:      int32(offset),
-		Search:      dbgen.NewNullString(req.Search),
+		Search:      helper.StringToNull(&req.Search),
 		MinPrice:    fmt.Sprintf("%.2f", req.MinPrice),
 		MaxPrice:    fmt.Sprintf("%.2f", req.MaxPrice),
 		SortBy:      req.SortBy,
@@ -190,7 +191,7 @@ func (s *service) ListAdmin(
 	params := dbgen.ListProductsAdminParams{
 		Limit:   int32(limit),
 		Offset:  int32(offset),
-		Search:  dbgen.NewNullString(req.Search),
+		Search:  helper.StringToNull(&req.Search),
 		SortCol: sortCol,
 		SortDir: sortDir,
 	}
@@ -240,10 +241,10 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 		CategoryID:  catID,
 		Name:        req.Name,
 		Slug:        slug,
-		Description: dbgen.NewNullString(req.Description),
+		Description: helper.StringToNull(&req.Description),
 		Price:       priceStr,
 		Stock:       req.Stock,
-		Sku:         dbgen.NewNullString(req.SKU),
+		Sku:         helper.StringToNull(&req.SKU),
 		ImageUrl:    sql.NullString{}, // Empty first
 	})
 	if err != nil {
@@ -270,7 +271,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 			Price:       product.Price,
 			Stock:       product.Stock,
 			Sku:         product.Sku,
-			ImageUrl:    dbgen.NewNullString(imageURL),
+			ImageUrl:    helper.StringToNull(&imageURL),
 			IsActive:    product.IsActive,
 		})
 		if err != nil {
@@ -362,10 +363,10 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 		params.Stock = req.Stock
 	}
 	if req.SKU != "" {
-		params.Sku = dbgen.NewNullString(req.SKU)
+		params.Sku = helper.StringToNull(&req.SKU)
 	}
 	if req.Description != "" {
-		params.Description = dbgen.NewNullString(req.Description)
+		params.Description = helper.StringToNull(&req.Description)
 	}
 	if req.IsActive != nil {
 		params.IsActive = sql.NullBool{Bool: *req.IsActive, Valid: true}
@@ -394,7 +395,7 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 			return ProductAdminResponse{}, fmt.Errorf("failed to upload image: %w", err)
 		}
 
-		params.ImageUrl = dbgen.NewNullString(newImageURL)
+		params.ImageUrl = helper.StringToNull(&newImageURL)
 	}
 
 	// 7. Update product in DB

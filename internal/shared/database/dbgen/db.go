@@ -66,6 +66,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createOrderItemStmt, err = db.PrepareContext(ctx, createOrderItem); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateOrderItem: %w", err)
 	}
+	if q.createOutboxEventStmt, err = db.PrepareContext(ctx, createOutboxEvent); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateOutboxEvent: %w", err)
+	}
 	if q.createProductStmt, err = db.PrepareContext(ctx, createProduct); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateProduct: %w", err)
 	}
@@ -183,6 +186,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listOrdersAdminStmt, err = db.PrepareContext(ctx, listOrdersAdmin); err != nil {
 		return nil, fmt.Errorf("error preparing query ListOrdersAdmin: %w", err)
 	}
+	if q.listPendingOutboxStmt, err = db.PrepareContext(ctx, listPendingOutbox); err != nil {
+		return nil, fmt.Errorf("error preparing query ListPendingOutbox: %w", err)
+	}
 	if q.listProductsAdminStmt, err = db.PrepareContext(ctx, listProductsAdmin); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductsAdmin: %w", err)
 	}
@@ -191,6 +197,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.listProductsPublicStmt, err = db.PrepareContext(ctx, listProductsPublic); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductsPublic: %w", err)
+	}
+	if q.markOutboxSentStmt, err = db.PrepareContext(ctx, markOutboxSent); err != nil {
+		return nil, fmt.Errorf("error preparing query MarkOutboxSent: %w", err)
 	}
 	if q.restoreBrandStmt, err = db.PrepareContext(ctx, restoreBrand); err != nil {
 		return nil, fmt.Errorf("error preparing query RestoreBrand: %w", err)
@@ -310,6 +319,11 @@ func (q *Queries) Close() error {
 	if q.createOrderItemStmt != nil {
 		if cerr := q.createOrderItemStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createOrderItemStmt: %w", cerr)
+		}
+	}
+	if q.createOutboxEventStmt != nil {
+		if cerr := q.createOutboxEventStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createOutboxEventStmt: %w", cerr)
 		}
 	}
 	if q.createProductStmt != nil {
@@ -507,6 +521,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listOrdersAdminStmt: %w", cerr)
 		}
 	}
+	if q.listPendingOutboxStmt != nil {
+		if cerr := q.listPendingOutboxStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listPendingOutboxStmt: %w", cerr)
+		}
+	}
 	if q.listProductsAdminStmt != nil {
 		if cerr := q.listProductsAdminStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listProductsAdminStmt: %w", cerr)
@@ -520,6 +539,11 @@ func (q *Queries) Close() error {
 	if q.listProductsPublicStmt != nil {
 		if cerr := q.listProductsPublicStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listProductsPublicStmt: %w", cerr)
+		}
+	}
+	if q.markOutboxSentStmt != nil {
+		if cerr := q.markOutboxSentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing markOutboxSentStmt: %w", cerr)
 		}
 	}
 	if q.restoreBrandStmt != nil {
@@ -650,6 +674,7 @@ type Queries struct {
 	createCategoryStmt              *sql.Stmt
 	createOrderStmt                 *sql.Stmt
 	createOrderItemStmt             *sql.Stmt
+	createOutboxEventStmt           *sql.Stmt
 	createProductStmt               *sql.Stmt
 	createReviewStmt                *sql.Stmt
 	createUserStmt                  *sql.Stmt
@@ -689,9 +714,11 @@ type Queries struct {
 	listCategoriesPublicStmt        *sql.Stmt
 	listOrdersStmt                  *sql.Stmt
 	listOrdersAdminStmt             *sql.Stmt
+	listPendingOutboxStmt           *sql.Stmt
 	listProductsAdminStmt           *sql.Stmt
 	listProductsForInternalStmt     *sql.Stmt
 	listProductsPublicStmt          *sql.Stmt
+	markOutboxSentStmt              *sql.Stmt
 	restoreBrandStmt                *sql.Stmt
 	restoreCategoryStmt             *sql.Stmt
 	restoreProductStmt              *sql.Stmt
@@ -727,6 +754,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createCategoryStmt:              q.createCategoryStmt,
 		createOrderStmt:                 q.createOrderStmt,
 		createOrderItemStmt:             q.createOrderItemStmt,
+		createOutboxEventStmt:           q.createOutboxEventStmt,
 		createProductStmt:               q.createProductStmt,
 		createReviewStmt:                q.createReviewStmt,
 		createUserStmt:                  q.createUserStmt,
@@ -766,9 +794,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listCategoriesPublicStmt:        q.listCategoriesPublicStmt,
 		listOrdersStmt:                  q.listOrdersStmt,
 		listOrdersAdminStmt:             q.listOrdersAdminStmt,
+		listPendingOutboxStmt:           q.listPendingOutboxStmt,
 		listProductsAdminStmt:           q.listProductsAdminStmt,
 		listProductsForInternalStmt:     q.listProductsForInternalStmt,
 		listProductsPublicStmt:          q.listProductsPublicStmt,
+		markOutboxSentStmt:              q.markOutboxSentStmt,
 		restoreBrandStmt:                q.restoreBrandStmt,
 		restoreCategoryStmt:             q.restoreCategoryStmt,
 		restoreProductStmt:              q.restoreProductStmt,

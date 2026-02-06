@@ -3,16 +3,17 @@ package app
 import (
 	"database/sql"
 
+	"go-gadget-api/internal/address"
 	"go-gadget-api/internal/auth"
 	"go-gadget-api/internal/brand"
 	"go-gadget-api/internal/cart"
 	"go-gadget-api/internal/category"
 	"go-gadget-api/internal/cloudinary"
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/order"
 	"go-gadget-api/internal/product"
 	"go-gadget-api/internal/product/adapters"
 	"go-gadget-api/internal/review"
+	"go-gadget-api/internal/shared/database/dbgen"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,6 +28,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	productRepo := product.NewRepository(queries)
 	reviewRepo := review.NewRepository(queries)
 	cartRepo := cart.NewRepository(queries)
+	addressRepo := address.NewRepository(queries)
 
 	// --- Services ---
 	authService := auth.NewService(authRepo)
@@ -35,6 +37,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	reviewService := review.NewService(db, reviewRepo, productRepo)
 	productService := product.NewService(db, productRepo, categoryRepo, reviewRepo, cloudinaryService)
 	cartService := cart.NewService(db, cartRepo)
+	addressService := address.NewService(db, addressRepo)
 
 	// --- Adapters ---
 	reviewEligibilityAdapter := adapters.NewReviewEligibilityAdapter(reviewService)
@@ -45,6 +48,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	brandHandler := brand.NewHandler(brandService)
 	reviewHandler := review.NewHandler(reviewService)
 	cartHandler := cart.NewHandler(cartService)
+	addressHandler := address.NewHandler(addressService)
 	productHandler := product.NewHandler(productService, reviewEligibilityAdapter)
 
 	// --- Routes Registration ---
@@ -56,6 +60,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 		product.RegisterRoutes(api, productHandler)
 		review.RegisterRoutes(api, reviewHandler)
 		cart.RegisterRoutes(api, cartHandler)
+		address.RegisterRoutes(api, addressHandler)
 		order.RegisterRoutes(api, order.NewHandler(nil))
 	}
 }

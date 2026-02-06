@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"go-gadget-api/internal/dbgen"
+	"go-gadget-api/internal/shared/database/dbgen"
 )
 
 func SeedCategories(db *sql.DB) error {

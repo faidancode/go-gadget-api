@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"go-gadget-api/internal/auth"
-	"go-gadget-api/internal/dbgen"
 	authMock "go-gadget-api/internal/mock/auth"
+	"go-gadget-api/internal/shared/database/dbgen"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/bcrypt"
 )
 

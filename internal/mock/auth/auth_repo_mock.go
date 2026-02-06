@@ -6,11 +6,11 @@ package mock
 
 import (
 	context "context"
-	dbgen "go-gadget-api/internal/dbgen"
+	dbgen "go-gadget-api/internal/shared/database/dbgen"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRepository is a mock of Repository interface.

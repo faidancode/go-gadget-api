@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"go-gadget-api/internal/auth"
 	"go-gadget-api/internal/cart"
-	"go-gadget-api/internal/dbgen"
+	"go-gadget-api/internal/outbox"
+	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/shared/database/helper"
 	"strconv"
 	"strings"
 	"time"
@@ -30,17 +32,22 @@ type Service interface {
 }
 
 type service struct {
-	repo    Repository
-	cartSvc cart.Service
-	db      *sql.DB        // Dibutuhkan untuk s.db.BeginTx()
-	queries *dbgen.Queries // Untuk query standar non-transaksi
+	db         *sql.DB
+	repo       Repository
+	outboxRepo outbox.Repository
+	cartSvc    cart.Service
 }
 
-func NewService(db *sql.DB, r Repository, c cart.Service) Service {
+func NewService(
+	db *sql.DB,
+	repo Repository,
+	outboxRepo outbox.Repository,
+	cartSvc cart.Service,
+) Service {
 	return &service{
-		db:      db,
-		repo:    r,
-		cartSvc: c,
+		db:         db,
+		repo:       repo,
+		outboxRepo: outboxRepo,
 	}
 }
 
@@ -86,7 +93,7 @@ func (s *service) Checkout(ctx context.Context, req CheckoutRequest) (OrderRespo
 		Status:          "PENDING",
 		AddressSnapshot: json.RawMessage(`{"address_id":"` + req.AddressID + `"}`),
 		TotalPrice:      fmt.Sprintf("%.2f", total),
-		Note:            dbgen.ToText(req.Note),
+		Note:            helper.StringToNull(&req.Note),
 	})
 	if err != nil {
 		return OrderResponse{}, ErrOrderFailed
@@ -109,12 +116,24 @@ func (s *service) Checkout(ctx context.Context, req CheckoutRequest) (OrderRespo
 		}
 	}
 
-	// 6. Kosongkan Cart
-	// Jika cart service menggunakan database yang sama, gunakan qtx
-	// Jika cart service adalah service terpisah (microservice), pastikan s.cartSvc.Delete mendukung context
-	err = s.cartSvc.Delete(ctx, req.UserID)
+	payload, err := json.Marshal(map[string]string{
+		"user_id": req.UserID,
+	})
 	if err != nil {
-		return OrderResponse{}, fmt.Errorf("failed to clear cart: %w", err)
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	err = s.outboxRepo.
+		WithTx(tx).
+		CreateOutboxEvent(ctx, dbgen.CreateOutboxEventParams{
+			ID:            uuid.New(),
+			AggregateType: "ORDER",
+			AggregateID:   o.ID,
+			EventType:     "DELETE_CART",
+			Payload:       payload,
+		})
+	if err != nil {
+		return OrderResponse{}, ErrOrderFailed
 	}
 
 	// 7. COMMIT: Simpan semua perubahan secara permanen
@@ -159,8 +178,8 @@ func (s *service) ListAdmin(ctx context.Context, status string, search string, p
 		Limit:  int32(limit),
 		Offset: int32((page - 1) * limit),
 		// Menggunakan helper ToText untuk mengonversi string ke sql.NullString
-		Status: dbgen.ToText(status),
-		Search: dbgen.ToText(search),
+		Status: helper.StringToNull(&status),
+		Search: helper.StringToNull(&search),
 	})
 	if err != nil {
 		return nil, 0, err

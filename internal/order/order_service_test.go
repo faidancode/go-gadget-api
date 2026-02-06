@@ -5,16 +5,17 @@ import (
 	"database/sql"
 	"go-gadget-api/internal/auth"
 	"go-gadget-api/internal/cart"
-	"go-gadget-api/internal/dbgen"
 	cartMock "go-gadget-api/internal/mock/cart"
 	orderMock "go-gadget-api/internal/mock/order"
+	outboxMock "go-gadget-api/internal/mock/outbox"
 	"go-gadget-api/internal/order"
+	"go-gadget-api/internal/shared/database/dbgen"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestOrderService_Checkout(t *testing.T) {
@@ -29,9 +30,10 @@ func TestOrderService_Checkout(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
+	outboxSvc := outboxMock.NewMockRepository(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, cartSvc)
+	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
 	ctx := context.Background()
 
 	t.Run("success_checkout", func(t *testing.T) {
@@ -139,7 +141,10 @@ func TestOrderService_List(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	svc := order.NewService(db, orderRepo, cartSvc)
+	outboxSvc := outboxMock.NewMockRepository(ctrl)
+
+	// Sekarang menyertakan DB untuk keperluan transaksi
+	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
 	ctx := context.Background()
 
 	t.Run("success_list_orders", func(t *testing.T) {
@@ -181,7 +186,10 @@ func TestOrderService_ListAdmin(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	svc := order.NewService(db, orderRepo, cartSvc)
+	outboxSvc := outboxMock.NewMockRepository(ctrl)
+
+	// Sekarang menyertakan DB untuk keperluan transaksi
+	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
 	ctx := context.Background()
 
 	t.Run("success_list_all_orders", func(t *testing.T) {
@@ -207,7 +215,10 @@ func TestOrderService_Detail(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	svc := order.NewService(db, orderRepo, cartSvc)
+	outboxSvc := outboxMock.NewMockRepository(ctrl)
+
+	// Sekarang menyertakan DB untuk keperluan transaksi
+	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
 	ctx := context.Background()
 
 	t.Run("success_get_detail", func(t *testing.T) {
@@ -238,7 +249,10 @@ func TestOrderService_Cancel(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	svc := order.NewService(db, orderRepo, cartSvc)
+	outboxSvc := outboxMock.NewMockRepository(ctrl)
+
+	// Sekarang menyertakan DB untuk keperluan transaksi
+	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
 	ctx := context.Background()
 
 	t.Run("success_cancel_order", func(t *testing.T) {
@@ -291,7 +305,10 @@ func TestOrderService_UpdateStatusByCustomer(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	svc := order.NewService(db, orderRepo, cartSvc)
+	outboxSvc := outboxMock.NewMockRepository(ctrl)
+
+	// Sekarang menyertakan DB untuk keperluan transaksi
+	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
 	ctx := context.Background()
 
 	t.Run("customer_success_complete", func(t *testing.T) {
@@ -349,7 +366,10 @@ func TestOrderService_UpdateStatusByAdmin(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	svc := order.NewService(db, orderRepo, cartSvc)
+	outboxSvc := outboxMock.NewMockRepository(ctrl)
+
+	// Sekarang menyertakan DB untuk keperluan transaksi
+	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
 	ctx := context.Background()
 
 	t.Run("admin_success_processing", func(t *testing.T) {
