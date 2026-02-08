@@ -10,6 +10,7 @@ import (
 	"go-gadget-api/internal/outbox"
 	"go-gadget-api/internal/shared/database/dbgen"
 	"go-gadget-api/internal/shared/database/helper"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +21,7 @@ import (
 //go:generate mockgen -source=order_service.go -destination=../mocks/order/order_service_mock.go -package=mock
 type Service interface {
 	// Customer Actions
-	Checkout(ctx context.Context, req CheckoutRequest) (OrderResponse, error)
+	Checkout(ctx context.Context, userID string, req CheckoutRequest) (OrderResponse, error)
 	List(ctx context.Context, userID string, page, limit int) ([]OrderResponse, int64, error)
 	Detail(ctx context.Context, orderID string) (OrderResponse, error)
 	Cancel(ctx context.Context, orderID string) error
@@ -38,23 +39,38 @@ type service struct {
 	cartSvc    cart.Service
 }
 
-func NewService(
-	db *sql.DB,
-	repo Repository,
-	outboxRepo outbox.Repository,
-	cartSvc cart.Service,
-) Service {
+type Deps struct {
+	DB         *sql.DB
+	Repo       Repository
+	OutboxRepo outbox.Repository
+	CartSvc    cart.Service
+}
+
+func NewService(deps Deps) Service {
+	if deps.DB == nil {
+		panic("db cannot be nil")
+	}
+	if deps.Repo == nil {
+		panic("order repository cannot be nil")
+	}
+	if deps.OutboxRepo == nil {
+		panic("outbox repository cannot be nil") // ← Check ini
+	}
+	if deps.CartSvc == nil {
+		panic("cart service cannot be nil")
+	}
 	return &service{
-		db:         db,
-		repo:       repo,
-		outboxRepo: outboxRepo,
+		db:         deps.DB,
+		repo:       deps.Repo,
+		outboxRepo: deps.OutboxRepo,
+		cartSvc:    deps.CartSvc,
 	}
 }
 
 // CUSTOMER: Checkout
-func (s *service) Checkout(ctx context.Context, req CheckoutRequest) (OrderResponse, error) {
+func (s *service) Checkout(ctx context.Context, userID string, req CheckoutRequest) (OrderResponse, error) {
 	// 1. Ambil detail cart (Lakukan di luar transaksi untuk performa)
-	cartData, err := s.cartSvc.Detail(ctx, req.UserID)
+	cartData, err := s.cartSvc.Detail(ctx, userID)
 	if err != nil {
 		return OrderResponse{}, err
 	}
@@ -70,20 +86,38 @@ func (s *service) Checkout(ctx context.Context, req CheckoutRequest) (OrderRespo
 
 	// Safety: Jika fungsi exit sebelum Commit, maka akan Rollback.
 	// Jika sudah Commit, Rollback ini tidak akan melakukan apa-apa.
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			err = tx.Rollback()
+			fmt.Printf("Rollback called, error: %v\n", err)
+		}
+	}()
 
 	// 3. Gunakan WithTx untuk mendapatkan instance queries dalam mode transaksi
 	qtx := s.repo.WithTx(tx)
 
 	// --- LOGIKA BISNIS ---
 
-	// Hitung total harga
-	var total float64
+	// Hitung subtotal harga
+	var subtotal float64
 	for _, item := range cartData.Items {
-		total += float64(item.Price) * float64(item.Qty)
+		subtotal += float64(item.Price) * float64(item.Qty)
 	}
+	var shippingPrice float64 = 0.0 // Untuk sekarang, gratis ongkir
+	var total float64 = subtotal + shippingPrice
 
-	uid, _ := uuid.Parse(req.UserID)
+	uid, _ := uuid.Parse(userID)
+	var addId uuid.NullUUID
+	if req.AddressID != "" {
+		parsedID, err := uuid.Parse(req.AddressID)
+		if err == nil {
+			addId.UUID = parsedID
+			addId.Valid = true
+		}
+	} else {
+		addId.Valid = false
+	}
 	orderNumber := fmt.Sprintf("ORD-%d%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
 
 	// 4. Simpan ke Database (Master Order)
@@ -91,11 +125,15 @@ func (s *service) Checkout(ctx context.Context, req CheckoutRequest) (OrderRespo
 		OrderNumber:     orderNumber,
 		UserID:          uid,
 		Status:          "PENDING",
+		AddressID:       addId,
 		AddressSnapshot: json.RawMessage(`{"address_id":"` + req.AddressID + `"}`),
+		SubtotalPrice:   fmt.Sprintf("%.2f", subtotal),
+		ShippingPrice:   fmt.Sprintf("%.2f", shippingPrice),
 		TotalPrice:      fmt.Sprintf("%.2f", total),
 		Note:            helper.StringToNull(&req.Note),
 	})
 	if err != nil {
+		fmt.Printf("Error creating order: %v\n", err)
 		return OrderResponse{}, ErrOrderFailed
 	}
 
@@ -116,8 +154,13 @@ func (s *service) Checkout(ctx context.Context, req CheckoutRequest) (OrderRespo
 		}
 	}
 
+	if s.outboxRepo == nil {
+		log.Println("CRITICAL: outboxRepo is nil")
+		return OrderResponse{}, ErrOrderFailed
+	}
+
 	payload, err := json.Marshal(map[string]string{
-		"user_id": req.UserID,
+		"user_id": userID,
 	})
 	if err != nil {
 		return OrderResponse{}, ErrOrderFailed
@@ -140,6 +183,7 @@ func (s *service) Checkout(ctx context.Context, req CheckoutRequest) (OrderRespo
 	if err := tx.Commit(); err != nil {
 		return OrderResponse{}, ErrOrderFailed
 	}
+	committed = true
 
 	return s.mapOrderToResponse(o, nil), nil
 }

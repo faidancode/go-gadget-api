@@ -1,6 +1,7 @@
 package order
 
 import (
+	"fmt"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/response"
 	"net/http"
@@ -23,22 +24,18 @@ func NewHandler(svc Service) *Handler {
 // Checkout creates a new order from user's cart
 // POST /orders
 func (ctrl *Handler) Checkout(c *gin.Context) {
-	var req CheckoutRequest
+	userID := c.GetString("user_id_validated")
+	fmt.Printf("[CHECKOUT HANDLER] userID: '%s'\n", userID) // ← Debug
 
-	userID, exists := c.Get("user_id")
-	if !exists {
-		response.Error(
-			c,
-			http.StatusUnauthorized,
-			"UNAUTHORIZED",
-			"User not authenticated",
-			nil,
-		)
+	if userID == "" {
+		fmt.Println("[CHECKOUT HANDLER] ERROR: userID is empty!") // ← Debug
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated", nil)
 		return
 	}
-	req.UserID = userID.(string)
 
+	var req CheckoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("[CHECKOUT HANDLER] Bind error: %v\n", err) // ← Debug
 		appErr := apperror.Wrap(
 			err,
 			apperror.CodeInvalidInput,
@@ -50,8 +47,10 @@ func (ctrl *Handler) Checkout(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Checkout(c.Request.Context(), req)
+	fmt.Printf("[CHECKOUT HANDLER] Calling service.Checkout with userID: '%s'\n", userID) // ← Debug
+	res, err := ctrl.service.Checkout(c.Request.Context(), userID, req)
 	if err != nil {
+		fmt.Printf("[CHECKOUT HANDLER] Service error: %v\n", err) // ← Debug
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
@@ -63,17 +62,8 @@ func (ctrl *Handler) Checkout(c *gin.Context) {
 // List retrieves all orders for the authenticated user
 // GET /orders?page=1&limit=10
 func (ctrl *Handler) List(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		response.Error(
-			c,
-			http.StatusUnauthorized,
-			"UNAUTHORIZED",
-			"User not authenticated",
-			nil,
-		)
-		return
-	}
+	userID := c.GetString("user_id_validated")
+	fmt.Printf("[LIST HANDLER] userID: '%s'\n", userID) // ← Debug
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -87,7 +77,7 @@ func (ctrl *Handler) List(c *gin.Context) {
 
 	orders, total, err := ctrl.service.List(
 		c.Request.Context(),
-		userID.(string),
+		userID,
 		page,
 		limit,
 	)

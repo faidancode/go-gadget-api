@@ -16,16 +16,17 @@ import (
 
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
-    order_number, user_id, status, address_snapshot, 
+    order_number, user_id, status, address_id, address_snapshot, 
     subtotal_price, shipping_price, total_price, note, placed_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id
 `
 
 type CreateOrderParams struct {
 	OrderNumber     string          `json:"order_number"`
 	UserID          uuid.UUID       `json:"user_id"`
 	Status          string          `json:"status"`
+	AddressID       uuid.NullUUID   `json:"address_id"`
 	AddressSnapshot json.RawMessage `json:"address_snapshot"`
 	SubtotalPrice   string          `json:"subtotal_price"`
 	ShippingPrice   string          `json:"shipping_price"`
@@ -38,6 +39,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		arg.OrderNumber,
 		arg.UserID,
 		arg.Status,
+		arg.AddressID,
 		arg.AddressSnapshot,
 		arg.SubtotalPrice,
 		arg.ShippingPrice,
@@ -69,6 +71,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AddressID,
 	)
 	return i, err
 }
@@ -101,7 +104,7 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 }
 
 const getOrderByID = `-- name: GetOrderByID :one
-SELECT id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at FROM orders WHERE id = $1 LIMIT 1
+SELECT id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id FROM orders WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error) {
@@ -131,6 +134,7 @@ func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AddressID,
 	)
 	return i, err
 }
@@ -173,7 +177,7 @@ func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]Order
 }
 
 const listOrders = `-- name: ListOrders :many
-SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, count(*) OVER() AS total_count
+SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, count(*) OVER() AS total_count
 FROM orders o
 WHERE o.user_id = $3
   AND ($4::text IS NULL OR o.status = $4::text)
@@ -212,6 +216,7 @@ type ListOrdersRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	DeletedAt       sql.NullTime    `json:"deleted_at"`
+	AddressID       uuid.NullUUID   `json:"address_id"`
 	TotalCount      int64           `json:"total_count"`
 }
 
@@ -253,6 +258,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.AddressID,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -269,7 +275,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 }
 
 const listOrdersAdmin = `-- name: ListOrdersAdmin :many
-SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, count(*) OVER() AS total_count
+SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, count(*) OVER() AS total_count
 FROM orders o
 WHERE ($3::text IS NULL OR o.status = $3::text)
   AND ($4::text IS NULL OR o.order_number ILIKE '%' || $4::text || '%')
@@ -308,6 +314,7 @@ type ListOrdersAdminRow struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	DeletedAt       sql.NullTime    `json:"deleted_at"`
+	AddressID       uuid.NullUUID   `json:"address_id"`
 	TotalCount      int64           `json:"total_count"`
 }
 
@@ -349,6 +356,7 @@ func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.AddressID,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -371,7 +379,7 @@ SET status = $2,
     completed_at = CASE WHEN $2 = 'COMPLETED' THEN NOW() ELSE completed_at END,
     cancelled_at = CASE WHEN $2 = 'CANCELLED' THEN NOW() ELSE cancelled_at END
 WHERE id = $1
-RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at
+RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id
 `
 
 type UpdateOrderStatusParams struct {
@@ -406,6 +414,7 @@ func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.AddressID,
 	)
 	return i, err
 }

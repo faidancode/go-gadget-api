@@ -4,7 +4,7 @@ import (
 	"fmt"
 	autherrors "go-gadget-api/internal/auth/errors"
 	"go-gadget-api/internal/pkg/response"
-	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -14,18 +14,15 @@ import (
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. Ambil token dari cookie
-		log.Printf("auth context: %+v\n", c.Keys)
-
+		// 1. Get token
 		tokenString, err := c.Cookie("access_token")
 		if err != nil {
-			// Menggunakan ErrUnauthorized
 			response.Error(c, autherrors.ErrUnauthorized.HTTPStatus, autherrors.ErrUnauthorized.Code, autherrors.ErrUnauthorized.Message, nil)
 			c.Abort()
 			return
 		}
 
-		// 2. Parse & Validate JWT
+		// 2. Parse & Validate
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method")
@@ -34,20 +31,37 @@ func AuthMiddleware() gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			// Cek jika error spesifik expired, jika tidak gunakan InvalidToken
 			errObj := autherrors.ErrInvalidToken
-			if strings.Contains(err.Error(), "expired") {
+			if err != nil && strings.Contains(err.Error(), "expired") {
 				errObj = autherrors.ErrTokenExpired
 			}
-
 			response.Error(c, errObj.HTTPStatus, errObj.Code, errObj.Message, nil)
 			c.Abort()
 			return
 		}
 
-		claims, _ := token.Claims.(jwt.MapClaims)
-		c.Set("user_id", claims["user_id"])
-		c.Set("role", claims["role"])
+		// 3. Extract Claims
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", "Invalid token claims", nil)
+			c.Abort()
+			return
+		}
+
+		// 4. Validate & Extract user_id
+		userID, ok := claims["user_id"].(string)
+		if !ok || userID == "" {
+			response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", "User ID not found in token", nil)
+			c.Abort()
+			return
+		}
+
+		role, _ := claims["role"].(string)
+
+		// 5. Set validated values
+		c.Set("user_id_validated", userID) // ✅ Langsung set validated
+		c.Set("role", role)
+
 		c.Next()
 	}
 }

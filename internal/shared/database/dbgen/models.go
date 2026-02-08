@@ -97,6 +97,7 @@ type Order struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	DeletedAt       sql.NullTime    `json:"deleted_at"`
+	AddressID       uuid.NullUUID   `json:"address_id"`
 }
 
 type OrderItem struct {

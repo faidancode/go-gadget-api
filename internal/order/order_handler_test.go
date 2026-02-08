@@ -18,7 +18,7 @@ import (
 // ==================== FAKE SERVICE ====================
 
 type fakeOrderService struct {
-	checkoutFunc             func(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error)
+	checkoutFunc             func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error)
 	listFunc                 func(ctx context.Context, userID string, page, limit int) ([]order.OrderResponse, int64, error)
 	detailFunc               func(ctx context.Context, orderID string) (order.OrderResponse, error)
 	cancelFunc               func(ctx context.Context, orderID string) error
@@ -27,9 +27,9 @@ type fakeOrderService struct {
 	updateStatusAdminFunc    func(ctx context.Context, orderID string, status string, receiptNo *string) (order.OrderResponse, error)
 }
 
-func (f *fakeOrderService) Checkout(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error) {
+func (f *fakeOrderService) Checkout(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
 	if f.checkoutFunc != nil {
-		return f.checkoutFunc(ctx, req)
+		return f.checkoutFunc(ctx, userID, req)
 	}
 	return order.OrderResponse{}, nil
 }
@@ -92,8 +92,8 @@ func TestOrderHandler_Checkout(t *testing.T) {
 	t.Run("success_checkout", func(t *testing.T) {
 		userID := uuid.New().String()
 		svc := &fakeOrderService{
-			checkoutFunc: func(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error) {
-				assert.Equal(t, userID, req.UserID)
+			checkoutFunc: func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
+				assert.Equal(t, userID, userID)
 				return order.OrderResponse{OrderNumber: "ORD-999", Status: "PENDING"}, nil
 			},
 		}
@@ -130,7 +130,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 
 	t.Run("cart_is_empty", func(t *testing.T) {
 		svc := &fakeOrderService{
-			checkoutFunc: func(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error) {
+			checkoutFunc: func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
 				return order.OrderResponse{}, order.ErrCartEmpty
 			},
 		}
@@ -147,7 +147,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 
 	t.Run("service_internal_error", func(t *testing.T) {
 		svc := &fakeOrderService{
-			checkoutFunc: func(ctx context.Context, req order.CheckoutRequest) (order.OrderResponse, error) {
+			checkoutFunc: func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
 				return order.OrderResponse{}, errors.New("db error")
 			},
 		}

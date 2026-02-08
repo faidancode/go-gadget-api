@@ -28,7 +28,7 @@ type Repository interface {
 
 	DeleteItem(ctx context.Context, cartID, productID uuid.UUID) error
 	Delete(ctx context.Context, cartID uuid.UUID) error
-	DeleteAllItem(ctx context.Context, cartID uuid.UUID) error
+	DeleteAllItems(ctx context.Context, cartID uuid.UUID) error
 }
 
 type repository struct {
@@ -114,6 +114,6 @@ func (r *repository) Delete(ctx context.Context, cartID uuid.UUID) error {
 	return r.queries.DeleteCart(ctx, cartID)
 }
 
-func (r *repository) DeleteAllItem(ctx context.Context, cartID uuid.UUID) error {
+func (r *repository) DeleteAllItems(ctx context.Context, cartID uuid.UUID) error {
 	return r.queries.DeleteAllCartItems(ctx, cartID)
 }

@@ -1,8 +1,8 @@
 -- name: CreateOrder :one
 INSERT INTO orders (
-    order_number, user_id, status, address_snapshot, 
+    order_number, user_id, status, address_id, address_snapshot, 
     subtotal_price, shipping_price, total_price, note, placed_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
 RETURNING *;
 
 -- name: CreateOrderItem :exec

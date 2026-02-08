@@ -28,6 +28,7 @@ type Service interface {
 
 	DeleteItem(ctx context.Context, userID, productID string) error
 	Delete(ctx context.Context, userID string) error
+	ClearCart(ctx context.Context, userID string) error
 }
 
 type service struct {
@@ -333,7 +334,7 @@ func (s *service) Delete(ctx context.Context, userID string) error {
 		return err
 	}
 
-	if err := repo.DeleteAllItem(ctx, cartID); err != nil {
+	if err := repo.DeleteAllItems(ctx, cartID); err != nil {
 		return err
 	}
 
@@ -342,4 +343,13 @@ func (s *service) Delete(ctx context.Context, userID string) error {
 	}
 
 	return tx.Commit()
+}
+
+func (s *service) ClearCart(ctx context.Context, userID string) error {
+	uid, err := s.parseUserID(userID)
+	if err != nil {
+		return err
+	}
+
+	return s.repo.DeleteAllItems(ctx, uid)
 }

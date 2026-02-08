@@ -57,6 +57,10 @@ func (f *fakeCartService) Delete(ctx context.Context, userID string) error {
 	return f.DeleteFn(ctx, userID)
 }
 
+func (f *fakeCartService) ClearCart(ctx context.Context, cartID string) error {
+	return f.DeleteFn(ctx, cartID)
+}
+
 // ==================== HELPER FUNCTIONS ====================
 
 func setupTestRouter() *gin.Engine {

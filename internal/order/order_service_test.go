@@ -3,6 +3,7 @@ package order_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"go-gadget-api/internal/auth"
 	"go-gadget-api/internal/cart"
 	cartMock "go-gadget-api/internal/mock/cart"
@@ -15,121 +16,294 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
 func TestOrderService_Checkout(t *testing.T) {
+	// =========================================================
+	// SHARED SETUP
+	// =========================================================
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
+	db, sqlMock, err := sqlmock.New()
+	require.NoError(t, err)
 	defer db.Close()
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	outboxSvc := outboxMock.NewMockRepository(ctrl)
+	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
-	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
+	svc := order.NewService(order.Deps{
+		DB:         db,
+		Repo:       orderRepo,
+		OutboxRepo: outboxRepo,
+		CartSvc:    cartSvc,
+	})
+
 	ctx := context.Background()
 
-	t.Run("success_checkout", func(t *testing.T) {
+	// =========================================================
+	t.Run("success_checkout_single_item", func(t *testing.T) {
 		userID := uuid.New()
 		productID := uuid.New()
 		orderID := uuid.New()
 
-		// --- SQL Mock Expectations ---
-		mock.ExpectBegin()
-		mock.ExpectCommit()
+		sqlMock.ExpectBegin()
+		sqlMock.ExpectCommit()
 
-		// --- Repo Mock Expectations ---
-		// PENTING: Mock WithTx agar tidak mengembalikan nil
-		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).AnyTimes()
+		cartSvc.EXPECT().
+			Detail(gomock.Any(), userID.String()).
+			Return(cart.CartDetailResponse{
+				Items: []cart.CartItemDetailResponse{
+					{ProductID: productID.String(), Qty: 2, Price: 5000},
+				},
+			}, nil).
+			Times(1)
 
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
+		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo).Times(1)
+
+		orderRepo.EXPECT().
+			CreateOrder(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, p dbgen.CreateOrderParams) (dbgen.Order, error) {
+				assert.NotEmpty(t, p.OrderNumber)
+				return dbgen.Order{
+					ID:          orderID,
+					OrderNumber: p.OrderNumber,
+					UserID:      userID,
+					Status:      "PENDING",
+				}, nil
+			}).Times(1)
+
+		orderRepo.EXPECT().
+			CreateOrderItem(gomock.Any(), gomock.Any()).
+			Return(nil).
+			Times(1)
+
+		outboxRepo.EXPECT().
+			CreateOutboxEvent(gomock.Any(), gomock.Any()).
+			Return(nil).
+			Times(1)
+
+		res, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+		require.NoError(t, err)
+		assert.NotEmpty(t, res.OrderNumber)
+
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	// =========================================================
+	t.Run("success_checkout_multiple_items", func(t *testing.T) {
+		userID := uuid.New()
+
+		sqlMock.ExpectBegin()
+		sqlMock.ExpectCommit()
+
+		cartSvc.EXPECT().
+			Detail(gomock.Any(), userID.String()).
+			Return(cart.CartDetailResponse{
+				Items: []cart.CartItemDetailResponse{
+					{ProductID: uuid.NewString(), Qty: 2, Price: 10000},
+					{ProductID: uuid.NewString(), Qty: 1, Price: 25000},
+					{ProductID: uuid.NewString(), Qty: 3, Price: 5000},
+				},
+			}, nil).
+			Times(1)
+
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
+		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo).Times(1)
+
+		orderRepo.EXPECT().
+			CreateOrder(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, p dbgen.CreateOrderParams) (dbgen.Order, error) {
+				assert.Equal(t, "60000.00", p.TotalPrice)
+				return dbgen.Order{
+					ID:          uuid.New(),
+					OrderNumber: p.OrderNumber,
+					UserID:      userID,
+					Status:      "PENDING",
+				}, nil
+			}).Times(1)
+
+		orderRepo.EXPECT().CreateOrderItem(gomock.Any(), gomock.Any()).Return(nil).Times(3)
+		outboxRepo.EXPECT().CreateOutboxEvent(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+		res, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+		require.NoError(t, err)
+		assert.NotEmpty(t, res.OrderNumber)
+
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	// =========================================================
+	t.Run("error_empty_cart", func(t *testing.T) {
+		userID := uuid.New()
+
+		cartSvc.EXPECT().
+			Detail(gomock.Any(), userID.String()).
+			Return(cart.CartDetailResponse{}, nil).
+			Times(1)
+
+		_, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, order.ErrCartEmpty)
+	})
+
+	// =========================================================
+	t.Run("error_cart_service_failed", func(t *testing.T) {
+		userID := uuid.New()
+		expectedErr := errors.New("cart down")
+
+		cartSvc.EXPECT().
+			Detail(gomock.Any(), userID.String()).
+			Return(cart.CartDetailResponse{}, expectedErr).
+			Times(1)
+
+		_, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+		require.Error(t, err)
+		assert.Equal(t, expectedErr, err)
+	})
+
+	// =========================================================
+	t.Run("error_create_order_failed_should_rollback", func(t *testing.T) {
+		userID := uuid.New()
+
+		sqlMock.ExpectBegin()
+		sqlMock.ExpectRollback()
+
+		cartSvc.EXPECT().
+			Detail(gomock.Any(), userID.String()).
+			Return(cart.CartDetailResponse{
+				Items: []cart.CartItemDetailResponse{
+					{ProductID: uuid.NewString(), Qty: 1, Price: 1000},
+				},
+			}, nil).Times(1)
+
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
+
+		orderRepo.EXPECT().
+			CreateOrder(gomock.Any(), gomock.Any()).
+			Return(dbgen.Order{}, errors.New("insert failed")).
+			Times(1)
+
+		_, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, order.ErrOrderFailed)
+
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	// =========================================================
+	t.Run("error_create_order_item_failed_should_rollback", func(t *testing.T) {
+		userID := uuid.New()
+
+		sqlMock.ExpectBegin()
+		sqlMock.ExpectRollback()
+
+		cartSvc.EXPECT().
+			Detail(gomock.Any(), userID.String()).
+			Return(cart.CartDetailResponse{
+				Items: []cart.CartItemDetailResponse{
+					{ProductID: uuid.NewString(), Qty: 1, Price: 1000},
+				},
+			}, nil).Times(1)
+
+		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
+		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo).Times(1)
+
+		orderRepo.EXPECT().
+			CreateOrder(gomock.Any(), gomock.Any()).
+			Return(dbgen.Order{
+				ID: uuid.New(), OrderNumber: "ORD-FAIL", UserID: userID, Status: "PENDING",
+			}, nil).Times(1)
+
+		orderRepo.EXPECT().
+			CreateOrderItem(gomock.Any(), gomock.Any()).
+			Return(errors.New("item failed")).
+			Times(1)
+
+		_, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, order.ErrOrderFailed)
+
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	// =========================================================
+	t.Run("error_commit_failed", func(t *testing.T) {
+		// -------------------------------------------------
+		// Arrange - Test Data
+		// -------------------------------------------------
+		userID := uuid.New()
+		productID := uuid.New()
+		orderID := uuid.New()
+
+		// -------------------------------------------------
+		// Arrange - Mock Cart Service
+		// -------------------------------------------------
 		cartSvc.EXPECT().
 			Detail(gomock.Any(), userID.String()).
 			Return(cart.CartDetailResponse{
 				Items: []cart.CartItemDetailResponse{
 					{
 						ProductID: productID.String(),
-						Qty:       2,
-						Price:     5000,
+						Qty:       1,
+						Price:     1000,
 					},
 				},
 			}, nil)
+
+		// -------------------------------------------------
+		// Arrange - Mock Repository (Transactional)
+		// -------------------------------------------------
+		orderRepo.EXPECT().
+			WithTx(gomock.Any()).
+			Return(orderRepo)
 
 		orderRepo.EXPECT().
 			CreateOrder(gomock.Any(), gomock.Any()).
 			Return(dbgen.Order{
 				ID:          orderID,
-				OrderNumber: "ORD-123",
+				OrderNumber: "ORD-001",
 				UserID:      userID,
 				Status:      "PENDING",
-				TotalPrice:  "10000.00",
 			}, nil)
 
 		orderRepo.EXPECT().
 			CreateOrderItem(gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		cartSvc.EXPECT().
-			Delete(gomock.Any(), userID.String()).
+		outboxRepo.EXPECT().
+			WithTx(gomock.Any()).
+			Return(outboxRepo)
+
+		outboxRepo.EXPECT().
+			CreateOutboxEvent(gomock.Any(), gomock.Any()).
 			Return(nil)
 
-		// Execute
-		res, err := svc.Checkout(ctx, order.CheckoutRequest{
-			UserID:    userID.String(),
-			AddressID: "addr-1",
-		})
+		// -------------------------------------------------
+		// Arrange - Mock Database Transaction
+		// -------------------------------------------------
+		sqlMock.ExpectBegin()
+		sqlMock.ExpectCommit().WillReturnError(errors.New("commit failed"))
+		// HAPUS: sqlMock.ExpectRollback()
+		// Karena commit failed = transaksi sudah terminated di sqlmock
 
-		assert.NoError(t, err)
-		assert.Equal(t, "ORD-123", res.OrderNumber)
-		assert.NoError(t, mock.ExpectationsWereMet())
+		// -------------------------------------------------
+		// Act
+		// -------------------------------------------------
+		_, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+
+		// -------------------------------------------------
+		// Assert
+		// -------------------------------------------------
+		require.Error(t, err)
+		assert.ErrorIs(t, err, order.ErrOrderFailed)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 
-	t.Run("error_create_order_failed_should_rollback", func(t *testing.T) {
-		userID := uuid.New()
-
-		// --- SQL Mock: Expect Begin and then Rollback because of error ---
-		mock.ExpectBegin()
-		mock.ExpectRollback()
-
-		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).AnyTimes()
-
-		cartSvc.EXPECT().
-			Detail(gomock.Any(), userID.String()).
-			Return(cart.CartDetailResponse{
-				Items: []cart.CartItemDetailResponse{{ProductID: uuid.New().String(), Qty: 1, Price: 1000}},
-			}, nil)
-
-		// Simulate error in DB
-		orderRepo.EXPECT().
-			CreateOrder(gomock.Any(), gomock.Any()).
-			Return(dbgen.Order{}, assert.AnError)
-
-		_, err := svc.Checkout(ctx, order.CheckoutRequest{
-			UserID: userID.String(),
-		})
-
-		assert.Error(t, err)
-		assert.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("error_cart_empty", func(t *testing.T) {
-		userID := uuid.New()
-
-		// Tidak ada mock.ExpectBegin karena fungsi return sebelum transaksi mulai
-		cartSvc.EXPECT().
-			Detail(gomock.Any(), userID.String()).
-			Return(cart.CartDetailResponse{Items: []cart.CartItemDetailResponse{}}, nil)
-
-		_, err := svc.Checkout(ctx, order.CheckoutRequest{UserID: userID.String()})
-
-		assert.ErrorIs(t, err, order.ErrCartEmpty)
-	})
 }
 
 func TestOrderService_List(t *testing.T) {
@@ -141,10 +315,16 @@ func TestOrderService_List(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	outboxSvc := outboxMock.NewMockRepository(ctrl)
+	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
+	svc := order.NewService(order.Deps{
+		DB:         db,
+		Repo:       orderRepo,
+		OutboxRepo: outboxRepo,
+		CartSvc:    cartSvc,
+	})
+
 	ctx := context.Background()
 
 	t.Run("success_list_orders", func(t *testing.T) {
@@ -186,10 +366,16 @@ func TestOrderService_ListAdmin(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	outboxSvc := outboxMock.NewMockRepository(ctrl)
+	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
+	svc := order.NewService(order.Deps{
+		DB:         db,
+		Repo:       orderRepo,
+		OutboxRepo: outboxRepo,
+		CartSvc:    cartSvc,
+	})
+
 	ctx := context.Background()
 
 	t.Run("success_list_all_orders", func(t *testing.T) {
@@ -215,10 +401,15 @@ func TestOrderService_Detail(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	outboxSvc := outboxMock.NewMockRepository(ctrl)
+	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
+	svc := order.NewService(order.Deps{
+		DB:         db,
+		Repo:       orderRepo,
+		OutboxRepo: outboxRepo,
+		CartSvc:    cartSvc,
+	})
 	ctx := context.Background()
 
 	t.Run("success_get_detail", func(t *testing.T) {
@@ -249,10 +440,15 @@ func TestOrderService_Cancel(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	outboxSvc := outboxMock.NewMockRepository(ctrl)
+	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
+	svc := order.NewService(order.Deps{
+		DB:         db,
+		Repo:       orderRepo,
+		OutboxRepo: outboxRepo,
+		CartSvc:    cartSvc,
+	})
 	ctx := context.Background()
 
 	t.Run("success_cancel_order", func(t *testing.T) {
@@ -305,10 +501,15 @@ func TestOrderService_UpdateStatusByCustomer(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	outboxSvc := outboxMock.NewMockRepository(ctrl)
+	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
+	svc := order.NewService(order.Deps{
+		DB:         db,
+		Repo:       orderRepo,
+		OutboxRepo: outboxRepo,
+		CartSvc:    cartSvc,
+	})
 	ctx := context.Background()
 
 	t.Run("customer_success_complete", func(t *testing.T) {
@@ -366,10 +567,15 @@ func TestOrderService_UpdateStatusByAdmin(t *testing.T) {
 
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
-	outboxSvc := outboxMock.NewMockRepository(ctrl)
+	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
-	svc := order.NewService(db, orderRepo, outboxSvc, cartSvc)
+	svc := order.NewService(order.Deps{
+		DB:         db,
+		Repo:       orderRepo,
+		OutboxRepo: outboxRepo,
+		CartSvc:    cartSvc,
+	})
 	ctx := context.Background()
 
 	t.Run("admin_success_processing", func(t *testing.T) {

@@ -5,13 +5,12 @@ import "time"
 // ==================== REQUEST STRUCTS ====================
 
 type CheckoutRequest struct {
-	UserID    string `json:"-"`
 	AddressID string `json:"addressId" binding:"required"`
 	Note      string `json:"note"`
 }
 
 type ListOrderRequest struct {
-	UserID string `json:"-"`
+	UserID string `json:"userId"`
 	Page   int32  `json:"page"`
 	Limit  int32  `json:"limit"`
 	Status string `json:"status"` // filter by status
@@ -20,8 +19,8 @@ type ListOrderRequest struct {
 type ListOrderAdminRequest struct {
 	Page   int32  `json:"page"`
 	Limit  int32  `json:"limit"`
-	Status string `json:"status"`  // filter by status
-	UserID string `json:"userdId"` // filter by user
+	Status string `json:"status"` // filter by status
+	UserID string `json:"userId"` // filter by user
 }
 
 type UpdateStatusRequest struct {
