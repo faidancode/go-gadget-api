@@ -240,6 +240,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateOrderStatusStmt, err = db.PrepareContext(ctx, updateOrderStatus); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateOrderStatus: %w", err)
 	}
+	if q.updateOutboxEventStatusStmt, err = db.PrepareContext(ctx, updateOutboxEventStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateOutboxEventStatus: %w", err)
+	}
 	if q.updateProductStmt, err = db.PrepareContext(ctx, updateProduct); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateProduct: %w", err)
 	}
@@ -611,6 +614,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateOrderStatusStmt: %w", cerr)
 		}
 	}
+	if q.updateOutboxEventStatusStmt != nil {
+		if cerr := q.updateOutboxEventStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateOutboxEventStatusStmt: %w", cerr)
+		}
+	}
 	if q.updateProductStmt != nil {
 		if cerr := q.updateProductStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateProductStmt: %w", cerr)
@@ -732,6 +740,7 @@ type Queries struct {
 	updateCartItemQtyStmt           *sql.Stmt
 	updateCategoryStmt              *sql.Stmt
 	updateOrderStatusStmt           *sql.Stmt
+	updateOutboxEventStatusStmt     *sql.Stmt
 	updateProductStmt               *sql.Stmt
 	updateReviewStmt                *sql.Stmt
 }
@@ -812,6 +821,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateCartItemQtyStmt:           q.updateCartItemQtyStmt,
 		updateCategoryStmt:              q.updateCategoryStmt,
 		updateOrderStatusStmt:           q.updateOrderStatusStmt,
+		updateOutboxEventStatusStmt:     q.updateOutboxEventStatusStmt,
 		updateProductStmt:               q.updateProductStmt,
 		updateReviewStmt:                q.updateReviewStmt,
 	}

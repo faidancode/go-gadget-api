@@ -12,8 +12,8 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/segmentio/kafka-go"
 
-	"go-gadget-api/internal/dbgen"
 	"go-gadget-api/internal/outbox"
+	"go-gadget-api/internal/shared/database/dbgen"
 )
 
 func main() {
@@ -39,9 +39,10 @@ func main() {
 	}
 	defer kafkaWriter.Close()
 	log.Println("[WORKER] Kafka writer initialized")
+	queries := dbgen.New(db)
 
 	// 3. Create outbox repository
-	outboxRepo := outbox.NewRepository(db)
+	outboxRepo := outbox.NewRepository(queries)
 
 	// 4. Start processor
 	ctx, cancel := context.WithCancel(context.Background())
@@ -80,7 +81,7 @@ func processOutboxEvents(ctx context.Context, repo outbox.Repository, writer *ka
 
 func processPendingEvents(ctx context.Context, repo outbox.Repository, writer *kafka.Writer) error {
 	// Get pending events
-	events, err := repo.GetPendingEvents(ctx, 10)
+	events, err := repo.ListPending(ctx, 10)
 	if err != nil {
 		return err
 	}

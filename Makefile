@@ -80,11 +80,11 @@ docker-down:
 
 .PHONY: docker-infra
 docker-infra:
-	docker-compose up -d postgres redis kafka kafka-ui
+	docker-compose up -d postgres redis kafka kafka-ui worker consumer
 
 .PHONY: docker-infra-stop
 docker-infra-stop:
-	docker-compose stop postgres redis kafka kafka-ui
+	docker-compose stop postgres redis kafka kafka-ui worker consumer
 
 .PHONY: docker-logs
 docker-logs:

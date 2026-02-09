@@ -14,42 +14,50 @@ type Repository interface {
 	CreateOutboxEvent(ctx context.Context, arg dbgen.CreateOutboxEventParams) error
 	ListPending(ctx context.Context, limit int32) ([]dbgen.OutboxEvent, error)
 	MarkSent(ctx context.Context, id uuid.UUID) error
+	UpdateEventStatus(ctx context.Context, id uuid.UUID, status string) error
 }
 
-type outboxRepository struct {
+type repository struct {
 	queries *dbgen.Queries
 }
 
 func NewRepository(q *dbgen.Queries) Repository {
-	return &outboxRepository{queries: q}
+	return &repository{queries: q}
 }
 
-func (r *outboxRepository) WithTx(tx dbgen.DBTX) Repository {
+func (r *repository) WithTx(tx dbgen.DBTX) Repository {
 	if sqlTx, ok := tx.(*sql.Tx); ok {
-		return &outboxRepository{
+		return &repository{
 			queries: r.queries.WithTx(sqlTx),
 		}
 	}
 	return r
 }
 
-func (r *outboxRepository) CreateOutboxEvent(
+func (r *repository) CreateOutboxEvent(
 	ctx context.Context,
 	arg dbgen.CreateOutboxEventParams,
 ) error {
 	return r.queries.CreateOutboxEvent(ctx, arg)
 }
 
-func (r *outboxRepository) ListPending(
+func (r *repository) ListPending(
 	ctx context.Context,
 	limit int32,
 ) ([]dbgen.OutboxEvent, error) {
 	return r.queries.ListPendingOutbox(ctx, limit)
 }
 
-func (r *outboxRepository) MarkSent(
+func (r *repository) MarkSent(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
 	return r.queries.MarkOutboxSent(ctx, id)
+}
+
+func (r *repository) UpdateEventStatus(ctx context.Context, id uuid.UUID, status string) error {
+	return r.queries.UpdateOutboxEventStatus(ctx, dbgen.UpdateOutboxEventStatusParams{
+		ID:     id,
+		Status: status,
+	})
 }

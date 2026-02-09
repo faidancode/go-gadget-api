@@ -9,7 +9,7 @@ import (
 func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 	carts := r.Group("/carts")
 	carts.Use(middleware.AuthMiddleware())
-	carts.Use(middleware.ExtractUserID())
+	// carts.Use(middleware.ExtractUserID())
 	{
 		carts.POST("", handler.Create)
 		carts.GET("/detail", handler.Detail)

@@ -18,6 +18,8 @@ func NewHandler(s Service) *Handler {
 
 func (c *Handler) Create(ctx *gin.Context) {
 	userID := ctx.GetString("user_id_validated")
+	log.Println("CREATE CART")
+	log.Printf("Create cart for userID: %s", userID)
 	if err := c.service.Create(ctx, userID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "CREATE_ERROR", "Gagal membuat cart", err.Error())
 		return

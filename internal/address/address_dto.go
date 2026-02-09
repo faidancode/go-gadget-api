@@ -5,7 +5,7 @@ import "time"
 // ========= REQUEST =========
 
 type CreateAddressRequest struct {
-	UserID         string `json:"-"`
+	UserID         string `json:"user_id" binding:"required"`
 	Label          string `json:"label" binding:"required"`
 	RecipientName  string `json:"recipient_name" binding:"required"`
 	RecipientPhone string `json:"recipient_phone" binding:"required"`

@@ -13,3 +13,8 @@ LIMIT $1;
 UPDATE outbox_events
 SET status = 'SENT', processed_at = NOW()
 WHERE id = $1;
+
+-- name: UpdateOutboxEventStatus :exec
+UPDATE outbox_events 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1;

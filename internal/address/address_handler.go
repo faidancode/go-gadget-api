@@ -2,6 +2,7 @@ package address
 
 import (
 	"go-gadget-api/internal/pkg/response"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -18,7 +19,7 @@ func NewHandler(s Service) *Handler {
 
 // GET /addresses
 func (ctrl *Handler) List(c *gin.Context) {
-	userID := c.GetString("user_id")
+	userID := c.GetString("user_id_validated")
 
 	res, err := ctrl.service.List(c.Request.Context(), userID)
 	if err != nil {
@@ -31,17 +32,19 @@ func (ctrl *Handler) List(c *gin.Context) {
 
 // POST /addresses
 func (ctrl *Handler) Create(c *gin.Context) {
-	userID := c.GetString("user_id")
+	userID := c.GetString("user_id_validated")
 
 	var req CreateAddressRequest
+	req.UserID = userID
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_INPUT", err.Error(), nil)
 		return
 	}
-	req.UserID = userID
 
 	res, err := ctrl.service.Create(c.Request.Context(), req)
 	if err != nil {
+		log.Println("ERROR CREATE ADDRESS REQ:", req)
+		log.Println("ERROR CREATE ADDRESS:", err)
 		response.Error(c, http.StatusInternalServerError, "FAILED", err.Error(), nil)
 		return
 	}
@@ -51,7 +54,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 
 // PUT /addresses/:id
 func (ctrl *Handler) Update(c *gin.Context) {
-	userID := c.GetString("user_id")
+	userID := c.GetString("user_id_validated")
 	id := c.Param("id")
 
 	var req UpdateAddressRequest
@@ -71,7 +74,7 @@ func (ctrl *Handler) Update(c *gin.Context) {
 
 // DELETE /addresses/:id
 func (ctrl *Handler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id")
+	userID := c.GetString("user_id_validated")
 	id := c.Param("id")
 
 	if err := ctrl.service.Delete(c.Request.Context(), id, userID); err != nil {

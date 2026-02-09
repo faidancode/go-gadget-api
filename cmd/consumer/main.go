@@ -13,6 +13,7 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"go-gadget-api/internal/cart"
+	"go-gadget-api/internal/shared/database/dbgen"
 )
 
 type DeleteCartPayload struct {
@@ -34,8 +35,9 @@ func main() {
 	}
 	log.Println("[CONSUMER] Database connected")
 
+	queries := dbgen.New(db)
 	// 2. Setup cart service
-	cartRepo := cart.NewRepository(db)
+	cartRepo := cart.NewRepository(queries)
 	cartService := cart.NewService(db, cartRepo)
 
 	// 3. Setup Kafka reader

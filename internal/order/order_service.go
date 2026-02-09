@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-gadget-api/internal/auth"
+	autherrors "go-gadget-api/internal/auth/errors"
 	"go-gadget-api/internal/cart"
 	"go-gadget-api/internal/outbox"
 	"go-gadget-api/internal/shared/database/dbgen"
@@ -68,99 +69,146 @@ func NewService(deps Deps) Service {
 }
 
 // CUSTOMER: Checkout
-func (s *service) Checkout(ctx context.Context, userID string, req CheckoutRequest) (OrderResponse, error) {
-	// 1. Ambil detail cart (Lakukan di luar transaksi untuk performa)
+func (s *service) Checkout(
+	ctx context.Context,
+	userID string,
+	req CheckoutRequest,
+) (OrderResponse, error) {
+
+	log.Println("DEBUG: Checkout started")
+
+	// ===============================
+	// 1. Validasi & Ambil Cart
+	// ===============================
 	cartData, err := s.cartSvc.Detail(ctx, userID)
 	if err != nil {
+		log.Println("DEBUG: cartSvc.Detail error:", err)
 		return OrderResponse{}, err
 	}
 	if len(cartData.Items) == 0 {
 		return OrderResponse{}, ErrCartEmpty
 	}
 
-	// 2. Mulai Transaksi Database
-	tx, err := s.db.BeginTx(ctx, nil)
+	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return OrderResponse{}, ErrOrderFailed
+		log.Println("DEBUG: invalid userID:", userID)
+		return OrderResponse{}, autherrors.ErrInvalidUserID
 	}
 
-	// Safety: Jika fungsi exit sebelum Commit, maka akan Rollback.
-	// Jika sudah Commit, Rollback ini tidak akan melakukan apa-apa.
-	committed := false
-	defer func() {
-		if !committed {
-			err = tx.Rollback()
-			fmt.Printf("Rollback called, error: %v\n", err)
-		}
-	}()
-
-	// 3. Gunakan WithTx untuk mendapatkan instance queries dalam mode transaksi
-	qtx := s.repo.WithTx(tx)
-
-	// --- LOGIKA BISNIS ---
-
-	// Hitung subtotal harga
+	// ===============================
+	// 2. Hitung Harga
+	// ===============================
 	var subtotal float64
 	for _, item := range cartData.Items {
 		subtotal += float64(item.Price) * float64(item.Qty)
 	}
-	var shippingPrice float64 = 0.0 // Untuk sekarang, gratis ongkir
-	var total float64 = subtotal + shippingPrice
 
-	uid, _ := uuid.Parse(userID)
-	var addId uuid.NullUUID
+	shippingPrice := 0.0
+	total := subtotal + shippingPrice
+
+	// ===============================
+	// 3. Address Handling
+	// ===============================
+	var addressID uuid.NullUUID
 	if req.AddressID != "" {
 		parsedID, err := uuid.Parse(req.AddressID)
-		if err == nil {
-			addId.UUID = parsedID
-			addId.Valid = true
+		if err != nil {
+			return OrderResponse{}, autherrors.ErrInvalidUserID
 		}
-	} else {
-		addId.Valid = false
+		addressID = uuid.NullUUID{
+			UUID:  parsedID,
+			Valid: true,
+		}
 	}
-	orderNumber := fmt.Sprintf("ORD-%d%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
 
-	// 4. Simpan ke Database (Master Order)
-	o, err := qtx.CreateOrder(ctx, dbgen.CreateOrderParams{
+	addressSnapshot, err := json.Marshal(map[string]string{
+		"address_id": req.AddressID,
+	})
+	if err != nil {
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	// ===============================
+	// 4. Begin Transaction
+	// ===============================
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Println("DEBUG: BeginTx error:", err)
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+			log.Println("DEBUG: transaction rolled back")
+		}
+	}()
+
+	qtx := s.repo.WithTx(tx)
+
+	// ===============================
+	// 5. Create Order
+	// ===============================
+	orderNumber := fmt.Sprintf(
+		"ORD-%d-%s",
+		time.Now().Unix(),
+		strings.ToUpper(uuid.New().String()[:4]),
+	)
+
+	order, err := qtx.CreateOrder(ctx, dbgen.CreateOrderParams{
 		OrderNumber:     orderNumber,
 		UserID:          uid,
 		Status:          "PENDING",
-		AddressID:       addId,
-		AddressSnapshot: json.RawMessage(`{"address_id":"` + req.AddressID + `"}`),
+		AddressID:       addressID,
+		AddressSnapshot: addressSnapshot,
 		SubtotalPrice:   fmt.Sprintf("%.2f", subtotal),
 		ShippingPrice:   fmt.Sprintf("%.2f", shippingPrice),
 		TotalPrice:      fmt.Sprintf("%.2f", total),
 		Note:            helper.StringToNull(&req.Note),
 	})
 	if err != nil {
-		fmt.Printf("Error creating order: %v\n", err)
-		return OrderResponse{}, ErrOrderFailed
+		log.Println("DEBUG: CreateOrder error:", err)
+		return OrderResponse{}, err // <-- jangan ketelan
 	}
 
-	// 5. Simpan Order Items secara loop
+	// ===============================
+	// 6. Create Order Items
+	// ===============================
 	for _, item := range cartData.Items {
-		pID, _ := uuid.Parse(item.ProductID)
-		err := qtx.CreateOrderItem(ctx, dbgen.CreateOrderItemParams{
-			OrderID:      o.ID,
-			ProductID:    pID,
-			NameSnapshot: "Product Name Placeholder",
+		productID, err := uuid.Parse(item.ProductID)
+		if err != nil {
+			return OrderResponse{}, autherrors.ErrInvalidUserID
+		}
+
+		err = qtx.CreateOrderItem(ctx, dbgen.CreateOrderItemParams{
+			OrderID:      order.ID,
+			ProductID:    productID,
+			NameSnapshot: item.ProductID, // pakai data cart, bukan placeholder
 			UnitPrice:    fmt.Sprintf("%.2f", float64(item.Price)),
 			Quantity:     item.Qty,
-			TotalPrice:   fmt.Sprintf("%.2f", float64(item.Price)*float64(item.Qty)),
+			TotalPrice: fmt.Sprintf(
+				"%.2f",
+				float64(item.Price)*float64(item.Qty),
+			),
 		})
 		if err != nil {
-			// Mengembalikan error di sini akan memicu defer tx.Rollback()
-			return OrderResponse{}, ErrOrderFailed
+			log.Println("DEBUG: CreateOrderItem error:", err)
+			return OrderResponse{}, err
 		}
 	}
 
+	// ===============================
+	// 7. Outbox Event
+	// ===============================
 	if s.outboxRepo == nil {
-		log.Println("CRITICAL: outboxRepo is nil")
+		log.Println("DEBUG: outboxRepo is nil")
 		return OrderResponse{}, ErrOrderFailed
 	}
 
 	payload, err := json.Marshal(map[string]string{
-		"user_id": userID,
+		"user_id":  userID,
+		"order_id": order.ID.String(),
 	})
 	if err != nil {
 		return OrderResponse{}, ErrOrderFailed
@@ -171,21 +219,27 @@ func (s *service) Checkout(ctx context.Context, userID string, req CheckoutReque
 		CreateOutboxEvent(ctx, dbgen.CreateOutboxEventParams{
 			ID:            uuid.New(),
 			AggregateType: "ORDER",
-			AggregateID:   o.ID,
+			AggregateID:   order.ID,
 			EventType:     "DELETE_CART",
 			Payload:       payload,
 		})
 	if err != nil {
-		return OrderResponse{}, ErrOrderFailed
+		log.Println("DEBUG: CreateOutboxEvent error:", err)
+		return OrderResponse{}, err
 	}
 
-	// 7. COMMIT: Simpan semua perubahan secara permanen
+	// ===============================
+	// 8. Commit
+	// ===============================
 	if err := tx.Commit(); err != nil {
+		log.Println("DEBUG: Commit error:", err)
 		return OrderResponse{}, ErrOrderFailed
 	}
 	committed = true
 
-	return s.mapOrderToResponse(o, nil), nil
+	log.Println("DEBUG: Checkout success:", order.ID)
+
+	return s.mapOrderToResponse(order, nil), nil
 }
 
 // CUSTOMER & ADMIN: List

@@ -86,3 +86,19 @@ func (q *Queries) MarkOutboxSent(ctx context.Context, id uuid.UUID) error {
 	_, err := q.exec(ctx, q.markOutboxSentStmt, markOutboxSent, id)
 	return err
 }
+
+const updateOutboxEventStatus = `-- name: UpdateOutboxEventStatus :exec
+UPDATE outbox_events 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1
+`
+
+type UpdateOutboxEventStatusParams struct {
+	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
+}
+
+func (q *Queries) UpdateOutboxEventStatus(ctx context.Context, arg UpdateOutboxEventStatusParams) error {
+	_, err := q.exec(ctx, q.updateOutboxEventStatusStmt, updateOutboxEventStatus, arg.ID, arg.Status)
+	return err
+}
