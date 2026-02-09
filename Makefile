@@ -86,6 +86,11 @@ docker-infra:
 docker-infra-stop:
 	docker-compose stop postgres redis kafka kafka-ui worker consumer
 
+.PHONY: docker-rebuild-worker
+docker-rebuild-worker:
+	docker-compose up -d --build worker consumer
+
+
 .PHONY: docker-logs
 docker-logs:
 	docker-compose logs -f

@@ -14,7 +14,7 @@ type Repository interface {
 	CreateOutboxEvent(ctx context.Context, arg dbgen.CreateOutboxEventParams) error
 	ListPending(ctx context.Context, limit int32) ([]dbgen.OutboxEvent, error)
 	MarkSent(ctx context.Context, id uuid.UUID) error
-	UpdateEventStatus(ctx context.Context, id uuid.UUID, status string) error
+	MarkFailed(ctx context.Context, id uuid.UUID) error
 }
 
 type repository struct {
@@ -52,12 +52,12 @@ func (r *repository) MarkSent(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-	return r.queries.MarkOutboxSent(ctx, id)
+	return r.queries.MarkOutboxEventSent(ctx, id)
 }
 
-func (r *repository) UpdateEventStatus(ctx context.Context, id uuid.UUID, status string) error {
-	return r.queries.UpdateOutboxEventStatus(ctx, dbgen.UpdateOutboxEventStatusParams{
-		ID:     id,
-		Status: status,
-	})
+func (r *repository) MarkFailed(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
+	return r.queries.MarkOutboxEventFailed(ctx, id)
 }

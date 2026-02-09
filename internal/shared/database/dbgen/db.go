@@ -198,8 +198,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listProductsPublicStmt, err = db.PrepareContext(ctx, listProductsPublic); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductsPublic: %w", err)
 	}
-	if q.markOutboxSentStmt, err = db.PrepareContext(ctx, markOutboxSent); err != nil {
-		return nil, fmt.Errorf("error preparing query MarkOutboxSent: %w", err)
+	if q.markOutboxEventFailedStmt, err = db.PrepareContext(ctx, markOutboxEventFailed); err != nil {
+		return nil, fmt.Errorf("error preparing query MarkOutboxEventFailed: %w", err)
+	}
+	if q.markOutboxEventSentStmt, err = db.PrepareContext(ctx, markOutboxEventSent); err != nil {
+		return nil, fmt.Errorf("error preparing query MarkOutboxEventSent: %w", err)
 	}
 	if q.restoreBrandStmt, err = db.PrepareContext(ctx, restoreBrand); err != nil {
 		return nil, fmt.Errorf("error preparing query RestoreBrand: %w", err)
@@ -239,9 +242,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateOrderStatusStmt, err = db.PrepareContext(ctx, updateOrderStatus); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateOrderStatus: %w", err)
-	}
-	if q.updateOutboxEventStatusStmt, err = db.PrepareContext(ctx, updateOutboxEventStatus); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateOutboxEventStatus: %w", err)
 	}
 	if q.updateProductStmt, err = db.PrepareContext(ctx, updateProduct); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateProduct: %w", err)
@@ -544,9 +544,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listProductsPublicStmt: %w", cerr)
 		}
 	}
-	if q.markOutboxSentStmt != nil {
-		if cerr := q.markOutboxSentStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing markOutboxSentStmt: %w", cerr)
+	if q.markOutboxEventFailedStmt != nil {
+		if cerr := q.markOutboxEventFailedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing markOutboxEventFailedStmt: %w", cerr)
+		}
+	}
+	if q.markOutboxEventSentStmt != nil {
+		if cerr := q.markOutboxEventSentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing markOutboxEventSentStmt: %w", cerr)
 		}
 	}
 	if q.restoreBrandStmt != nil {
@@ -612,11 +617,6 @@ func (q *Queries) Close() error {
 	if q.updateOrderStatusStmt != nil {
 		if cerr := q.updateOrderStatusStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateOrderStatusStmt: %w", cerr)
-		}
-	}
-	if q.updateOutboxEventStatusStmt != nil {
-		if cerr := q.updateOutboxEventStatusStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateOutboxEventStatusStmt: %w", cerr)
 		}
 	}
 	if q.updateProductStmt != nil {
@@ -726,7 +726,8 @@ type Queries struct {
 	listProductsAdminStmt           *sql.Stmt
 	listProductsForInternalStmt     *sql.Stmt
 	listProductsPublicStmt          *sql.Stmt
-	markOutboxSentStmt              *sql.Stmt
+	markOutboxEventFailedStmt       *sql.Stmt
+	markOutboxEventSentStmt         *sql.Stmt
 	restoreBrandStmt                *sql.Stmt
 	restoreCategoryStmt             *sql.Stmt
 	restoreProductStmt              *sql.Stmt
@@ -740,7 +741,6 @@ type Queries struct {
 	updateCartItemQtyStmt           *sql.Stmt
 	updateCategoryStmt              *sql.Stmt
 	updateOrderStatusStmt           *sql.Stmt
-	updateOutboxEventStatusStmt     *sql.Stmt
 	updateProductStmt               *sql.Stmt
 	updateReviewStmt                *sql.Stmt
 }
@@ -807,7 +807,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listProductsAdminStmt:           q.listProductsAdminStmt,
 		listProductsForInternalStmt:     q.listProductsForInternalStmt,
 		listProductsPublicStmt:          q.listProductsPublicStmt,
-		markOutboxSentStmt:              q.markOutboxSentStmt,
+		markOutboxEventFailedStmt:       q.markOutboxEventFailedStmt,
+		markOutboxEventSentStmt:         q.markOutboxEventSentStmt,
 		restoreBrandStmt:                q.restoreBrandStmt,
 		restoreCategoryStmt:             q.restoreCategoryStmt,
 		restoreProductStmt:              q.restoreProductStmt,
@@ -821,7 +822,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateCartItemQtyStmt:           q.updateCartItemQtyStmt,
 		updateCategoryStmt:              q.updateCategoryStmt,
 		updateOrderStatusStmt:           q.updateOrderStatusStmt,
-		updateOutboxEventStatusStmt:     q.updateOutboxEventStatusStmt,
 		updateProductStmt:               q.updateProductStmt,
 		updateReviewStmt:                q.updateReviewStmt,
 	}

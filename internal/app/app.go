@@ -2,6 +2,7 @@ package app
 
 import (
 	"go-gadget-api/internal/cloudinary"
+	"go-gadget-api/internal/shared/connection"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -9,18 +10,18 @@ import (
 
 func BuildApp(router *gin.Engine) error {
 	// 1. Setup Infrastructure
-	db, err := connectDBWithRetry(os.Getenv("DB_URL"), 5)
+	db, err := connection.ConnectDBWithRetry(os.Getenv("DB_URL"), 5)
 	if err != nil {
 		return err
 	}
 
-	redisClient, err := connectRedisWithRetry(os.Getenv("REDIS_ADDR"), 5)
+	redisClient, err := connection.ConnectRedisWithRetry(os.Getenv("REDIS_ADDR"), 5)
 	if err != nil {
 		return err
 	}
 	_ = redisClient
 
-	kafkaWriter, err := connectKafkaWithRetry(os.Getenv("KAFKA_BROKER"), 5)
+	kafkaWriter, err := connection.ConnectKafkaWithRetry(os.Getenv("KAFKA_BROKER"), 5)
 	if err != nil {
 		return err
 	}

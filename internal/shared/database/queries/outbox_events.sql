@@ -9,12 +9,13 @@ WHERE status = 'PENDING'
 ORDER BY created_at
 LIMIT $1;
 
--- name: MarkOutboxSent :exec
+-- name: MarkOutboxEventSent :exec
 UPDATE outbox_events
 SET status = 'SENT', processed_at = NOW()
 WHERE id = $1;
 
--- name: UpdateOutboxEventStatus :exec
-UPDATE outbox_events 
-SET status = $2, updated_at = NOW() 
+-- name: MarkOutboxEventFailed :exec
+UPDATE outbox_events
+SET status = 'FAILED', processed_at = NOW()
 WHERE id = $1;
+

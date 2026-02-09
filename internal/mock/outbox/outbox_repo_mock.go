@@ -72,6 +72,20 @@ func (mr *MockRepositoryMockRecorder) ListPending(ctx, limit any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPending", reflect.TypeOf((*MockRepository)(nil).ListPending), ctx, limit)
 }
 
+// MarkFailed mocks base method.
+func (m *MockRepository) MarkFailed(ctx context.Context, id uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkFailed", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkFailed indicates an expected call of MarkFailed.
+func (mr *MockRepositoryMockRecorder) MarkFailed(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkFailed", reflect.TypeOf((*MockRepository)(nil).MarkFailed), ctx, id)
+}
+
 // MarkSent mocks base method.
 func (m *MockRepository) MarkSent(ctx context.Context, id uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -84,20 +98,6 @@ func (m *MockRepository) MarkSent(ctx context.Context, id uuid.UUID) error {
 func (mr *MockRepositoryMockRecorder) MarkSent(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkSent", reflect.TypeOf((*MockRepository)(nil).MarkSent), ctx, id)
-}
-
-// UpdateEventStatus mocks base method.
-func (m *MockRepository) UpdateEventStatus(ctx context.Context, id uuid.UUID, status string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateEventStatus", ctx, id, status)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateEventStatus indicates an expected call of UpdateEventStatus.
-func (mr *MockRepositoryMockRecorder) UpdateEventStatus(ctx, id, status any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEventStatus", reflect.TypeOf((*MockRepository)(nil).UpdateEventStatus), ctx, id, status)
 }
 
 // WithTx mocks base method.

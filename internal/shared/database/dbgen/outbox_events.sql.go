@@ -76,29 +76,24 @@ func (q *Queries) ListPendingOutbox(ctx context.Context, limit int32) ([]OutboxE
 	return items, nil
 }
 
-const markOutboxSent = `-- name: MarkOutboxSent :exec
+const markOutboxEventFailed = `-- name: MarkOutboxEventFailed :exec
+UPDATE outbox_events
+SET status = 'FAILED', processed_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) MarkOutboxEventFailed(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.markOutboxEventFailedStmt, markOutboxEventFailed, id)
+	return err
+}
+
+const markOutboxEventSent = `-- name: MarkOutboxEventSent :exec
 UPDATE outbox_events
 SET status = 'SENT', processed_at = NOW()
 WHERE id = $1
 `
 
-func (q *Queries) MarkOutboxSent(ctx context.Context, id uuid.UUID) error {
-	_, err := q.exec(ctx, q.markOutboxSentStmt, markOutboxSent, id)
-	return err
-}
-
-const updateOutboxEventStatus = `-- name: UpdateOutboxEventStatus :exec
-UPDATE outbox_events 
-SET status = $2, updated_at = NOW() 
-WHERE id = $1
-`
-
-type UpdateOutboxEventStatusParams struct {
-	ID     uuid.UUID `json:"id"`
-	Status string    `json:"status"`
-}
-
-func (q *Queries) UpdateOutboxEventStatus(ctx context.Context, arg UpdateOutboxEventStatusParams) error {
-	_, err := q.exec(ctx, q.updateOutboxEventStatusStmt, updateOutboxEventStatus, arg.ID, arg.Status)
+func (q *Queries) MarkOutboxEventSent(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.markOutboxEventSentStmt, markOutboxEventSent, id)
 	return err
 }

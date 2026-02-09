@@ -1,4 +1,4 @@
-package app
+package connection
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-func connectDBWithRetry(dsn string, maxRetries int) (*sql.DB, error) {
+func ConnectDBWithRetry(dsn string, maxRetries int) (*sql.DB, error) {
 	var db *sql.DB
 	var err error
 
@@ -32,7 +32,7 @@ func connectDBWithRetry(dsn string, maxRetries int) (*sql.DB, error) {
 	return nil, err
 }
 
-func connectRedisWithRetry(addr string, maxRetries int) (*redis.Client, error) {
+func ConnectRedisWithRetry(addr string, maxRetries int) (*redis.Client, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: addr,
 	})
@@ -50,7 +50,7 @@ func connectRedisWithRetry(addr string, maxRetries int) (*redis.Client, error) {
 
 	return nil, fmt.Errorf("failed to connect redis")
 }
-func connectKafkaWithRetry(broker string, maxRetries int) (*kafka.Writer, error) {
+func ConnectKafkaWithRetry(broker string, maxRetries int) (*kafka.Writer, error) {
 	for i := 1; i <= maxRetries; i++ {
 		writer := &kafka.Writer{
 			Addr: kafka.TCP(broker),
