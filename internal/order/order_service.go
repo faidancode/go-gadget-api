@@ -245,9 +245,12 @@ func (s *service) Checkout(
 // internal/order/order.service.ts
 
 func (s *service) List(ctx context.Context, userID string, status string, page, limit int) ([]OrderResponse, int64, error) {
-	uid, _ := uuid.Parse(userID)
+	// Sesuai preferensi Anda: Menggunakan google/uuid
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid user id format: %w", err)
+	}
 
-	// Konversi status kosong menjadi null untuk SQLC narg
 	var statusArg sql.NullString
 	if status != "" {
 		statusArg = sql.NullString{String: status, Valid: true}
@@ -260,37 +263,49 @@ func (s *service) List(ctx context.Context, userID string, status string, page, 
 		Status: statusArg,
 	})
 	if err != nil {
+		log.Printf("[ListOrders] repo.List error: %+v\n", err)
 		return nil, 0, err
 	}
-
-	var res []OrderResponse
+	log.Printf("[ListOrders] repo.List success: %d rows returned\n", len(rows))
+	res := make([]OrderResponse, 0, len(rows))
 	var total int64
 
 	for _, r := range rows {
+		// 1. Log data mentah dari DB (untuk kepastian 100%)
+		log.Printf("[ListOrders] Order ID: %s | Raw JSON: %s\n", r.ID, string(r.ItemsJson))
+
 		total = r.TotalCount
 
-		// 1. Unmarshal items_json yang dikirim PostgreSQL
-		var items []OrderItemResponse
-		jsonBytes, ok := r.ItemsJson.([]byte)
-		if ok && len(jsonBytes) > 0 {
-			if err := json.Unmarshal(jsonBytes, &items); err != nil {
-				fmt.Printf("error unmarshal items: %v\n", err)
+		// 2. Inisialisasi slice kosong (bukan nil) di setiap iterasi
+		currentItems := make([]OrderItemResponse, 0)
+
+		if len(r.ItemsJson) > 0 {
+			// Unmarshal ke variabel lokal yang benar-benar baru
+			if err := json.Unmarshal(r.ItemsJson, &currentItems); err != nil {
+				log.Printf("[ListOrders] Error unmarshal: %v\n", err)
 			}
 		}
-		price, _ := strconv.ParseFloat(r.TotalPrice, 64)
-		// 2. Map ke Response
+
+		// 3. Log hasil setelah unmarshal (sebelum append)
+		if len(currentItems) > 0 {
+			log.Printf("[ListOrders] Mapped NameSnapshot: %s\n", currentItems[0].NameSnapshot)
+		}
+
+		totalPrice, _ := strconv.ParseFloat(r.TotalPrice, 64)
+
+		// 4. Masukkan data ke struct response
 		res = append(res, OrderResponse{
 			ID:          r.ID.String(),
 			OrderNumber: r.OrderNumber,
 			Status:      r.Status,
-			TotalPrice:  price,
+			TotalPrice:  totalPrice,
 			PlacedAt:    r.PlacedAt,
-			Items:       items, // Data items sudah tersedia di sini
+			Items:       currentItems,
 		})
 	}
 
-	// Handle jika data kosong
-	if res == nil {
+	// Pastikan tidak mengembalikan nil slice ke frontend
+	if len(res) == 0 {
 		res = []OrderResponse{}
 	}
 

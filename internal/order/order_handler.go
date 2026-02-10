@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/response"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -61,16 +62,26 @@ func (ctrl *Handler) Checkout(c *gin.Context) {
 
 func (ctrl *Handler) List(c *gin.Context) {
 	userID := c.GetString("user_id_validated")
-	status := "ALL"
-	status = c.Query("status")
+	status := c.Query("status")
+	// Jika Anda ingin defaultnya kosong atau "ALL" agar di SQL nanti jadi NULL
+	if status == "ALL" {
+		status = ""
+	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
 	orders, total, err := ctrl.service.List(c.Request.Context(), userID, status, page, limit)
 	if err != nil {
+		log.Printf("[Handler.List] Error: %v", err) // Log error service
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
+	}
+
+	// DEBUG: Cek apakah 'orders' punya isi sebelum dikirim
+	log.Printf("[Handler.List] Success fetching %d orders for user %s", len(orders), userID)
+	if len(orders) > 0 && len(orders[0].Items) > 0 {
+		log.Printf("[Handler.List] First order first item NameSnapshot: %s", orders[0].Items[0].NameSnapshot)
 	}
 
 	meta := response.NewPaginationMeta(total, page, limit)

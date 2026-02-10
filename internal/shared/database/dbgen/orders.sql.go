@@ -178,26 +178,36 @@ func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]Order
 
 const listOrders = `-- name: ListOrders :many
 SELECT 
-    o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, 
-    count(*) OVER() AS total_count,
+    o.id,
+    o.order_number,
+    o.status,
+    o.total_price,
+    o.placed_at,
+    o.user_id,
+    COUNT(*) OVER() AS total_count,
     (
-        SELECT COALESCE(json_agg(item_data), '[]'::json)
-        FROM (
-            SELECT 
-                oi.id, 
-                p.id as productId, 
-                p.name as productName, 
-                oi.name_snapshot as nameSnapshot,
-                oi.quantity, 
-                oi.total_price as unitPrice
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id = o.id
-        ) item_data
-    ) as items_json
+        SELECT COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'id', oi.id,
+                    'productId', oi.product_id,
+                    'nameSnapshot', oi.name_snapshot,
+                    'unitPrice', oi.total_price,
+                    'quantity', oi.quantity,
+                    'subtotal', oi.total_price * oi.quantity
+                )
+            ),
+            '[]'::jsonb
+        )
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+    )::jsonb AS items_json
 FROM orders o
 WHERE o.user_id = $3
-  AND ($4::text IS NULL OR o.status = $4::text)
+  AND (
+      $4::text IS NULL
+      OR o.status = $4::text
+  )
 ORDER BY o.placed_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -210,32 +220,14 @@ type ListOrdersParams struct {
 }
 
 type ListOrdersRow struct {
-	ID              uuid.UUID       `json:"id"`
-	OrderNumber     string          `json:"order_number"`
-	UserID          uuid.UUID       `json:"user_id"`
-	Status          string          `json:"status"`
-	PaymentMethod   sql.NullString  `json:"payment_method"`
-	PaymentStatus   string          `json:"payment_status"`
-	AddressSnapshot json.RawMessage `json:"address_snapshot"`
-	SubtotalPrice   string          `json:"subtotal_price"`
-	DiscountPrice   string          `json:"discount_price"`
-	ShippingPrice   string          `json:"shipping_price"`
-	TotalPrice      string          `json:"total_price"`
-	Note            sql.NullString  `json:"note"`
-	PlacedAt        time.Time       `json:"placed_at"`
-	PaidAt          sql.NullTime    `json:"paid_at"`
-	CancelledAt     sql.NullTime    `json:"cancelled_at"`
-	CancelReason    sql.NullString  `json:"cancel_reason"`
-	CompletedAt     sql.NullTime    `json:"completed_at"`
-	ReceiptNo       sql.NullString  `json:"receipt_no"`
-	SnapToken       sql.NullString  `json:"snap_token"`
-	SnapRedirectUrl sql.NullString  `json:"snap_redirect_url"`
-	CreatedAt       time.Time       `json:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at"`
-	DeletedAt       sql.NullTime    `json:"deleted_at"`
-	AddressID       uuid.NullUUID   `json:"address_id"`
-	TotalCount      int64           `json:"total_count"`
-	ItemsJson       interface{}     `json:"items_json"`
+	ID          uuid.UUID       `json:"id"`
+	OrderNumber string          `json:"order_number"`
+	Status      string          `json:"status"`
+	TotalPrice  string          `json:"total_price"`
+	PlacedAt    time.Time       `json:"placed_at"`
+	UserID      uuid.UUID       `json:"user_id"`
+	TotalCount  int64           `json:"total_count"`
+	ItemsJson   json.RawMessage `json:"items_json"`
 }
 
 func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListOrdersRow, error) {
@@ -255,28 +247,10 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderNumber,
-			&i.UserID,
 			&i.Status,
-			&i.PaymentMethod,
-			&i.PaymentStatus,
-			&i.AddressSnapshot,
-			&i.SubtotalPrice,
-			&i.DiscountPrice,
-			&i.ShippingPrice,
 			&i.TotalPrice,
-			&i.Note,
 			&i.PlacedAt,
-			&i.PaidAt,
-			&i.CancelledAt,
-			&i.CancelReason,
-			&i.CompletedAt,
-			&i.ReceiptNo,
-			&i.SnapToken,
-			&i.SnapRedirectUrl,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.DeletedAt,
-			&i.AddressID,
+			&i.UserID,
 			&i.TotalCount,
 			&i.ItemsJson,
 		); err != nil {

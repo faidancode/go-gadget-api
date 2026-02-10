@@ -12,28 +12,40 @@ INSERT INTO order_items (
 
 -- name: ListOrders :many
 SELECT 
-    o.*, 
-    count(*) OVER() AS total_count,
+    o.id,
+    o.order_number,
+    o.status,
+    o.total_price,
+    o.placed_at,
+    o.user_id,
+    COUNT(*) OVER() AS total_count,
     (
-        SELECT COALESCE(json_agg(item_data), '[]'::json)
-        FROM (
-            SELECT 
-                oi.id, 
-                p.id as productId, 
-                p.name as productName, 
-                oi.name_snapshot as nameSnapshot,
-                oi.quantity, 
-                oi.total_price as unitPrice
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id = o.id
-        ) item_data
-    ) as items_json
+        SELECT COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'id', oi.id,
+                    'productId', oi.product_id,
+                    'nameSnapshot', oi.name_snapshot,
+                    'unitPrice', oi.total_price,
+                    'quantity', oi.quantity,
+                    'subtotal', oi.total_price * oi.quantity
+                )
+            ),
+            '[]'::jsonb
+        )
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+    )::jsonb AS items_json
 FROM orders o
 WHERE o.user_id = sqlc.arg('user_id')
-  AND (sqlc.narg('status')::text IS NULL OR o.status = sqlc.narg('status')::text)
+  AND (
+      sqlc.narg('status')::text IS NULL
+      OR o.status = sqlc.narg('status')::text
+  )
 ORDER BY o.placed_at DESC
 LIMIT $1 OFFSET $2;
+
+
 
 -- name: ListOrdersAdmin :many
 SELECT o.*, count(*) OVER() AS total_count
