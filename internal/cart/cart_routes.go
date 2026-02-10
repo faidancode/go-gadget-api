@@ -16,6 +16,8 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 		carts.GET("/count", handler.Count)
 		carts.DELETE("", handler.Delete)
 
+		carts.DELETE("/clear", handler.ClearCart)
+
 		items := carts.Group("/items/:productId")
 		{
 			items.POST("", handler.AddItem)

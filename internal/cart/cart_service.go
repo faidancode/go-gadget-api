@@ -350,6 +350,10 @@ func (s *service) ClearCart(ctx context.Context, userID string) error {
 	if err != nil {
 		return err
 	}
+	cartID, err := s.getCartOnly(ctx, uid)
+	if err != nil {
+		return err
+	}
 
-	return s.repo.DeleteAllItems(ctx, uid)
+	return s.repo.DeleteAllItems(ctx, cartID)
 }
