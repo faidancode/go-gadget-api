@@ -13,8 +13,8 @@ type Repository interface {
 	WithTx(tx dbgen.DBTX) Repository
 	CreateOrder(ctx context.Context, arg dbgen.CreateOrderParams) (dbgen.Order, error)
 	CreateOrderItem(ctx context.Context, arg dbgen.CreateOrderItemParams) error
-	GetByID(ctx context.Context, id uuid.UUID) (dbgen.Order, error)
-	GetItems(ctx context.Context, orderID uuid.UUID) ([]dbgen.OrderItem, error)
+	GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetOrderByIDRow, error)
+	GetItems(ctx context.Context, orderID uuid.UUID) ([]dbgen.GetOrderItemsRow, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) (dbgen.Order, error)
 	List(ctx context.Context, arg dbgen.ListOrdersParams) ([]dbgen.ListOrdersRow, error)
 	ListAdmin(ctx context.Context, arg dbgen.ListOrdersAdminParams) ([]dbgen.ListOrdersAdminRow, error)
@@ -46,11 +46,11 @@ func (r *repository) CreateOrderItem(ctx context.Context, arg dbgen.CreateOrderI
 	return r.queries.CreateOrderItem(ctx, arg)
 }
 
-func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.Order, error) {
+func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetOrderByIDRow, error) {
 	return r.queries.GetOrderByID(ctx, id)
 }
 
-func (r *repository) GetItems(ctx context.Context, orderID uuid.UUID) ([]dbgen.OrderItem, error) {
+func (r *repository) GetItems(ctx context.Context, orderID uuid.UUID) ([]dbgen.GetOrderItemsRow, error) {
 	return r.queries.GetOrderItems(ctx, orderID)
 }
 

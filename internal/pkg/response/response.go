@@ -27,10 +27,10 @@ func NewPaginationMeta(total int64, page, limit int) PaginationMeta {
 }
 
 type ApiEnvelope struct {
-	Ok    bool                   `json:"ok"`
-	Data  interface{}            `json:"data"`
-	Meta  *PaginationMeta        `json:"meta"`
-	Error map[string]interface{} `json:"error"`
+	Ok    bool            `json:"ok"`
+	Data  any             `json:"data,omitempty"`
+	Meta  *PaginationMeta `json:"meta,omitempty"`
+	Error any             `json:"error,omitempty"`
 }
 
 func Success(c *gin.Context, status int, data interface{}, meta *PaginationMeta) {

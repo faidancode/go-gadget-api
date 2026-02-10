@@ -56,10 +56,60 @@ ORDER BY o.placed_at DESC
 LIMIT $1 OFFSET $2;
 
 -- name: GetOrderByID :one
-SELECT * FROM orders WHERE id = $1 LIMIT 1;
+SELECT 
+    o.id,
+    o.order_number,
+    o.user_id,
+    o.status,
+    o.payment_method,
+    o.payment_status,
+    o.address_snapshot,
+    o.subtotal_price,
+    o.discount_price,
+    o.shipping_price,
+    o.total_price,
+    o.note,
+    o.placed_at,
+    o.paid_at,
+    o.cancelled_at,
+    o.cancel_reason,
+    o.completed_at,
+    o.receipt_no,
+    o.snap_token,
+    o.snap_redirect_url,
+    (
+        SELECT COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'id', oi.id,
+                    'productId', oi.product_id,
+                    'nameSnapshot', oi.name_snapshot,
+                    'unitPrice', oi.unit_price,
+                    'quantity', oi.quantity,
+                    'subtotal', oi.total_price
+                )
+            ),
+            '[]'::jsonb
+        )
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+    )::jsonb AS items_json
+FROM orders o
+WHERE o.id = $1 
+  AND o.deleted_at IS NULL
+LIMIT 1;
 
 -- name: GetOrderItems :many
-SELECT * FROM order_items WHERE order_id = $1;
+SELECT 
+    id, 
+    order_id, 
+    product_id, 
+    name_snapshot, 
+    unit_price, 
+    quantity, 
+    total_price
+FROM order_items 
+WHERE order_id = $1;
 
 -- name: UpdateOrderStatus :one
 UPDATE orders 

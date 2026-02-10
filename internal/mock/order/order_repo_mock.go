@@ -73,10 +73,10 @@ func (mr *MockRepositoryMockRecorder) CreateOrderItem(ctx, arg any) *gomock.Call
 }
 
 // GetByID mocks base method.
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.Order, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetOrderByIDRow, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByID", ctx, id)
-	ret0, _ := ret[0].(dbgen.Order)
+	ret0, _ := ret[0].(dbgen.GetOrderByIDRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -88,10 +88,10 @@ func (mr *MockRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
 }
 
 // GetItems mocks base method.
-func (m *MockRepository) GetItems(ctx context.Context, orderID uuid.UUID) ([]dbgen.OrderItem, error) {
+func (m *MockRepository) GetItems(ctx context.Context, orderID uuid.UUID) ([]dbgen.GetOrderItemsRow, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetItems", ctx, orderID)
-	ret0, _ := ret[0].([]dbgen.OrderItem)
+	ret0, _ := ret[0].([]dbgen.GetOrderItemsRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

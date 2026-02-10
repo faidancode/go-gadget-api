@@ -54,24 +54,17 @@ func (ctrl *Handler) GetReviewsByProductSlug(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, res, nil)
+	meta := response.NewPaginationMeta(res.Total, page, limit)
+
+	response.Success(c, http.StatusOK, gin.H{
+		"items": res,
+		"meta":  meta,
+	}, nil)
 }
 
 func (ctrl *Handler) GetReviewsByUserID(c *gin.Context) {
-	// 1. Validasi HTTP input di Handler
-	authenticatedUserID, exists := c.Get("user_id")
-	if !exists {
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated", nil)
-		return
-	}
+	userID := c.GetString("user_id_validated")
 
-	authUID, ok := authenticatedUserID.(string)
-	if !ok {
-		response.Error(c, http.StatusInternalServerError, "INVALID_USER_ID", "Invalid user ID type", nil)
-		return
-	}
-
-	// 2. Validasi HTTP parameters dengan default values
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
 		page = 1
@@ -83,14 +76,19 @@ func (ctrl *Handler) GetReviewsByUserID(c *gin.Context) {
 	}
 
 	// 3. Business logic validation di service
-	res, err := ctrl.service.GetByUserID(c.Request.Context(), authUID, page, limit)
+	res, err := ctrl.service.GetByUserID(c.Request.Context(), userID, page, limit)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 
-	response.Success(c, http.StatusOK, res, nil)
+	meta := response.NewPaginationMeta(res.Total, page, limit)
+
+	response.Success(c, http.StatusOK, gin.H{
+		"items": res,
+		"meta":  meta,
+	}, nil)
 }
 
 func (ctrl *Handler) UpdateReview(c *gin.Context) {

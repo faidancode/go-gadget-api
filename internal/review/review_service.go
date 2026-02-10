@@ -7,6 +7,7 @@ import (
 	"go-gadget-api/internal/product"
 	reviewerrors "go-gadget-api/internal/review/errors"
 	"go-gadget-api/internal/shared/database/dbgen"
+	"log"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
@@ -184,6 +185,7 @@ func (s *service) GetByProductSlug(ctx context.Context, productSlug string, page
 func (s *service) GetByUserID(ctx context.Context, userID string, page, limit int) (UserReviewListResponse, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
+		log.Printf("Error parsing userID: %v", err)
 		return UserReviewListResponse{}, reviewerrors.ErrInvalidReviewID
 	}
 
@@ -207,6 +209,15 @@ func (s *service) GetByUserID(ctx context.Context, userID string, page, limit in
 		return UserReviewListResponse{}, reviewerrors.ErrReviewFailed
 	}
 
+	// rating breakdown
+	ratingRows, err := s.repo.GetUserRatingBreakdown(ctx, uid)
+	if err != nil {
+		return UserReviewListResponse{}, reviewerrors.ErrReviewFailed
+	}
+
+	ratingCounts, totalReviews, averageRating :=
+		summarizeUserRating(ratingRows)
+
 	// 3. Map to response
 	var reviewResponses []UserReviewResponse
 	for _, r := range reviews {
@@ -223,11 +234,15 @@ func (s *service) GetByUserID(ctx context.Context, userID string, page, limit in
 	}
 
 	return UserReviewListResponse{
-		Reviews: reviewResponses,
-		Total:   total,
-		Page:    page,
-		Limit:   limit,
+		Reviews:       reviewResponses,
+		Total:         total,
+		Page:          page,
+		Limit:         limit,
+		RatingCounts:  ratingCounts,
+		TotalReviews:  totalReviews,
+		AverageRating: averageRating,
 	}, nil
+
 }
 
 // CheckEligibility checks if a user can review a product
@@ -421,7 +436,40 @@ func (s *service) mapToReviewResponse(r GetReviewByIDRow) ReviewResponse {
 	}
 }
 
-// Note: These type aliases should match your actual dbgen types
+func summarizeUserRating(
+	rows []dbgen.GetUserRatingBreakdownRow,
+) (map[int]int64, int64, float64) {
+
+	counts := map[int]int64{
+		1: 0,
+		2: 0,
+		3: 0,
+		4: 0,
+		5: 0,
+	}
+
+	for _, row := range rows {
+		if row.Rating >= 1 && row.Rating <= 5 {
+			counts[int(row.Rating)] = row.Count
+		}
+	}
+
+	var totalReviews int64
+	var ratingSum int64
+
+	for rating, count := range counts {
+		totalReviews += count
+		ratingSum += int64(rating) * count
+	}
+
+	var average float64
+	if totalReviews > 0 {
+		average = float64(ratingSum) / float64(totalReviews)
+	}
+
+	return counts, totalReviews, average
+}
+
 type CreateReviewParams = dbgen.CreateReviewParams
 type UpdateReviewParams = dbgen.UpdateReviewParams
 type GetReviewByIDRow = dbgen.GetReviewByIDRow

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-gadget-api/internal/auth"
 	autherrors "go-gadget-api/internal/auth/errors"
@@ -349,22 +350,48 @@ func (s *service) ListAdmin(ctx context.Context, status string, search string, p
 func (s *service) Detail(ctx context.Context, orderID string) (OrderResponse, error) {
 	oid, err := uuid.Parse(orderID)
 	if err != nil {
-		return OrderResponse{}, ErrInvalidOrderID
+		return OrderResponse{}, ErrInvalidOrderID // Sesuaikan dengan package error Anda
 	}
 
-	o, err := s.repo.GetByID(ctx, oid)
+	// row sekarang sudah mengandung ItemsJson hasil subquery SQL
+	row, err := s.repo.GetByID(ctx, oid)
 	if err != nil {
-		return OrderResponse{}, ErrOrderNotFound
-	}
-
-	// Disarankan menangani error GetItems juga
-	items, err := s.repo.GetItems(ctx, oid)
-	if err != nil {
-		// Tergantung kebutuhan bisnis, bisa return error atau biarkan items kosong
+		if errors.Is(err, sql.ErrNoRows) {
+			return OrderResponse{}, ErrOrderNotFound
+		}
 		return OrderResponse{}, err
 	}
 
-	return s.mapOrderToResponse(o, items), nil
+	// 1. Unmarshal ItemsJson (Hasil subquery)
+	var items []OrderItemResponse
+	if len(row.ItemsJson) > 0 {
+		if err := json.Unmarshal(row.ItemsJson, &items); err != nil {
+			log.Printf("[Order.Detail] Error unmarshal items: %v", err)
+			// Kita tetap lanjut meskipun items gagal, atau return err sesuai kebijakan
+		}
+	}
+
+	// 2. Mapping Manual (atau panggil fungsi helper mapOrderToResponse)
+	totalPrice, _ := strconv.ParseFloat(row.TotalPrice, 64)
+	shippingPrice, _ := strconv.ParseFloat(row.ShippingPrice, 64)
+	subtotalPrice, _ := strconv.ParseFloat(row.SubtotalPrice, 64)
+
+	res := OrderResponse{
+		ID:            row.ID.String(),
+		OrderNumber:   row.OrderNumber,
+		Status:        row.Status,
+		PaymentStatus: row.PaymentStatus,
+		SubtotalPrice: subtotalPrice,
+		TotalPrice:    totalPrice,
+		ShippingPrice: shippingPrice,
+		PlacedAt:      row.PlacedAt,
+		Items:         items, // Langsung hasil unmarshal tadi
+	}
+
+	// 3. Handle AddressSnapshot jika diperlukan di Next.js
+	// res.Address = row.AddressSnapshot ...
+
+	return res, nil
 }
 
 // CUSTOMER: Cancel

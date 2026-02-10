@@ -340,6 +340,44 @@ func (q *Queries) GetReviewsByUserID(ctx context.Context, arg GetReviewsByUserID
 	return items, nil
 }
 
+const getUserRatingBreakdown = `-- name: GetUserRatingBreakdown :many
+SELECT
+  rating,
+  COUNT(*) AS count
+FROM reviews
+WHERE user_id = $1
+  AND deleted_at IS NULL
+GROUP BY rating
+`
+
+type GetUserRatingBreakdownRow struct {
+	Rating int32 `json:"rating"`
+	Count  int64 `json:"count"`
+}
+
+func (q *Queries) GetUserRatingBreakdown(ctx context.Context, userID uuid.UUID) ([]GetUserRatingBreakdownRow, error) {
+	rows, err := q.query(ctx, q.getUserRatingBreakdownStmt, getUserRatingBreakdown, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserRatingBreakdownRow
+	for rows.Next() {
+		var i GetUserRatingBreakdownRow
+		if err := rows.Scan(&i.Rating, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateReview = `-- name: UpdateReview :one
 UPDATE reviews
 SET rating = $2,

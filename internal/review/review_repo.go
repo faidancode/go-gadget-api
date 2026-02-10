@@ -25,6 +25,7 @@ type Repository interface {
 	GetCompletedOrder(ctx context.Context, userID, productID uuid.UUID) (uuid.UUID, error)
 	Update(ctx context.Context, arg dbgen.UpdateReviewParams) (dbgen.Review, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	GetUserRatingBreakdown(ctx context.Context, userID uuid.UUID) ([]dbgen.GetUserRatingBreakdownRow, error)
 }
 
 type repository struct {
@@ -132,4 +133,8 @@ func (r *repository) Update(ctx context.Context, arg dbgen.UpdateReviewParams) (
 
 func (r *repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteReview(ctx, id)
+}
+
+func (r *repository) GetUserRatingBreakdown(ctx context.Context, userID uuid.UUID) ([]dbgen.GetUserRatingBreakdownRow, error) {
+	return r.queries.GetUserRatingBreakdown(ctx, userID)
 }

@@ -104,12 +104,77 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 }
 
 const getOrderByID = `-- name: GetOrderByID :one
-SELECT id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id FROM orders WHERE id = $1 LIMIT 1
+SELECT 
+    o.id,
+    o.order_number,
+    o.user_id,
+    o.status,
+    o.payment_method,
+    o.payment_status,
+    o.address_snapshot,
+    o.subtotal_price,
+    o.discount_price,
+    o.shipping_price,
+    o.total_price,
+    o.note,
+    o.placed_at,
+    o.paid_at,
+    o.cancelled_at,
+    o.cancel_reason,
+    o.completed_at,
+    o.receipt_no,
+    o.snap_token,
+    o.snap_redirect_url,
+    (
+        SELECT COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'id', oi.id,
+                    'productId', oi.product_id,
+                    'nameSnapshot', oi.name_snapshot,
+                    'unitPrice', oi.unit_price,
+                    'quantity', oi.quantity,
+                    'subtotal', oi.total_price
+                )
+            ),
+            '[]'::jsonb
+        )
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+    )::jsonb AS items_json
+FROM orders o
+WHERE o.id = $1 
+  AND o.deleted_at IS NULL
+LIMIT 1
 `
 
-func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error) {
+type GetOrderByIDRow struct {
+	ID              uuid.UUID       `json:"id"`
+	OrderNumber     string          `json:"order_number"`
+	UserID          uuid.UUID       `json:"user_id"`
+	Status          string          `json:"status"`
+	PaymentMethod   sql.NullString  `json:"payment_method"`
+	PaymentStatus   string          `json:"payment_status"`
+	AddressSnapshot json.RawMessage `json:"address_snapshot"`
+	SubtotalPrice   string          `json:"subtotal_price"`
+	DiscountPrice   string          `json:"discount_price"`
+	ShippingPrice   string          `json:"shipping_price"`
+	TotalPrice      string          `json:"total_price"`
+	Note            sql.NullString  `json:"note"`
+	PlacedAt        time.Time       `json:"placed_at"`
+	PaidAt          sql.NullTime    `json:"paid_at"`
+	CancelledAt     sql.NullTime    `json:"cancelled_at"`
+	CancelReason    sql.NullString  `json:"cancel_reason"`
+	CompletedAt     sql.NullTime    `json:"completed_at"`
+	ReceiptNo       sql.NullString  `json:"receipt_no"`
+	SnapToken       sql.NullString  `json:"snap_token"`
+	SnapRedirectUrl sql.NullString  `json:"snap_redirect_url"`
+	ItemsJson       json.RawMessage `json:"items_json"`
+}
+
+func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (GetOrderByIDRow, error) {
 	row := q.queryRow(ctx, q.getOrderByIDStmt, getOrderByID, id)
-	var i Order
+	var i GetOrderByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrderNumber,
@@ -131,27 +196,43 @@ func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error)
 		&i.ReceiptNo,
 		&i.SnapToken,
 		&i.SnapRedirectUrl,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.AddressID,
+		&i.ItemsJson,
 	)
 	return i, err
 }
 
 const getOrderItems = `-- name: GetOrderItems :many
-SELECT id, order_id, product_id, name_snapshot, unit_price, quantity, total_price, created_at, updated_at FROM order_items WHERE order_id = $1
+SELECT 
+    id, 
+    order_id, 
+    product_id, 
+    name_snapshot, 
+    unit_price, 
+    quantity, 
+    total_price
+FROM order_items 
+WHERE order_id = $1
 `
 
-func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error) {
+type GetOrderItemsRow struct {
+	ID           uuid.UUID `json:"id"`
+	OrderID      uuid.UUID `json:"order_id"`
+	ProductID    uuid.UUID `json:"product_id"`
+	NameSnapshot string    `json:"name_snapshot"`
+	UnitPrice    string    `json:"unit_price"`
+	Quantity     int32     `json:"quantity"`
+	TotalPrice   string    `json:"total_price"`
+}
+
+func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]GetOrderItemsRow, error) {
 	rows, err := q.query(ctx, q.getOrderItemsStmt, getOrderItems, orderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []OrderItem
+	var items []GetOrderItemsRow
 	for rows.Next() {
-		var i OrderItem
+		var i GetOrderItemsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
@@ -160,8 +241,6 @@ func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]Order
 			&i.UnitPrice,
 			&i.Quantity,
 			&i.TotalPrice,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

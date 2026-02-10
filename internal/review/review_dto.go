@@ -60,10 +60,13 @@ type ReviewListResponse struct {
 }
 
 type UserReviewListResponse struct {
-	Reviews []UserReviewResponse `json:"reviews"`
-	Total   int64                `json:"total"`
-	Page    int                  `json:"page"`
-	Limit   int                  `json:"limit"`
+	Reviews       []UserReviewResponse `json:"reviews"`
+	Total         int64                `json:"total"`
+	Page          int                  `json:"page"`
+	Limit         int                  `json:"limit"`
+	AverageRating float64              `json:"averageRating"`
+	TotalReviews  int64                `json:"totalReviews"`
+	RatingCounts  map[int]int64        `json:"ratingCounts"`
 }
 
 type ReviewEligibilityResponse struct {
@@ -76,5 +79,5 @@ type ReviewEligibilityResponse struct {
 type ReviewStatsResponse struct {
 	AverageRating   float64       `json:"averageRating"`
 	RatingCount     int64         `json:"ratingCount"`
-	RatingBreakdown map[int]int64 `json:"ratingBreakdown,omitempty"` // optional for future
+	RatingBreakdown map[int]int64 `json:"ratingBreakdown,omitempty"`
 }

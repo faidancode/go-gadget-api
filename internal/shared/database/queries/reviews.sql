@@ -78,3 +78,12 @@ RETURNING *;
 UPDATE reviews
 SET deleted_at = NOW()
 WHERE id = $1;
+
+-- name: GetUserRatingBreakdown :many
+SELECT
+  rating,
+  COUNT(*) AS count
+FROM reviews
+WHERE user_id = $1
+  AND deleted_at IS NULL
+GROUP BY rating;

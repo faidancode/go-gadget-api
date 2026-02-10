@@ -7,11 +7,11 @@ import (
 )
 
 func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
-	reviews := r.Group("")
+	reviews := r.Group("reviews")
 	reviews.Use(middleware.AuthMiddleware())
 	{
-		reviews.PATCH("/reviews/:id", handler.UpdateReview)
-		reviews.DELETE("/reviews/:id", handler.DeleteReview)
-		reviews.GET("/users/:userId/reviews", handler.GetReviewsByUserID)
+		reviews.GET("", handler.GetReviewsByUserID)
+		reviews.PATCH("/:id", handler.UpdateReview)
+		reviews.DELETE("/:id", handler.DeleteReview)
 	}
 }

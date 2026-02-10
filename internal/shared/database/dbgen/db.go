@@ -153,6 +153,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserByIDStmt, err = db.PrepareContext(ctx, getUserByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserByID: %w", err)
 	}
+	if q.getUserRatingBreakdownStmt, err = db.PrepareContext(ctx, getUserRatingBreakdown); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserRatingBreakdown: %w", err)
+	}
 	if q.getWishlistByUserIDStmt, err = db.PrepareContext(ctx, getWishlistByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWishlistByUserID: %w", err)
 	}
@@ -475,6 +478,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getUserByIDStmt: %w", cerr)
 		}
 	}
+	if q.getUserRatingBreakdownStmt != nil {
+		if cerr := q.getUserRatingBreakdownStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserRatingBreakdownStmt: %w", cerr)
+		}
+	}
 	if q.getWishlistByUserIDStmt != nil {
 		if cerr := q.getWishlistByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWishlistByUserIDStmt: %w", cerr)
@@ -727,6 +735,7 @@ type Queries struct {
 	getReviewsByUserIDStmt          *sql.Stmt
 	getUserByEmailStmt              *sql.Stmt
 	getUserByIDStmt                 *sql.Stmt
+	getUserRatingBreakdownStmt      *sql.Stmt
 	getWishlistByUserIDStmt         *sql.Stmt
 	getWishlistItemsStmt            *sql.Stmt
 	incrementCartItemQtyStmt        *sql.Stmt
@@ -810,6 +819,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getReviewsByUserIDStmt:          q.getReviewsByUserIDStmt,
 		getUserByEmailStmt:              q.getUserByEmailStmt,
 		getUserByIDStmt:                 q.getUserByIDStmt,
+		getUserRatingBreakdownStmt:      q.getUserRatingBreakdownStmt,
 		getWishlistByUserIDStmt:         q.getWishlistByUserIDStmt,
 		getWishlistItemsStmt:            q.getWishlistItemsStmt,
 		incrementCartItemQtyStmt:        q.incrementCartItemQtyStmt,

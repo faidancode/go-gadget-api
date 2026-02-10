@@ -43,13 +43,16 @@ type CheckoutResponse struct {
 }
 
 type OrderResponse struct {
-	ID          string              `json:"id"`
-	OrderNumber string              `json:"orderNumber"`
-	Status      string              `json:"status"`
-	ReceiptNo   *string             `json:"receiptNo,omitempty"` // Tambahkan di sini
-	TotalPrice  float64             `json:"totalPrice"`
-	PlacedAt    time.Time           `json:"placedAt"`
-	Items       []OrderItemResponse `json:"items,omitempty"`
+	ID            string              `json:"id"`
+	OrderNumber   string              `json:"orderNumber"`
+	Status        string              `json:"status"`
+	ReceiptNo     *string             `json:"receiptNo,omitempty"` // Tambahkan di sini
+	PaymentStatus string              `json:"paymentStatus"`
+	SubtotalPrice float64             `json:"subtotalPrice"`
+	ShippingPrice float64             `json:"shippingPrice"`
+	TotalPrice    float64             `json:"totalPrice"`
+	PlacedAt      time.Time           `json:"placedAt"`
+	Items         []OrderItemResponse `json:"items,omitempty"`
 }
 
 type OrderItemResponse struct {
