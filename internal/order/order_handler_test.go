@@ -19,7 +19,7 @@ import (
 
 type fakeOrderService struct {
 	checkoutFunc             func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error)
-	listFunc                 func(ctx context.Context, userID string, page, limit int) ([]order.OrderResponse, int64, error)
+	listFunc                 func(ctx context.Context, userID string, status string, page, limit int) ([]order.OrderResponse, int64, error)
 	detailFunc               func(ctx context.Context, orderID string) (order.OrderResponse, error)
 	cancelFunc               func(ctx context.Context, orderID string) error
 	listAdminFunc            func(ctx context.Context, status string, search string, page, limit int) ([]order.OrderResponse, int64, error)
@@ -33,9 +33,9 @@ func (f *fakeOrderService) Checkout(ctx context.Context, userID string, req orde
 	}
 	return order.OrderResponse{}, nil
 }
-func (f *fakeOrderService) List(ctx context.Context, userID string, page, limit int) ([]order.OrderResponse, int64, error) {
+func (f *fakeOrderService) List(ctx context.Context, userID string, status string, page, limit int) ([]order.OrderResponse, int64, error) {
 	if f.listFunc != nil {
-		return f.listFunc(ctx, userID, page, limit)
+		return f.listFunc(ctx, userID, status, page, limit)
 	}
 	return []order.OrderResponse{}, 0, nil
 }
@@ -177,7 +177,7 @@ func TestOrderHandler_List(t *testing.T) {
 	t.Run("success_list_orders", func(t *testing.T) {
 		userID := uuid.New().String()
 		svc := &fakeOrderService{
-			listFunc: func(ctx context.Context, uid string, page, limit int) ([]order.OrderResponse, int64, error) {
+			listFunc: func(ctx context.Context, uid string, status string, page, limit int) ([]order.OrderResponse, int64, error) {
 				return []order.OrderResponse{{OrderNumber: "ORD-001"}}, 1, nil
 			},
 		}
@@ -194,7 +194,7 @@ func TestOrderHandler_List(t *testing.T) {
 
 	t.Run("service_error", func(t *testing.T) {
 		svc := &fakeOrderService{
-			listFunc: func(ctx context.Context, uid string, page, limit int) ([]order.OrderResponse, int64, error) {
+			listFunc: func(ctx context.Context, uid string, status string, page, limit int) ([]order.OrderResponse, int64, error) {
 				return nil, 0, errors.New("db error")
 			},
 		}

@@ -11,7 +11,24 @@ INSERT INTO order_items (
 ) VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: ListOrders :many
-SELECT o.*, count(*) OVER() AS total_count
+SELECT 
+    o.*, 
+    count(*) OVER() AS total_count,
+    (
+        SELECT COALESCE(json_agg(item_data), '[]'::json)
+        FROM (
+            SELECT 
+                oi.id, 
+                p.id as productId, 
+                p.name as productName, 
+                oi.name_snapshot as nameSnapshot,
+                oi.quantity, 
+                oi.total_price as unitPrice
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id = o.id
+        ) item_data
+    ) as items_json
 FROM orders o
 WHERE o.user_id = sqlc.arg('user_id')
   AND (sqlc.narg('status')::text IS NULL OR o.status = sqlc.narg('status')::text)

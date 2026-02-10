@@ -341,7 +341,7 @@ func TestOrderService_List(t *testing.T) {
 			List(gomock.Any(), gomock.Any()).
 			Return(mockRows, nil)
 
-		res, total, err := svc.List(ctx, userID.String(), 1, 10)
+		res, total, err := svc.List(ctx, userID.String(), "ALL", 1, 10)
 
 		assert.NoError(t, err)
 		assert.Equal(t, int64(2), total)
@@ -352,7 +352,7 @@ func TestOrderService_List(t *testing.T) {
 		userID := uuid.New()
 		orderRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, assert.AnError)
 
-		_, _, err := svc.List(ctx, userID.String(), 1, 10)
+		_, _, err := svc.List(ctx, userID.String(), "ALL", 1, 10)
 		assert.Error(t, err)
 	})
 }

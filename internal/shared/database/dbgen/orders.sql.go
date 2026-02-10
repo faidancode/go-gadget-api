@@ -177,7 +177,24 @@ func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]Order
 }
 
 const listOrders = `-- name: ListOrders :many
-SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, count(*) OVER() AS total_count
+SELECT 
+    o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, 
+    count(*) OVER() AS total_count,
+    (
+        SELECT COALESCE(json_agg(item_data), '[]'::json)
+        FROM (
+            SELECT 
+                oi.id, 
+                p.id as productId, 
+                p.name as productName, 
+                oi.name_snapshot as nameSnapshot,
+                oi.quantity, 
+                oi.total_price as unitPrice
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id = o.id
+        ) item_data
+    ) as items_json
 FROM orders o
 WHERE o.user_id = $3
   AND ($4::text IS NULL OR o.status = $4::text)
@@ -218,6 +235,7 @@ type ListOrdersRow struct {
 	DeletedAt       sql.NullTime    `json:"deleted_at"`
 	AddressID       uuid.NullUUID   `json:"address_id"`
 	TotalCount      int64           `json:"total_count"`
+	ItemsJson       interface{}     `json:"items_json"`
 }
 
 func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListOrdersRow, error) {
@@ -260,6 +278,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 			&i.DeletedAt,
 			&i.AddressID,
 			&i.TotalCount,
+			&i.ItemsJson,
 		); err != nil {
 			return nil, err
 		}

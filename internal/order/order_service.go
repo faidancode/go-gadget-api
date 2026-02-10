@@ -23,7 +23,7 @@ import (
 type Service interface {
 	// Customer Actions
 	Checkout(ctx context.Context, userID string, req CheckoutRequest) (OrderResponse, error)
-	List(ctx context.Context, userID string, page, limit int) ([]OrderResponse, int64, error)
+	List(ctx context.Context, userID string, status string, page, limit int) ([]OrderResponse, int64, error)
 	Detail(ctx context.Context, orderID string) (OrderResponse, error)
 	Cancel(ctx context.Context, orderID string) error
 	UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, nextStatus string) (OrderResponse, error)
@@ -242,13 +242,22 @@ func (s *service) Checkout(
 	return s.mapOrderToResponse(order, nil), nil
 }
 
-// CUSTOMER & ADMIN: List
-func (s *service) List(ctx context.Context, userID string, page, limit int) ([]OrderResponse, int64, error) {
+// internal/order/order.service.ts
+
+func (s *service) List(ctx context.Context, userID string, status string, page, limit int) ([]OrderResponse, int64, error) {
 	uid, _ := uuid.Parse(userID)
+
+	// Konversi status kosong menjadi null untuk SQLC narg
+	var statusArg sql.NullString
+	if status != "" {
+		statusArg = sql.NullString{String: status, Valid: true}
+	}
+
 	rows, err := s.repo.List(ctx, dbgen.ListOrdersParams{
-		UserID: uid,
 		Limit:  int32(limit),
 		Offset: int32((page - 1) * limit),
+		UserID: uid,
+		Status: statusArg,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -256,18 +265,35 @@ func (s *service) List(ctx context.Context, userID string, page, limit int) ([]O
 
 	var res []OrderResponse
 	var total int64
+
 	for _, r := range rows {
 		total = r.TotalCount
-		res = append(res, s.mapOrderToResponse(dbgen.Order{
-			ID:          r.ID,
+
+		// 1. Unmarshal items_json yang dikirim PostgreSQL
+		var items []OrderItemResponse
+		jsonBytes, ok := r.ItemsJson.([]byte)
+		if ok && len(jsonBytes) > 0 {
+			if err := json.Unmarshal(jsonBytes, &items); err != nil {
+				fmt.Printf("error unmarshal items: %v\n", err)
+			}
+		}
+		price, _ := strconv.ParseFloat(r.TotalPrice, 64)
+		// 2. Map ke Response
+		res = append(res, OrderResponse{
+			ID:          r.ID.String(),
 			OrderNumber: r.OrderNumber,
-			UserID:      r.UserID,
 			Status:      r.Status,
-			TotalPrice:  r.TotalPrice,
+			TotalPrice:  price,
 			PlacedAt:    r.PlacedAt,
-			CreatedAt:   r.CreatedAt,
-		}, nil))
+			Items:       items, // Data items sudah tersedia di sini
+		})
 	}
+
+	// Handle jika data kosong
+	if res == nil {
+		res = []OrderResponse{}
+	}
+
 	return res, total, nil
 }
 
@@ -506,6 +532,7 @@ func (s *service) mapOrderToResponse(o dbgen.Order, items []dbgen.OrderItem) Ord
 	for _, item := range items {
 		uPrice, _ := strconv.ParseFloat(item.UnitPrice, 64)
 		res.Items = append(res.Items, OrderItemResponse{
+			ID:           item.ID.String(),
 			ProductID:    item.ProductID.String(),
 			NameSnapshot: item.NameSnapshot,
 			UnitPrice:    uPrice,

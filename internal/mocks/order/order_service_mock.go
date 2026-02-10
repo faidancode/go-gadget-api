@@ -87,9 +87,9 @@ func (mr *MockServiceMockRecorder) Detail(ctx, orderID any) *gomock.Call {
 }
 
 // List mocks base method.
-func (m *MockService) List(ctx context.Context, userID string, page, limit int) ([]order.OrderResponse, int64, error) {
+func (m *MockService) List(ctx context.Context, userID, status string, page, limit int) ([]order.OrderResponse, int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", ctx, userID, page, limit)
+	ret := m.ctrl.Call(m, "List", ctx, userID, status, page, limit)
 	ret0, _ := ret[0].([]order.OrderResponse)
 	ret1, _ := ret[1].(int64)
 	ret2, _ := ret[2].(error)
@@ -97,9 +97,9 @@ func (m *MockService) List(ctx context.Context, userID string, page, limit int) 
 }
 
 // List indicates an expected call of List.
-func (mr *MockServiceMockRecorder) List(ctx, userID, page, limit any) *gomock.Call {
+func (mr *MockServiceMockRecorder) List(ctx, userID, status, page, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockService)(nil).List), ctx, userID, page, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockService)(nil).List), ctx, userID, status, page, limit)
 }
 
 // ListAdmin mocks base method.

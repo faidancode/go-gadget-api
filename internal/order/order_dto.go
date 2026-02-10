@@ -53,8 +53,9 @@ type OrderResponse struct {
 }
 
 type OrderItemResponse struct {
+	ID           string  `json:"id"`
 	ProductID    string  `json:"productId"`
-	NameSnapshot string  `json:"name"`
+	NameSnapshot string  `json:"nameSnapshot"`
 	UnitPrice    float64 `json:"unitPrice"`
 	Quantity     int32   `json:"quantity"`
 	Subtotal     float64 `json:"subtotal"` // unitPrice * quantity

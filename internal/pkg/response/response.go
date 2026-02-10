@@ -11,6 +11,21 @@ type PaginationMeta struct {
 	PageSize   int   `json:"pageSize,omitempty"`
 }
 
+func NewPaginationMeta(total int64, page, limit int) PaginationMeta {
+	totalPages := 0
+	if limit > 0 {
+		// Logika pembulatan ke atas: (total + limit - 1) / limit
+		totalPages = int((total + int64(limit) - 1) / int64(limit))
+	}
+
+	return PaginationMeta{
+		Total:      total,
+		TotalPages: totalPages,
+		Page:       page,
+		PageSize:   limit,
+	}
+}
+
 type ApiEnvelope struct {
 	Ok    bool                   `json:"ok"`
 	Data  interface{}            `json:"data"`

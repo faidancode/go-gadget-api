@@ -59,46 +59,28 @@ func (ctrl *Handler) Checkout(c *gin.Context) {
 	response.Success(c, http.StatusCreated, res, nil)
 }
 
-// List retrieves all orders for the authenticated user
-// GET /orders?page=1&limit=10
 func (ctrl *Handler) List(c *gin.Context) {
 	userID := c.GetString("user_id_validated")
-	fmt.Printf("[LIST HANDLER] userID: '%s'\n", userID) // ← Debug
-
+	status := "ALL"
+	status = c.Query("status")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 10
-	}
-
-	orders, total, err := ctrl.service.List(
-		c.Request.Context(),
-		userID,
-		page,
-		limit,
-	)
+	orders, total, err := ctrl.service.List(c.Request.Context(), userID, status, page, limit)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 
+	meta := response.NewPaginationMeta(total, page, limit)
+
 	response.Success(c, http.StatusOK, gin.H{
-		"orders": orders,
-		"pagination": gin.H{
-			"page":  page,
-			"limit": limit,
-			"total": total,
-		},
+		"items": orders,
+		"meta":  meta,
 	}, nil)
 }
 
-// Detail retrieves a single order by ID
-// GET /orders/:id
 func (ctrl *Handler) Detail(c *gin.Context) {
 	orderID := c.Param("id")
 	if orderID == "" {
@@ -117,8 +99,6 @@ func (ctrl *Handler) Detail(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-// Cancel cancels an order (only for PENDING status)
-// PATCH /orders/:id/cancel
 func (ctrl *Handler) Cancel(c *gin.Context) {
 	orderID := c.Param("id")
 	if orderID == "" {
@@ -140,8 +120,6 @@ func (ctrl *Handler) Cancel(c *gin.Context) {
 
 // ==================== ADMIN ENDPOINTS ====================
 
-// ListAdmin retrieves all orders with filters (admin only)
-// GET /admin/orders
 func (ctrl *Handler) ListAdmin(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
