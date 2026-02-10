@@ -240,6 +240,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateCategoryStmt, err = db.PrepareContext(ctx, updateCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCategory: %w", err)
 	}
+	if q.updateCustomerPasswordStmt, err = db.PrepareContext(ctx, updateCustomerPassword); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCustomerPassword: %w", err)
+	}
+	if q.updateCustomerProfileStmt, err = db.PrepareContext(ctx, updateCustomerProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCustomerProfile: %w", err)
+	}
 	if q.updateOrderStatusStmt, err = db.PrepareContext(ctx, updateOrderStatus); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateOrderStatus: %w", err)
 	}
@@ -614,6 +620,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateCategoryStmt: %w", cerr)
 		}
 	}
+	if q.updateCustomerPasswordStmt != nil {
+		if cerr := q.updateCustomerPasswordStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCustomerPasswordStmt: %w", cerr)
+		}
+	}
+	if q.updateCustomerProfileStmt != nil {
+		if cerr := q.updateCustomerProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCustomerProfileStmt: %w", cerr)
+		}
+	}
 	if q.updateOrderStatusStmt != nil {
 		if cerr := q.updateOrderStatusStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateOrderStatusStmt: %w", cerr)
@@ -740,6 +756,8 @@ type Queries struct {
 	updateBrandStmt                 *sql.Stmt
 	updateCartItemQtyStmt           *sql.Stmt
 	updateCategoryStmt              *sql.Stmt
+	updateCustomerPasswordStmt      *sql.Stmt
+	updateCustomerProfileStmt       *sql.Stmt
 	updateOrderStatusStmt           *sql.Stmt
 	updateProductStmt               *sql.Stmt
 	updateReviewStmt                *sql.Stmt
@@ -821,6 +839,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateBrandStmt:                 q.updateBrandStmt,
 		updateCartItemQtyStmt:           q.updateCartItemQtyStmt,
 		updateCategoryStmt:              q.updateCategoryStmt,
+		updateCustomerPasswordStmt:      q.updateCustomerPasswordStmt,
+		updateCustomerProfileStmt:       q.updateCustomerProfileStmt,
 		updateOrderStatusStmt:           q.updateOrderStatusStmt,
 		updateProductStmt:               q.updateProductStmt,
 		updateReviewStmt:                q.updateReviewStmt,

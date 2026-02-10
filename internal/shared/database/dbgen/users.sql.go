@@ -66,9 +66,18 @@ WHERE email = $1
 LIMIT 1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+type GetUserByEmailRow struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	Password  string    `json:"password"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
 	row := q.queryRow(ctx, q.getUserByEmailStmt, getUserByEmail, email)
-	var i User
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -87,9 +96,18 @@ WHERE id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+type GetUserByIDRow struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	Password  string    `json:"password"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
 	row := q.queryRow(ctx, q.getUserByIDStmt, getUserByID, id)
-	var i User
+	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -97,6 +115,69 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Password,
 		&i.Role,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateCustomerPassword = `-- name: UpdateCustomerPassword :exec
+UPDATE users
+SET
+    password = $2,
+    updated_at = NOW()
+WHERE id = $1
+  AND role = 'CUSTOMER'
+`
+
+type UpdateCustomerPasswordParams struct {
+	ID       uuid.UUID `json:"id"`
+	Password string    `json:"password"`
+}
+
+func (q *Queries) UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) error {
+	_, err := q.exec(ctx, q.updateCustomerPasswordStmt, updateCustomerPassword, arg.ID, arg.Password)
+	return err
+}
+
+const updateCustomerProfile = `-- name: UpdateCustomerProfile :one
+UPDATE users
+SET
+    name = $2,
+    updated_at = NOW()
+WHERE id = $1
+  AND role = 'CUSTOMER'
+RETURNING
+    id,
+    name,
+    email,
+    role,
+    created_at,
+    updated_at
+`
+
+type UpdateCustomerProfileParams struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type UpdateCustomerProfileRow struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (q *Queries) UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerProfileParams) (UpdateCustomerProfileRow, error) {
+	row := q.queryRow(ctx, q.updateCustomerProfileStmt, updateCustomerProfile, arg.ID, arg.Name)
+	var i UpdateCustomerProfileRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

@@ -9,6 +9,7 @@ import (
 	"go-gadget-api/internal/cart"
 	"go-gadget-api/internal/category"
 	"go-gadget-api/internal/cloudinary"
+	"go-gadget-api/internal/customer"
 	"go-gadget-api/internal/order"
 	"go-gadget-api/internal/outbox"
 	"go-gadget-api/internal/product"
@@ -32,6 +33,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	addressRepo := address.NewRepository(queries)
 	orderRepo := order.NewRepository(queries)
 	outboxRepo := outbox.NewRepository(queries)
+	customerRepo := customer.NewRepository(queries)
 
 	// --- Services ---
 	authService := auth.NewService(authRepo)
@@ -47,6 +49,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 		OutboxRepo: outboxRepo,
 		CartSvc:    cartService,
 	})
+	customerService := customer.NewService(db, customerRepo)
 
 	// --- Adapters ---
 	reviewEligibilityAdapter := adapters.NewReviewEligibilityAdapter(reviewService)
@@ -60,6 +63,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	addressHandler := address.NewHandler(addressService)
 	productHandler := product.NewHandler(productService, reviewEligibilityAdapter)
 	orderHandler := order.NewHandler(orderService)
+	customerHandler := customer.NewHandler(customerService)
 
 	// --- Routes Registration ---
 	api := router.Group("/api/v1")
@@ -72,5 +76,6 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 		cart.RegisterRoutes(api, cartHandler)
 		address.RegisterRoutes(api, addressHandler)
 		order.RegisterRoutes(api, orderHandler)
+		customer.RegisterRoutes(api, customerHandler)
 	}
 }

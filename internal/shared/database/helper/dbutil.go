@@ -45,6 +45,10 @@ func StringPtrValue(s *string) string {
 	return *s
 }
 
+func StringPtr(s string) *string {
+	return &s
+}
+
 func StringToNull(s *string) sql.NullString {
 	if s == nil {
 		return sql.NullString{}
