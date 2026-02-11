@@ -17,6 +17,7 @@ import (
 
 type fakeAddressService struct {
 	listFn      func(ctx context.Context, userID string) ([]address.AddressResponse, error)
+	getByIDFn   func(ctx context.Context, addressID string, userID string) (address.AddressResponse, error)
 	listAdminFn func(ctx context.Context, page, limit int) ([]address.AddressAdminResponse, int64, error)
 	createFn    func(ctx context.Context, req address.CreateAddressRequest) (address.AddressResponse, error)
 	updateFn    func(ctx context.Context, id, userID string, req address.UpdateAddressRequest) (address.AddressResponse, error)
@@ -25,6 +26,9 @@ type fakeAddressService struct {
 
 func (f *fakeAddressService) List(ctx context.Context, userID string) ([]address.AddressResponse, error) {
 	return f.listFn(ctx, userID)
+}
+func (f *fakeAddressService) GetByID(ctx context.Context, addressID string, userID string) (address.AddressResponse, error) {
+	return f.getByIDFn(ctx, addressID, userID)
 }
 func (f *fakeAddressService) ListAdmin(ctx context.Context, page, limit int) ([]address.AddressAdminResponse, int64, error) {
 	return f.listAdminFn(ctx, page, limit)
@@ -50,199 +54,246 @@ func newTestHandler(svc address.Service) *address.Handler {
 	return address.NewHandler(svc)
 }
 
-func TestAddressHandler_Create_Success(t *testing.T) {
+func TestAddressHandler_Create(t *testing.T) {
 	userID := uuid.New().String()
 
-	svc := &fakeAddressService{
-		createFn: func(ctx context.Context, req address.CreateAddressRequest) (address.AddressResponse, error) {
-			assert.Equal(t, userID, req.UserID)
-			return address.AddressResponse{Label: "Home"}, nil
-		},
-	}
+	t.Run("Success", func(t *testing.T) {
+		svc := &fakeAddressService{
+			createFn: func(ctx context.Context, req address.CreateAddressRequest) (address.AddressResponse, error) {
+				assert.Equal(t, userID, req.UserID)
+				return address.AddressResponse{Label: "Home"}, nil
+			},
+		}
 
-	router := setupTestRouter()
-	ctrl := newTestHandler(svc)
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
 
-	router.POST("/addresses", func(c *gin.Context) {
-		c.Set("user_id", userID)
-		ctrl.Create(c)
+		router.POST("/addresses", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.Create(c)
+		})
+
+		body := `{
+			"label": "Home",
+			"recipient_name": "John Doe",
+			"recipient_phone": "08123456789",
+			"street": "Jl Test",
+			"city": "Jakarta",
+			"province": "DKI Jakarta",
+			"postal_code": "12345",
+			"is_primary": true
+		}`
+
+		req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
 	})
 
-	// ⬇️ LENGKAPKAN FIELD REQUIRED
-	body := `{
-		"label": "Home",
-		"recipient_name": "John Doe",
-		"recipient_phone": "08123456789",
-		"street": "Jl Test",
-		"city": "Jakarta",
-		"province": "DKI Jakarta",
-		"postal_code": "12345",
-		"is_primary": true
-	}`
+	t.Run("InvalidBody", func(t *testing.T) {
+		ctrl := address.NewHandler(&fakeAddressService{})
+		router := setupTestRouter()
 
-	req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+		router.POST("/addresses", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.Create(c)
+		})
 
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+		req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString("{invalid"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
 
-	// ===== DEBUG LOG =====
-	t.Log("status:", w.Code)
-	t.Log("body:", w.Body.String())
+		router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
-
-func TestAddressHandler_Create_InvalidBody(t *testing.T) {
-	router := setupTestRouter()
-	ctrl := newTestHandler(&fakeAddressService{})
-
-	router.POST("/addresses", func(c *gin.Context) {
-		c.Set("user_id", uuid.New().String())
-		ctrl.Create(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString("{invalid"))
-	req.Header.Set("Content-Type", "application/json")
+	t.Run("ServiceError", func(t *testing.T) {
+		svc := &fakeAddressService{
+			createFn: func(ctx context.Context, req address.CreateAddressRequest) (address.AddressResponse, error) {
+				return address.AddressResponse{}, errors.New("failed")
+			},
+		}
 
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+		router.POST("/addresses", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.Create(c)
+		})
+
+		body := `{
+			"label": "Home",
+			"recipient_name": "John Doe",
+			"recipient_phone": "08123456789",
+			"street": "Jl Test",
+			"city": "Jakarta",
+			"province": "DKI Jakarta",
+			"postal_code": "12345",
+			"is_primary": false
+		}`
+		req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }
 
-func TestAddressHandler_Create_ServiceError(t *testing.T) {
+func TestAddressHandler_List(t *testing.T) {
 	userID := uuid.New().String()
 
-	svc := &fakeAddressService{
-		createFn: func(ctx context.Context, req address.CreateAddressRequest) (address.AddressResponse, error) {
-			return address.AddressResponse{}, errors.New("failed")
-		},
-	}
+	t.Run("Success", func(t *testing.T) {
+		svc := &fakeAddressService{
+			listFn: func(ctx context.Context, uid string) ([]address.AddressResponse, error) {
+				return []address.AddressResponse{{Label: "Home"}}, nil
+			},
+		}
 
-	router := setupTestRouter()
-	ctrl := address.NewHandler(svc)
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
 
-	router.POST("/addresses", func(c *gin.Context) {
-		c.Set("user_id", userID)
-		ctrl.Create(c)
+		router.GET("/addresses", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.List(c)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/addresses", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	// ⬇️ BODY HARUS VALID → supaya masuk ke SERVICE
-	body := `{
-		"label": "Home",
-		"recipient_name": "John Doe",
-		"recipient_phone": "08123456789",
-		"street": "Jl Test",
-		"city": "Jakarta",
-		"province": "DKI Jakarta",
-		"postal_code": "12345",
-		"is_primary": false
-	}`
+	t.Run("Failed", func(t *testing.T) {
+		svc := &fakeAddressService{
+			listFn: func(ctx context.Context, uid string) ([]address.AddressResponse, error) {
+				return nil, errors.New("db error")
+			},
+		}
 
-	req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
 
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+		router.GET("/addresses", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.List(c)
+		})
 
-	// ===== DEBUG LOG =====
-	t.Log("status:", w.Code)
-	t.Log("body:", w.Body.String())
+		req := httptest.NewRequest(http.MethodGet, "/addresses", nil)
+		w := httptest.NewRecorder()
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }
 
-func TestAddressHandler_List_Success(t *testing.T) {
+func TestAddressHandler_Detail(t *testing.T) {
+	userID := uuid.New().String()
+	addrID := uuid.New().String()
+
+	t.Run("Success", func(t *testing.T) {
+		svc := &fakeAddressService{
+			getByIDFn: func(ctx context.Context, id, uid string) (address.AddressResponse, error) {
+				assert.Equal(t, addrID, id)
+				return address.AddressResponse{ID: addrID, Label: "Home"}, nil
+			},
+		}
+
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
+
+		router.GET("/addresses/:id", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.Detail(c)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/addresses/"+addrID, nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		svc := &fakeAddressService{
+			getByIDFn: func(ctx context.Context, id, uid string) (address.AddressResponse, error) {
+				return address.AddressResponse{}, errors.New("not found")
+			},
+		}
+
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
+
+		router.GET("/addresses/:id", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.Detail(c)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/addresses/"+uuid.New().String(), nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+}
+
+func TestAddressHandler_Delete(t *testing.T) {
 	userID := uuid.New().String()
 
-	svc := &fakeAddressService{
-		listFn: func(ctx context.Context, uid string) ([]address.AddressResponse, error) {
-			return []address.AddressResponse{{Label: "Home"}}, nil
-		},
-	}
+	t.Run("Success", func(t *testing.T) {
+		svc := &fakeAddressService{
+			deleteFn: func(ctx context.Context, id, uID string) error {
+				return nil
+			},
+		}
 
-	router := setupTestRouter()
-	ctrl := newTestHandler(svc)
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
 
-	router.GET("/addresses", func(c *gin.Context) {
-		c.Set("user_id", userID)
-		ctrl.List(c)
+		router.DELETE("/addresses/:id", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.Delete(c)
+		})
+
+		req := httptest.NewRequest(http.MethodDelete, "/addresses/"+uuid.New().String(), nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/addresses", nil)
-	w := httptest.NewRecorder()
+	t.Run("Failed", func(t *testing.T) {
+		svc := &fakeAddressService{
+			deleteFn: func(ctx context.Context, id, uID string) error {
+				return errors.New("delete failed")
+			},
+		}
 
-	router.ServeHTTP(w, req)
+		router := setupTestRouter()
+		ctrl := address.NewHandler(svc)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-}
+		router.DELETE("/addresses/:id", func(c *gin.Context) {
+			c.Set("user_id_validated", userID)
+			ctrl.Delete(c)
+		})
 
-func TestAddressHandler_List_Failed(t *testing.T) {
-	svc := &fakeAddressService{
-		listFn: func(ctx context.Context, uid string) ([]address.AddressResponse, error) {
-			return nil, errors.New("db error")
-		},
-	}
+		req := httptest.NewRequest(http.MethodDelete, "/addresses/"+uuid.New().String(), nil)
+		w := httptest.NewRecorder()
 
-	router := setupTestRouter()
-	ctrl := newTestHandler(svc)
+		router.ServeHTTP(w, req)
 
-	router.GET("/addresses", func(c *gin.Context) {
-		c.Set("user_id", uuid.New().String())
-		ctrl.List(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
-
-	req := httptest.NewRequest(http.MethodGet, "/addresses", nil)
-	w := httptest.NewRecorder()
-
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestAddressHandler_Delete_Success(t *testing.T) {
-	svc := &fakeAddressService{
-		deleteFn: func(ctx context.Context, id, userID string) error {
-			return nil
-		},
-	}
-
-	router := setupTestRouter()
-	ctrl := newTestHandler(svc)
-
-	router.DELETE("/addresses/:id", func(c *gin.Context) {
-		c.Set("user_id", uuid.New().String())
-		ctrl.Delete(c)
-	})
-
-	req := httptest.NewRequest(http.MethodDelete, "/addresses/"+uuid.New().String(), nil)
-	w := httptest.NewRecorder()
-
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestAddressHandler_Delete_Failed(t *testing.T) {
-	svc := &fakeAddressService{
-		deleteFn: func(ctx context.Context, id, userID string) error {
-			return errors.New("delete failed")
-		},
-	}
-
-	router := setupTestRouter()
-	ctrl := newTestHandler(svc)
-
-	router.DELETE("/addresses/:id", func(c *gin.Context) {
-		c.Set("user_id", uuid.New().String())
-		ctrl.Delete(c)
-	})
-
-	req := httptest.NewRequest(http.MethodDelete, "/addresses/"+uuid.New().String(), nil)
-	w := httptest.NewRecorder()
-
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

@@ -7,6 +7,7 @@ import (
 
 	"go-gadget-api/internal/app"
 	"go-gadget-api/internal/bootstrap"
+	"go-gadget-api/internal/pkg/apperror"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -14,7 +15,7 @@ import (
 
 func main() {
 	_ = godotenv.Load()
-
+	apperror.Init()
 	r := gin.Default()
 
 	// build dependency + routes

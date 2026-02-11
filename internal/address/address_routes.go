@@ -7,11 +7,13 @@ import (
 )
 
 func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
-	address := r.Group("/address")
+	address := r.Group("/addresses")
 	address.Use(middleware.AuthMiddleware()) // Semua route order butuh login
 	{
 		address.GET("", handler.List)
-		address.POST("/", handler.Create)
+		address.GET("/:id", handler.Detail)
+		address.POST("", handler.Create)
 		address.PUT("/:id", handler.Update)
+		address.DELETE("/:id", handler.Delete)
 	}
 }

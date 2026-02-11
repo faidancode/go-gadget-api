@@ -1,6 +1,7 @@
 package address
 
 import (
+	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/response"
 	"log"
 	"net/http"
@@ -30,6 +31,22 @@ func (ctrl *Handler) List(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
+// GET /addresses/:id
+func (ctrl *Handler) Detail(c *gin.Context) {
+	userID := c.GetString("user_id_validated")
+	id := c.Param("id")
+
+	res, err := ctrl.service.GetByID(c.Request.Context(), id, userID)
+	if err != nil {
+		// Log error secara internal untuk debugging
+		log.Printf("GetByID error: %v", err)
+		response.Error(c, http.StatusNotFound, "NOT_FOUND", "address not found or invalid id", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res, nil)
+}
+
 // POST /addresses
 func (ctrl *Handler) Create(c *gin.Context) {
 	userID := c.GetString("user_id_validated")
@@ -43,8 +60,6 @@ func (ctrl *Handler) Create(c *gin.Context) {
 
 	res, err := ctrl.service.Create(c.Request.Context(), req)
 	if err != nil {
-		log.Println("ERROR CREATE ADDRESS REQ:", req)
-		log.Println("ERROR CREATE ADDRESS:", err)
 		response.Error(c, http.StatusInternalServerError, "FAILED", err.Error(), nil)
 		return
 	}
@@ -59,6 +74,15 @@ func (ctrl *Handler) Update(c *gin.Context) {
 
 	var req UpdateAddressRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// 1. Map dulu ke AppError
+		mappedErr := apperror.MapValidationError(err)
+
+		// 2. Cast ke *apperror.AppError untuk akses field Message
+		if ae, ok := mappedErr.(*apperror.AppError); ok {
+			response.Error(c, ae.HTTPStatus, ae.Code, ae.Message, nil)
+			return
+		}
+
 		response.Error(c, http.StatusBadRequest, "INVALID_INPUT", err.Error(), nil)
 		return
 	}

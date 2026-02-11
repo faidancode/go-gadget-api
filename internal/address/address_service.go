@@ -3,15 +3,18 @@ package address
 import (
 	"context"
 	"database/sql"
+	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/shared/database/dbgen"
 	"go-gadget-api/internal/shared/database/helper"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 //go:generate mockgen -source=address_service.go -destination=../mock/address/address_service_mock.go -package=mock
 type Service interface {
 	List(ctx context.Context, userID string) ([]AddressResponse, error)
+	GetByID(ctx context.Context, addressID string, userID string) (AddressResponse, error)
 	Create(ctx context.Context, req CreateAddressRequest) (AddressResponse, error)
 	Update(ctx context.Context, addressID string, userID string, req UpdateAddressRequest) (AddressResponse, error)
 	Delete(ctx context.Context, addressID string, userID string) error
@@ -23,14 +26,16 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
-	db   *sql.DB
+	repo     Repository
+	db       *sql.DB
+	validate *validator.Validate
 }
 
 func NewService(db *sql.DB, r Repository) Service {
 	return &service{
-		db:   db,
-		repo: r,
+		db:       db,
+		repo:     r,
+		validate: validator.New(),
 	}
 }
 
@@ -51,6 +56,37 @@ func (s *service) List(ctx context.Context, userID string) ([]AddressResponse, e
 	}
 
 	return res, nil
+}
+
+func (s *service) GetByID(ctx context.Context, addressID string, userID string) (AddressResponse, error) {
+	addrUUID, err := uuid.Parse(addressID)
+	if err != nil {
+		return AddressResponse{}, err
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return AddressResponse{}, err
+	}
+
+	addr, err := s.repo.GetByID(ctx, addrUUID, userUUID)
+	if err != nil {
+		return AddressResponse{}, err
+	}
+
+	return AddressResponse{
+		ID:             addr.ID.String(),
+		Label:          addr.Label,
+		RecipientName:  addr.RecipientName,
+		RecipientPhone: addr.RecipientPhone,
+		Street:         addr.Street,
+		Subdistrict:    addr.Subdistrict.String,
+		District:       addr.District.String,
+		City:           addr.City.String,
+		Province:       addr.Province.String,
+		PostalCode:     addr.PostalCode.String,
+		IsPrimary:      addr.IsPrimary,
+	}, nil
 }
 
 func (s *service) Create(ctx context.Context, req CreateAddressRequest) (AddressResponse, error) {
@@ -97,6 +133,10 @@ func (s *service) Create(ctx context.Context, req CreateAddressRequest) (Address
 func (s *service) Update(ctx context.Context, addressID string, userID string, req UpdateAddressRequest) (AddressResponse, error) {
 	id, _ := uuid.Parse(addressID)
 	uid, _ := uuid.Parse(userID)
+
+	if err := s.validate.Struct(req); err != nil {
+		return AddressResponse{}, apperror.MapValidationError(err)
+	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

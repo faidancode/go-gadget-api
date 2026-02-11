@@ -96,6 +96,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteWishlistItemStmt, err = db.PrepareContext(ctx, deleteWishlistItem); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWishlistItem: %w", err)
 	}
+	if q.getAddressByIDStmt, err = db.PrepareContext(ctx, getAddressByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAddressByID: %w", err)
+	}
 	if q.getAverageRatingByProductIDStmt, err = db.PrepareContext(ctx, getAverageRatingByProductID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAverageRatingByProductID: %w", err)
 	}
@@ -384,6 +387,11 @@ func (q *Queries) Close() error {
 	if q.deleteWishlistItemStmt != nil {
 		if cerr := q.deleteWishlistItemStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteWishlistItemStmt: %w", cerr)
+		}
+	}
+	if q.getAddressByIDStmt != nil {
+		if cerr := q.getAddressByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAddressByIDStmt: %w", cerr)
 		}
 	}
 	if q.getAverageRatingByProductIDStmt != nil {
@@ -724,6 +732,7 @@ type Queries struct {
 	deleteCartItemStmt              *sql.Stmt
 	deleteReviewStmt                *sql.Stmt
 	deleteWishlistItemStmt          *sql.Stmt
+	getAddressByIDStmt              *sql.Stmt
 	getAverageRatingByProductIDStmt *sql.Stmt
 	getBrandByIDStmt                *sql.Stmt
 	getCartByUserIDStmt             *sql.Stmt
@@ -809,6 +818,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteCartItemStmt:              q.deleteCartItemStmt,
 		deleteReviewStmt:                q.deleteReviewStmt,
 		deleteWishlistItemStmt:          q.deleteWishlistItemStmt,
+		getAddressByIDStmt:              q.getAddressByIDStmt,
 		getAverageRatingByProductIDStmt: q.getAverageRatingByProductIDStmt,
 		getBrandByIDStmt:                q.getBrandByIDStmt,
 		getCartByUserIDStmt:             q.getCartByUserIDStmt,

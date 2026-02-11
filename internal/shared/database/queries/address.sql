@@ -1,9 +1,46 @@
 -- name: ListAddressesByUser :many
-SELECT *, count(*) OVER() AS total_count
+SELECT 
+    id, 
+    user_id, 
+    label, 
+    recipient_name, 
+    recipient_phone,
+    street, 
+    subdistrict, 
+    district, 
+    city, 
+    province, 
+    postal_code, 
+    is_primary,
+    created_at,
+    updated_at,
+    count(*) OVER() AS total_count
 FROM addresses
 WHERE user_id = $1
   AND deleted_at IS NULL
 ORDER BY is_primary DESC, created_at DESC;
+
+-- name: GetAddressByID :one
+SELECT 
+    id, 
+    user_id, 
+    label, 
+    recipient_name, 
+    recipient_phone,
+    street, 
+    subdistrict, 
+    district, 
+    city, 
+    province, 
+    postal_code, 
+    is_primary,
+    created_at,
+    updated_at
+FROM addresses
+WHERE id = $1 
+  AND user_id = $2 
+  AND deleted_at IS NULL
+LIMIT 1;
 
 -- name: CreateAddress :one
 INSERT INTO addresses (

@@ -12,6 +12,7 @@ import (
 type Repository interface {
 	WithTx(tx dbgen.DBTX) Repository
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]dbgen.ListAddressesByUserRow, error)
+	GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (dbgen.GetAddressByIDRow, error)
 	Create(ctx context.Context, arg dbgen.CreateAddressParams) (dbgen.Address, error)
 	Update(ctx context.Context, arg dbgen.UpdateAddressParams) (dbgen.Address, error)
 	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
@@ -43,6 +44,13 @@ func (r *repository) WithTx(tx dbgen.DBTX) Repository {
 
 func (r *repository) ListByUser(ctx context.Context, userID uuid.UUID) ([]dbgen.ListAddressesByUserRow, error) {
 	return r.queries.ListAddressesByUser(ctx, userID)
+}
+
+func (r *repository) GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (dbgen.GetAddressByIDRow, error) {
+	return r.queries.GetAddressByID(ctx, dbgen.GetAddressByIDParams{
+		ID:     id,
+		UserID: userID,
+	})
 }
 
 func (r *repository) Create(ctx context.Context, arg dbgen.CreateAddressParams) (dbgen.Address, error) {

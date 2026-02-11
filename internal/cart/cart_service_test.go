@@ -219,7 +219,7 @@ func TestCartService_Increment(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	db, mockDB, _ := sqlmock.New()
+	db, _, _ := sqlmock.New()
 	defer db.Close()
 
 	repo := mock.NewMockRepository(ctrl)
@@ -231,24 +231,20 @@ func TestCartService_Increment(t *testing.T) {
 	productID := uuid.New()
 
 	t.Run("success", func(t *testing.T) {
-		mockDB.ExpectBegin()
-		mockDB.ExpectCommit()
 
-		repo.EXPECT().WithTx(gomock.Any()).Return(repo)
 		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{ID: cartID}, nil)
-		repo.EXPECT().IncrementQty(ctx, cartID, productID).Return(nil)
+		repo.EXPECT().
+			IncrementQty(ctx, cartID, productID).
+			Return(dbgen.CartItem{CartID: cartID, ProductID: productID}, nil)
 
 		err := svc.Increment(ctx, userID.String(), productID.String())
 		assert.NoError(t, err)
 	})
 
 	t.Run("item_not_found", func(t *testing.T) {
-		mockDB.ExpectBegin()
-		mockDB.ExpectRollback()
 
-		repo.EXPECT().WithTx(gomock.Any()).Return(repo)
 		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{ID: cartID}, nil)
-		repo.EXPECT().IncrementQty(ctx, cartID, productID).Return(sql.ErrNoRows)
+		repo.EXPECT().IncrementQty(ctx, cartID, productID).Return(dbgen.CartItem{}, sql.ErrNoRows)
 
 		err := svc.Increment(ctx, userID.String(), productID.String())
 		assert.Equal(t, carterrors.ErrCartItemNotFound, err)
@@ -259,7 +255,7 @@ func TestCartService_Decrement(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	db, mockDB, _ := sqlmock.New()
+	db, _, _ := sqlmock.New()
 	defer db.Close()
 
 	repo := mock.NewMockRepository(ctrl)
@@ -271,10 +267,7 @@ func TestCartService_Decrement(t *testing.T) {
 	productID := uuid.New()
 
 	t.Run("decrement_to_zero_should_delete", func(t *testing.T) {
-		mockDB.ExpectBegin()
-		mockDB.ExpectCommit()
 
-		repo.EXPECT().WithTx(gomock.Any()).Return(repo)
 		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{ID: cartID}, nil)
 		repo.EXPECT().DecrementQty(ctx, cartID, productID).
 			Return(dbgen.CartItem{Quantity: 0}, nil)
@@ -306,8 +299,56 @@ func TestCartService_Delete(t *testing.T) {
 		repo.EXPECT().WithTx(gomock.Any()).Return(repo)
 		repo.EXPECT().GetByUserID(ctx, userID).Return(dbgen.Cart{ID: cartID}, nil)
 		repo.EXPECT().Delete(ctx, cartID).Return(nil)
+		repo.EXPECT().DeleteAllItems(ctx, cartID).Return(nil)
 
 		err := svc.Delete(ctx, userID.String())
 		assert.NoError(t, err)
+	})
+
+	t.Run("fail_delete_all_items", func(t *testing.T) {
+		userID := uuid.New()
+		cartID := uuid.New()
+		// 1. Setup Mock DB (Begin OK, tapi nanti akan Rollback karena error)
+		mockDB.ExpectBegin()
+		mockDB.ExpectRollback()
+
+		// 2. Mock WithTx
+		repo.EXPECT().WithTx(gomock.Any()).Return(repo)
+
+		// 3. Mock getCartOnly (Berhasil menemukan cart)
+		repo.EXPECT().
+			GetByUserID(ctx, userID).
+			Return(dbgen.Cart{ID: cartID}, nil)
+
+		// 4. Mock DeleteAllItems (Gagal di sini)
+		internalErr := errors.New("database connection error")
+		repo.EXPECT().
+			DeleteAllItems(ctx, cartID).
+			Return(internalErr)
+
+		// 5. Eksekusi
+		err := svc.Delete(ctx, userID.String())
+
+		// 6. Assert
+		assert.Error(t, err)
+		assert.Equal(t, internalErr, err)
+	})
+
+	t.Run("fail_cart_not_found", func(t *testing.T) {
+		userID := uuid.New()
+		mockDB.ExpectBegin()
+		mockDB.ExpectRollback()
+
+		repo.EXPECT().WithTx(gomock.Any()).Return(repo)
+
+		// Simulasi cart tidak ditemukan di dalam getCartOnly
+		repo.EXPECT().
+			GetByUserID(ctx, userID).
+			Return(dbgen.Cart{}, sql.ErrNoRows)
+
+		err := svc.Delete(ctx, userID.String())
+
+		assert.Error(t, err)
+		// Sesuaikan dengan error handling di getCartOnly Anda
 	})
 }

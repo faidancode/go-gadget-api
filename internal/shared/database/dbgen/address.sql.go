@@ -72,6 +72,73 @@ func (q *Queries) CreateAddress(ctx context.Context, arg CreateAddressParams) (A
 	return i, err
 }
 
+const getAddressByID = `-- name: GetAddressByID :one
+SELECT 
+    id, 
+    user_id, 
+    label, 
+    recipient_name, 
+    recipient_phone,
+    street, 
+    subdistrict, 
+    district, 
+    city, 
+    province, 
+    postal_code, 
+    is_primary,
+    created_at,
+    updated_at
+FROM addresses
+WHERE id = $1 
+  AND user_id = $2 
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+type GetAddressByIDParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+type GetAddressByIDRow struct {
+	ID             uuid.UUID      `json:"id"`
+	UserID         uuid.UUID      `json:"user_id"`
+	Label          string         `json:"label"`
+	RecipientName  string         `json:"recipient_name"`
+	RecipientPhone string         `json:"recipient_phone"`
+	Street         string         `json:"street"`
+	Subdistrict    sql.NullString `json:"subdistrict"`
+	District       sql.NullString `json:"district"`
+	City           sql.NullString `json:"city"`
+	Province       sql.NullString `json:"province"`
+	PostalCode     sql.NullString `json:"postal_code"`
+	IsPrimary      bool           `json:"is_primary"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error) {
+	row := q.queryRow(ctx, q.getAddressByIDStmt, getAddressByID, arg.ID, arg.UserID)
+	var i GetAddressByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Label,
+		&i.RecipientName,
+		&i.RecipientPhone,
+		&i.Street,
+		&i.Subdistrict,
+		&i.District,
+		&i.City,
+		&i.Province,
+		&i.PostalCode,
+		&i.IsPrimary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listAddressesAdmin = `-- name: ListAddressesAdmin :many
 SELECT a.id, a.user_id, a.label, a.recipient_name, a.recipient_phone, a.street, a.subdistrict, a.district, a.city, a.province, a.postal_code, a.is_primary, a.created_at, a.updated_at, a.deleted_at, u.email, count(*) OVER() AS total_count
 FROM addresses a
@@ -148,7 +215,22 @@ func (q *Queries) ListAddressesAdmin(ctx context.Context, arg ListAddressesAdmin
 }
 
 const listAddressesByUser = `-- name: ListAddressesByUser :many
-SELECT id, user_id, label, recipient_name, recipient_phone, street, subdistrict, district, city, province, postal_code, is_primary, created_at, updated_at, deleted_at, count(*) OVER() AS total_count
+SELECT 
+    id, 
+    user_id, 
+    label, 
+    recipient_name, 
+    recipient_phone,
+    street, 
+    subdistrict, 
+    district, 
+    city, 
+    province, 
+    postal_code, 
+    is_primary,
+    created_at,
+    updated_at,
+    count(*) OVER() AS total_count
 FROM addresses
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -170,7 +252,6 @@ type ListAddressesByUserRow struct {
 	IsPrimary      bool           `json:"is_primary"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      sql.NullTime   `json:"deleted_at"`
 	TotalCount     int64          `json:"total_count"`
 }
 
@@ -198,7 +279,6 @@ func (q *Queries) ListAddressesByUser(ctx context.Context, userID uuid.UUID) ([]
 			&i.IsPrimary,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DeletedAt,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err

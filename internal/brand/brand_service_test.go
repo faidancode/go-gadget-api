@@ -162,7 +162,7 @@ func TestBrandService_ListAdmin(t *testing.T) {
 			ListAdmin(ctx, dbgen.ListBrandsAdminParams{
 				Limit:   int32(10), // Default limit
 				Offset:  int32(0),
-				Search:  helper.RawStringToNull(""),
+				Search:  helper.StringToNull(helper.StringPtr("")),
 				SortCol: "created_at", // Default sort
 				SortDir: "desc",       // Default dir
 			}).
