@@ -18,8 +18,8 @@ func NewHandler(svc Service) *Handler {
 
 // POST /wishlist
 func (ctrl *Handler) Create(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id_validated")
+	if userID == "" {
 		response.Error(
 			c,
 			http.StatusUnauthorized,
@@ -43,7 +43,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), userID.(string), req.ProductID)
+	res, err := ctrl.service.Create(c.Request.Context(), userID, req.ProductID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -55,8 +55,8 @@ func (ctrl *Handler) Create(c *gin.Context) {
 
 // GET /wishlist
 func (ctrl *Handler) List(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id_validated")
+	if userID == "" {
 		response.Error(
 			c,
 			http.StatusUnauthorized,
@@ -67,9 +67,10 @@ func (ctrl *Handler) List(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.List(c.Request.Context(), userID.(string))
+	res, err := ctrl.service.List(c.Request.Context(), userID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
+
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
@@ -79,8 +80,8 @@ func (ctrl *Handler) List(c *gin.Context) {
 
 // DELETE /wishlist
 func (ctrl *Handler) Delete(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id_validated")
+	if userID == "" {
 		response.Error(
 			c,
 			http.StatusUnauthorized,
@@ -91,20 +92,19 @@ func (ctrl *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	var req DeleteItemRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appErr := apperror.Wrap(
-			err,
-			apperror.CodeInvalidInput,
-			"Invalid request body",
+	productID := c.Param("productId")
+	if productID == "" {
+		response.Error(
+			c,
 			http.StatusBadRequest,
+			"INVALID_INPUT",
+			"productId is required",
+			nil,
 		)
-		httpErr := apperror.ToHTTP(appErr)
-		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, err.Error())
 		return
 	}
 
-	err := ctrl.service.Delete(c.Request.Context(), userID.(string), req.ProductID)
+	err := ctrl.service.Delete(c.Request.Context(), userID, productID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)

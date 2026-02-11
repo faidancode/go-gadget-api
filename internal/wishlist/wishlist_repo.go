@@ -13,6 +13,7 @@ type Repository interface {
 	WithTx(tx dbgen.DBTX) Repository
 	GetOrCreateWishlist(ctx context.Context, userID uuid.UUID) (dbgen.Wishlist, error)
 	GetWishlistByUserID(ctx context.Context, userID uuid.UUID) (dbgen.Wishlist, error)
+	GetWishlistWithItems(ctx context.Context, userID uuid.UUID) (dbgen.GetWishlistWithItemsRow, error)
 	AddItem(ctx context.Context, wishlistID, productID uuid.UUID) error
 	GetItems(ctx context.Context, wishlistID uuid.UUID) ([]dbgen.GetWishlistItemsRow, error)
 	DeleteItem(ctx context.Context, wishlistID, productID uuid.UUID) error
@@ -42,6 +43,10 @@ func (r *repository) GetOrCreateWishlist(ctx context.Context, userID uuid.UUID) 
 
 func (r *repository) GetWishlistByUserID(ctx context.Context, userID uuid.UUID) (dbgen.Wishlist, error) {
 	return r.queries.GetWishlistByUserID(ctx, userID)
+}
+
+func (r *repository) GetWishlistWithItems(ctx context.Context, userID uuid.UUID) (dbgen.GetWishlistWithItemsRow, error) {
+	return r.queries.GetWishlistWithItems(ctx, userID)
 }
 
 func (r *repository) AddItem(ctx context.Context, wishlistID, productID uuid.UUID) error {

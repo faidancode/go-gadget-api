@@ -3,7 +3,10 @@ package wishlist
 import (
 	"context"
 	"database/sql"
-	"strconv"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 )
@@ -81,55 +84,47 @@ func (s *service) Create(ctx context.Context, userID, productID string) (AddItem
 	}, nil
 }
 
-// List retrieves all items in user's wishlist
 func (s *service) List(ctx context.Context, userID string) (WishlistResponse, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return WishlistResponse{}, ErrInvalidProductID
+		return WishlistResponse{}, fmt.Errorf("invalid user id format: %w", err)
 	}
 
-	// Get wishlist
-	wishlist, err := s.repo.GetWishlistByUserID(ctx, uid)
+	row, err := s.repo.GetWishlistWithItems(ctx, uid)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			// Return empty wishlist if not exists
+		log.Printf("Error listing wishlist items: %v", err)
+		if errors.Is(err, sql.ErrNoRows) {
 			return WishlistResponse{
 				UserID:    userID,
 				Items:     []WishlistItemResponse{},
 				ItemCount: 0,
 			}, nil
 		}
-		return WishlistResponse{}, ErrWishlistFailed
+		return WishlistResponse{}, fmt.Errorf("failed to get wishlist: %w", err)
 	}
 
-	// Get items
-	items, err := s.repo.GetItems(ctx, wishlist.ID)
-	if err != nil {
-		return WishlistResponse{}, ErrWishlistFailed
+	// Empty slice safety
+	items := make([]WishlistItemResponse, 0)
+
+	if len(row.Items) > 0 {
+		if err := json.Unmarshal(row.Items, &items); err != nil {
+			log.Printf("Error unmarshaling wishlist items: %v", err)
+			return WishlistResponse{}, fmt.Errorf("failed to unmarshal wishlist items: %w", err)
+		}
 	}
 
-	// Map to response
-	var itemResponses []WishlistItemResponse
-	for _, item := range items {
-		price, _ := strconv.ParseFloat(item.Price, 64)
-		itemResponses = append(itemResponses, WishlistItemResponse{
-			ID:        item.ID.String(),
-			ProductID: item.ProductID.String(),
-			Name:      item.Name,
-			Price:     price,
-			Stock:     item.Stock,
-			ImageURL:  item.ImageUrl.String,
-			AddedAt:   item.CreatedAt,
-		})
+	// Safety: never return nil slice
+	if items == nil {
+		items = []WishlistItemResponse{}
 	}
 
 	return WishlistResponse{
-		ID:        wishlist.ID.String(),
-		UserID:    wishlist.UserID.String(),
-		Items:     itemResponses,
-		ItemCount: len(itemResponses),
-		CreatedAt: wishlist.CreatedAt,
-		UpdatedAt: wishlist.UpdatedAt,
+		ID:        row.ID.String(),
+		UserID:    row.UserID.String(),
+		Items:     items,
+		ItemCount: int(len(items)),
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
 	}, nil
 }
 

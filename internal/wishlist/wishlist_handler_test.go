@@ -3,6 +3,7 @@ package wishlist_test
 import (
 	"context"
 	"errors"
+	"go-gadget-api/internal/shared/database/helper"
 	"go-gadget-api/internal/wishlist"
 	"net/http"
 	"net/http/httptest"
@@ -190,22 +191,28 @@ func TestWishlistHandler_List(t *testing.T) {
 					UserID: userID,
 					Items: []wishlist.WishlistItemResponse{
 						{
-							ID:        uuid.New().String(),
-							ProductID: uuid.New().String(),
-							Name:      "Product 1",
-							Price:     100000.00,
-							Stock:     10,
-							ImageURL:  "image1.jpg",
-							AddedAt:   time.Now(),
+							ID: uuid.New().String(),
+							Product: wishlist.WishlistProductResponse{
+								ID:           uuid.New().String(),
+								Slug:         "product-1",
+								Name:         "Product 1",
+								CategoryName: "Category A",
+								Price:        100000, // cents
+								Stock:        10,
+								ImageURL:     helper.StringPtr("image1.jpg"),
+							},
 						},
 						{
-							ID:        uuid.New().String(),
-							ProductID: uuid.New().String(),
-							Name:      "Product 2",
-							Price:     200000.00,
-							Stock:     5,
-							ImageURL:  "image2.jpg",
-							AddedAt:   time.Now(),
+							ID: uuid.New().String(),
+							Product: wishlist.WishlistProductResponse{
+								ID:           uuid.New().String(),
+								Slug:         "product-2",
+								Name:         "Product 2",
+								CategoryName: "Category B",
+								Price:        200000,
+								Stock:        5,
+								ImageURL:     helper.StringPtr("image2.jpg"),
+							},
 						},
 					},
 					ItemCount: 2,
@@ -220,14 +227,14 @@ func TestWishlistHandler_List(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 
 		c.Request = httptest.NewRequest(http.MethodGet, "/wishlist", nil)
-		c.Set("user_id", userID)
+		c.Set("user_id_validated", userID)
 
 		ctrl.List(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Contains(t, w.Body.String(), "Product 1")
 		assert.Contains(t, w.Body.String(), "Product 2")
-		assert.Contains(t, w.Body.String(), `"item_count":2`)
+		assert.Contains(t, w.Body.String(), `"itemCount":2`)
 	})
 
 	t.Run("success_empty_wishlist", func(t *testing.T) {
@@ -248,12 +255,12 @@ func TestWishlistHandler_List(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 
 		c.Request = httptest.NewRequest(http.MethodGet, "/wishlist", nil)
-		c.Set("user_id", userID)
+		c.Set("user_id_validated", userID)
 
 		ctrl.List(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), `"item_count":0`)
+		assert.Contains(t, w.Body.String(), `"itemCount":0`)
 	})
 
 	t.Run("error_user_not_authenticated", func(t *testing.T) {
@@ -280,7 +287,7 @@ func TestWishlistHandler_List(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 
 		c.Request = httptest.NewRequest(http.MethodGet, "/wishlist", nil)
-		c.Set("user_id", uuid.New().String())
+		c.Set("user_id_validated", uuid.New().String())
 
 		ctrl.List(c)
 

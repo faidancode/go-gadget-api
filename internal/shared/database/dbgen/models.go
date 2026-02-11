@@ -124,19 +124,20 @@ type OutboxEvent struct {
 }
 
 type Product struct {
-	ID          uuid.UUID      `json:"id"`
-	CategoryID  uuid.UUID      `json:"category_id"`
-	Name        string         `json:"name"`
-	Slug        string         `json:"slug"`
-	Description sql.NullString `json:"description"`
-	Price       string         `json:"price"`
-	Stock       int32          `json:"stock"`
-	Sku         sql.NullString `json:"sku"`
-	ImageUrl    sql.NullString `json:"image_url"`
-	IsActive    sql.NullBool   `json:"is_active"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   sql.NullTime   `json:"deleted_at"`
+	ID            uuid.UUID      `json:"id"`
+	CategoryID    uuid.UUID      `json:"category_id"`
+	Name          string         `json:"name"`
+	Slug          string         `json:"slug"`
+	Description   sql.NullString `json:"description"`
+	Price         string         `json:"price"`
+	Stock         int32          `json:"stock"`
+	Sku           sql.NullString `json:"sku"`
+	ImageUrl      sql.NullString `json:"image_url"`
+	IsActive      sql.NullBool   `json:"is_active"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     sql.NullTime   `json:"deleted_at"`
+	DiscountPrice sql.NullString `json:"discount_price"`
 }
 
 type Review struct {

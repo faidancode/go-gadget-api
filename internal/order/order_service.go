@@ -246,7 +246,6 @@ func (s *service) Checkout(
 // internal/order/order.service.ts
 
 func (s *service) List(ctx context.Context, userID string, status string, page, limit int) ([]OrderResponse, int64, error) {
-	// Sesuai preferensi Anda: Menggunakan google/uuid
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("invalid user id format: %w", err)

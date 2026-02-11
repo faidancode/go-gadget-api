@@ -8,6 +8,7 @@ package dbgen
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -149,4 +150,62 @@ func (q *Queries) GetWishlistItems(ctx context.Context, wishlistID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const getWishlistWithItems = `-- name: GetWishlistWithItems :one
+SELECT
+    w.id,
+    w.user_id,
+    w.created_at,
+    w.updated_at,
+    (
+        SELECT COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'id', wi.id,
+                    'addedAt', wi.created_at,
+                    'product', jsonb_build_object(
+                        'id', p.id,
+                        'slug', p.slug,
+                        'name', p.name,
+                        'imageUrl', p.image_url,
+                        'categoryName', c.name,
+                        'price', p.price,
+                        'discountPrice', p.discount_price,
+                        'stock', p.stock
+                    )
+                )
+            ),
+            '[]'::jsonb
+        )
+        FROM wishlist_items wi
+        JOIN products p ON wi.product_id = p.id
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE wi.wishlist_id = w.id
+          AND p.deleted_at IS NULL
+    )::jsonb AS items
+FROM wishlists w
+WHERE w.user_id = $1
+LIMIT 1
+`
+
+type GetWishlistWithItemsRow struct {
+	ID        uuid.UUID       `json:"id"`
+	UserID    uuid.UUID       `json:"user_id"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
+	Items     json.RawMessage `json:"items"`
+}
+
+func (q *Queries) GetWishlistWithItems(ctx context.Context, userID uuid.UUID) (GetWishlistWithItemsRow, error) {
+	row := q.queryRow(ctx, q.getWishlistWithItemsStmt, getWishlistWithItems, userID)
+	var i GetWishlistWithItemsRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Items,
+	)
+	return i, err
 }

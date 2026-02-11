@@ -17,7 +17,7 @@ import (
 const createProduct = `-- name: CreateProduct :one
 INSERT INTO products (category_id, name, slug, description, price, stock, sku, image_url)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at
+RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price
 `
 
 type CreateProductParams struct {
@@ -57,6 +57,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.DiscountPrice,
 	)
 	return i, err
 }
@@ -92,27 +93,28 @@ func (q *Queries) GetIDsBySlugs(ctx context.Context, dollar_1 []string) ([]uuid.
 }
 
 const getProductByID = `-- name: GetProductByID :one
-SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, c.name as category_name 
+SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, c.name as category_name 
 FROM products p
 JOIN categories c ON p.category_id = c.id
 WHERE p.id = $1 AND p.deleted_at IS NULL LIMIT 1
 `
 
 type GetProductByIDRow struct {
-	ID           uuid.UUID      `json:"id"`
-	CategoryID   uuid.UUID      `json:"category_id"`
-	Name         string         `json:"name"`
-	Slug         string         `json:"slug"`
-	Description  sql.NullString `json:"description"`
-	Price        string         `json:"price"`
-	Stock        int32          `json:"stock"`
-	Sku          sql.NullString `json:"sku"`
-	ImageUrl     sql.NullString `json:"image_url"`
-	IsActive     sql.NullBool   `json:"is_active"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    sql.NullTime   `json:"deleted_at"`
-	CategoryName string         `json:"category_name"`
+	ID            uuid.UUID      `json:"id"`
+	CategoryID    uuid.UUID      `json:"category_id"`
+	Name          string         `json:"name"`
+	Slug          string         `json:"slug"`
+	Description   sql.NullString `json:"description"`
+	Price         string         `json:"price"`
+	Stock         int32          `json:"stock"`
+	Sku           sql.NullString `json:"sku"`
+	ImageUrl      sql.NullString `json:"image_url"`
+	IsActive      sql.NullBool   `json:"is_active"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     sql.NullTime   `json:"deleted_at"`
+	DiscountPrice sql.NullString `json:"discount_price"`
+	CategoryName  string         `json:"category_name"`
 }
 
 func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductByIDRow, error) {
@@ -132,33 +134,35 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.DiscountPrice,
 		&i.CategoryName,
 	)
 	return i, err
 }
 
 const getProductBySlug = `-- name: GetProductBySlug :one
-SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, c.name as category_name 
+SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, c.name as category_name 
 FROM products p
 JOIN categories c ON p.category_id = c.id
 WHERE p.slug = $1 AND p.deleted_at IS NULL LIMIT 1
 `
 
 type GetProductBySlugRow struct {
-	ID           uuid.UUID      `json:"id"`
-	CategoryID   uuid.UUID      `json:"category_id"`
-	Name         string         `json:"name"`
-	Slug         string         `json:"slug"`
-	Description  sql.NullString `json:"description"`
-	Price        string         `json:"price"`
-	Stock        int32          `json:"stock"`
-	Sku          sql.NullString `json:"sku"`
-	ImageUrl     sql.NullString `json:"image_url"`
-	IsActive     sql.NullBool   `json:"is_active"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    sql.NullTime   `json:"deleted_at"`
-	CategoryName string         `json:"category_name"`
+	ID            uuid.UUID      `json:"id"`
+	CategoryID    uuid.UUID      `json:"category_id"`
+	Name          string         `json:"name"`
+	Slug          string         `json:"slug"`
+	Description   sql.NullString `json:"description"`
+	Price         string         `json:"price"`
+	Stock         int32          `json:"stock"`
+	Sku           sql.NullString `json:"sku"`
+	ImageUrl      sql.NullString `json:"image_url"`
+	IsActive      sql.NullBool   `json:"is_active"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     sql.NullTime   `json:"deleted_at"`
+	DiscountPrice sql.NullString `json:"discount_price"`
+	CategoryName  string         `json:"category_name"`
 }
 
 func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProductBySlugRow, error) {
@@ -178,6 +182,7 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.DiscountPrice,
 		&i.CategoryName,
 	)
 	return i, err
@@ -185,7 +190,7 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 
 const listProductsAdmin = `-- name: ListProductsAdmin :many
 SELECT
-    p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at,
+    p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price,
     c.name AS category_name,
     COUNT(*) OVER() AS total_count
 FROM products p
@@ -243,21 +248,22 @@ type ListProductsAdminParams struct {
 }
 
 type ListProductsAdminRow struct {
-	ID           uuid.UUID      `json:"id"`
-	CategoryID   uuid.UUID      `json:"category_id"`
-	Name         string         `json:"name"`
-	Slug         string         `json:"slug"`
-	Description  sql.NullString `json:"description"`
-	Price        string         `json:"price"`
-	Stock        int32          `json:"stock"`
-	Sku          sql.NullString `json:"sku"`
-	ImageUrl     sql.NullString `json:"image_url"`
-	IsActive     sql.NullBool   `json:"is_active"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    sql.NullTime   `json:"deleted_at"`
-	CategoryName string         `json:"category_name"`
-	TotalCount   int64          `json:"total_count"`
+	ID            uuid.UUID      `json:"id"`
+	CategoryID    uuid.UUID      `json:"category_id"`
+	Name          string         `json:"name"`
+	Slug          string         `json:"slug"`
+	Description   sql.NullString `json:"description"`
+	Price         string         `json:"price"`
+	Stock         int32          `json:"stock"`
+	Sku           sql.NullString `json:"sku"`
+	ImageUrl      sql.NullString `json:"image_url"`
+	IsActive      sql.NullBool   `json:"is_active"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     sql.NullTime   `json:"deleted_at"`
+	DiscountPrice sql.NullString `json:"discount_price"`
+	CategoryName  string         `json:"category_name"`
+	TotalCount    int64          `json:"total_count"`
 }
 
 func (q *Queries) ListProductsAdmin(ctx context.Context, arg ListProductsAdminParams) ([]ListProductsAdminRow, error) {
@@ -290,6 +296,7 @@ func (q *Queries) ListProductsAdmin(ctx context.Context, arg ListProductsAdminPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.DiscountPrice,
 			&i.CategoryName,
 			&i.TotalCount,
 		); err != nil {
@@ -344,7 +351,7 @@ func (q *Queries) ListProductsForInternal(ctx context.Context) ([]ListProductsFo
 
 const listProductsPublic = `-- name: ListProductsPublic :many
 SELECT 
-  p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, 
+  p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, 
   c.name AS category_name,
   count(*) OVER() AS total_count
 FROM products p
@@ -388,21 +395,22 @@ type ListProductsPublicParams struct {
 }
 
 type ListProductsPublicRow struct {
-	ID           uuid.UUID      `json:"id"`
-	CategoryID   uuid.UUID      `json:"category_id"`
-	Name         string         `json:"name"`
-	Slug         string         `json:"slug"`
-	Description  sql.NullString `json:"description"`
-	Price        string         `json:"price"`
-	Stock        int32          `json:"stock"`
-	Sku          sql.NullString `json:"sku"`
-	ImageUrl     sql.NullString `json:"image_url"`
-	IsActive     sql.NullBool   `json:"is_active"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    sql.NullTime   `json:"deleted_at"`
-	CategoryName string         `json:"category_name"`
-	TotalCount   int64          `json:"total_count"`
+	ID            uuid.UUID      `json:"id"`
+	CategoryID    uuid.UUID      `json:"category_id"`
+	Name          string         `json:"name"`
+	Slug          string         `json:"slug"`
+	Description   sql.NullString `json:"description"`
+	Price         string         `json:"price"`
+	Stock         int32          `json:"stock"`
+	Sku           sql.NullString `json:"sku"`
+	ImageUrl      sql.NullString `json:"image_url"`
+	IsActive      sql.NullBool   `json:"is_active"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     sql.NullTime   `json:"deleted_at"`
+	DiscountPrice sql.NullString `json:"discount_price"`
+	CategoryName  string         `json:"category_name"`
+	TotalCount    int64          `json:"total_count"`
 }
 
 func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublicParams) ([]ListProductsPublicRow, error) {
@@ -436,6 +444,7 @@ func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublic
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.DiscountPrice,
 			&i.CategoryName,
 			&i.TotalCount,
 		); err != nil {
@@ -453,7 +462,7 @@ func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublic
 }
 
 const restoreProduct = `-- name: RestoreProduct :one
-UPDATE products SET deleted_at = NULL WHERE id = $1 RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at
+UPDATE products SET deleted_at = NULL WHERE id = $1 RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price
 `
 
 func (q *Queries) RestoreProduct(ctx context.Context, id uuid.UUID) (Product, error) {
@@ -473,6 +482,7 @@ func (q *Queries) RestoreProduct(ctx context.Context, id uuid.UUID) (Product, er
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.DiscountPrice,
 	)
 	return i, err
 }
@@ -499,7 +509,7 @@ SET
     is_active = $9,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at
+RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price
 `
 
 type UpdateProductParams struct {
@@ -541,6 +551,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.DiscountPrice,
 	)
 	return i, err
 }

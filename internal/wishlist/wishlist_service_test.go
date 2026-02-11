@@ -147,63 +147,67 @@ func TestWishlistService_List(t *testing.T) {
 	t.Run("success_list_items", func(t *testing.T) {
 		userID := uuid.New()
 		wishlistID := uuid.New()
-		productID1 := uuid.New()
-		productID2 := uuid.New()
+
+		itemsJSON := []byte(`[
+  {
+    "id": "` + uuid.New().String() + `",
+    "addedAt": "` + time.Now().Format(time.RFC3339) + `",
+    "product": {
+      "id": "` + uuid.New().String() + `",
+      "slug": "product-1",
+      "name": "Product 1",
+      "categoryName": "Category 1",
+      "price": 100000,
+      "stock": 10,
+      "imageUrl": "image1.jpg"
+    }
+  },
+  {
+    "id": "` + uuid.New().String() + `",
+    "addedAt": "` + time.Now().Format(time.RFC3339) + `",
+    "product": {
+      "id": "` + uuid.New().String() + `",
+      "slug": "product-2",
+      "name": "Product 2",
+      "categoryName": "Category 1",
+      "price": 200000,
+      "stock": 5,
+      "imageUrl": "image2.jpg"
+    }
+  }
+]		`)
 
 		repo.EXPECT().
-			GetWishlistByUserID(gomock.Any(), userID).
-			Return(dbgen.Wishlist{
+			GetWishlistWithItems(gomock.Any(), userID).
+			Return(dbgen.GetWishlistWithItemsRow{
 				ID:        wishlistID,
 				UserID:    userID,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
-			}, nil)
-
-		repo.EXPECT().
-			GetItems(gomock.Any(), wishlistID).
-			Return([]dbgen.GetWishlistItemsRow{
-				{
-					ID:        uuid.New(),
-					ProductID: productID1,
-					Name:      "Product 1",
-					Price:     "100000.00",
-					Stock:     10,
-					ImageUrl:  sql.NullString{String: "image1.jpg", Valid: true},
-					CreatedAt: time.Now(),
-				},
-				{
-					ID:        uuid.New(),
-					ProductID: productID2,
-					Name:      "Product 2",
-					Price:     "200000.00",
-					Stock:     5,
-					ImageUrl:  sql.NullString{String: "image2.jpg", Valid: true},
-					CreatedAt: time.Now(),
-				},
+				Items:     itemsJSON,
 			}, nil)
 
 		// Execute
 		res, err := svc.List(ctx, userID.String())
+		t.Logf("Response: %+v", res)
 
 		// Assert
 		assert.NoError(t, err)
 		assert.Equal(t, 2, res.ItemCount)
 		assert.Len(t, res.Items, 2)
-		assert.Equal(t, "Product 1", res.Items[0].Name)
-		assert.Equal(t, float64(100000), res.Items[0].Price)
+		assert.Equal(t, "Product 1", res.Items[0].Product.Name)
+		assert.Equal(t, int64(100000), res.Items[0].Product.Price)
 	})
 
 	t.Run("success_empty_wishlist", func(t *testing.T) {
 		userID := uuid.New()
 
 		repo.EXPECT().
-			GetWishlistByUserID(gomock.Any(), userID).
-			Return(dbgen.Wishlist{}, sql.ErrNoRows)
+			GetWishlistWithItems(gomock.Any(), userID).
+			Return(dbgen.GetWishlistWithItemsRow{}, sql.ErrNoRows)
 
-		// Execute
 		res, err := svc.List(ctx, userID.String())
 
-		// Assert
 		assert.NoError(t, err)
 		assert.Equal(t, 0, res.ItemCount)
 		assert.Empty(t, res.Items)
@@ -211,27 +215,19 @@ func TestWishlistService_List(t *testing.T) {
 
 	t.Run("error_invalid_user_id", func(t *testing.T) {
 		_, err := svc.List(ctx, "invalid-uuid")
-
-		assert.ErrorIs(t, err, wishlist.ErrInvalidProductID)
+		assert.Error(t, err)
 	})
 
-	t.Run("error_get_items_failed", func(t *testing.T) {
+	t.Run("error_repo_failed", func(t *testing.T) {
 		userID := uuid.New()
-		wishlistID := uuid.New()
 
 		repo.EXPECT().
-			GetWishlistByUserID(gomock.Any(), userID).
-			Return(dbgen.Wishlist{ID: wishlistID, UserID: userID}, nil)
+			GetWishlistWithItems(gomock.Any(), userID).
+			Return(dbgen.GetWishlistWithItemsRow{}, assert.AnError)
 
-		repo.EXPECT().
-			GetItems(gomock.Any(), wishlistID).
-			Return(nil, assert.AnError)
-
-		// Execute
 		_, err := svc.List(ctx, userID.String())
 
-		// Assert
-		assert.ErrorIs(t, err, wishlist.ErrWishlistFailed)
+		assert.Error(t, err)
 	})
 }
 

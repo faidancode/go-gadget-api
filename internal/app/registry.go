@@ -16,6 +16,7 @@ import (
 	"go-gadget-api/internal/product/adapters"
 	"go-gadget-api/internal/review"
 	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/wishlist"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,6 +35,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	orderRepo := order.NewRepository(queries)
 	outboxRepo := outbox.NewRepository(queries)
 	customerRepo := customer.NewRepository(queries)
+	wishlistRepo := wishlist.NewRepository(queries)
 
 	// --- Services ---
 	authService := auth.NewService(authRepo)
@@ -50,6 +52,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 		CartSvc:    cartService,
 	})
 	customerService := customer.NewService(db, customerRepo)
+	wishlistService := wishlist.NewService(db, wishlistRepo)
 
 	// --- Adapters ---
 	reviewEligibilityAdapter := adapters.NewReviewEligibilityAdapter(reviewService)
@@ -64,6 +67,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	productHandler := product.NewHandler(productService, reviewEligibilityAdapter)
 	orderHandler := order.NewHandler(orderService)
 	customerHandler := customer.NewHandler(customerService)
+	wishlistHandler := wishlist.NewHandler(wishlistService)
 
 	// --- Routes Registration ---
 	api := router.Group("/api/v1")
@@ -77,5 +81,6 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 		address.RegisterRoutes(api, addressHandler)
 		order.RegisterRoutes(api, orderHandler)
 		customer.RegisterRoutes(api, customerHandler)
+		wishlist.RegisterRoutes(api, wishlistHandler)
 	}
 }
