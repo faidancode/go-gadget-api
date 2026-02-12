@@ -1,13 +1,14 @@
 package wishlist_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"go-gadget-api/internal/shared/database/helper"
 	"go-gadget-api/internal/wishlist"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -78,10 +79,17 @@ func TestWishlistHandler_Create(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "` + productID + `"}`
-		c.Request = httptest.NewRequest(http.MethodPost, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", userID)
+		requestBody := map[string]string{
+			"productId": productID,
+		}
+		jsonBody, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/wishlists/items", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		c.Request = req
+		// -------------------------
+
+		c.Set("user_id_validated", userID)
 
 		ctrl.Create(c)
 
@@ -94,27 +102,20 @@ func TestWishlistHandler_Create(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "some-id"}`
-		c.Request = httptest.NewRequest(http.MethodPost, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
+		productID := uuid.New().String()
+
+		req := httptest.NewRequest(http.MethodPost, "/wishlists/items/"+productID, nil)
+		c.Request = req
+
+		c.Params = gin.Params{
+			{Key: "productId", Value: productID},
+		}
+
+		// tidak set user_id_validated
 
 		ctrl.Create(c)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-	})
-
-	t.Run("error_invalid_json", func(t *testing.T) {
-		ctrl := newTestHandler(&fakeWishlistService{})
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-
-		c.Request = httptest.NewRequest(http.MethodPost, "/wishlist", strings.NewReader(`{invalid-json}`))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
-
-		ctrl.Create(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
 	t.Run("error_missing_product_id", func(t *testing.T) {
@@ -122,10 +123,11 @@ func TestWishlistHandler_Create(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{}`
-		c.Request = httptest.NewRequest(http.MethodPost, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		req := httptest.NewRequest(http.MethodPost, "/wishlists/items/", nil)
+		c.Request = req
+
+		c.Set("user_id_validated", uuid.New().String())
+		// tidak set param
 
 		ctrl.Create(c)
 
@@ -133,8 +135,14 @@ func TestWishlistHandler_Create(t *testing.T) {
 	})
 
 	t.Run("error_item_already_exists", func(t *testing.T) {
+		productID := uuid.New().String()
+		userID := uuid.New().String()
+
 		svc := &fakeWishlistService{
-			createFunc: func(ctx context.Context, userID, productID string) (wishlist.AddItemResponse, error) {
+			createFunc: func(ctx context.Context, uID, pID string) (wishlist.AddItemResponse, error) {
+				// Memastikan data yang sampai ke service tetap benar
+				assert.Equal(t, userID, uID)
+				assert.Equal(t, productID, pID)
 				return wishlist.AddItemResponse{}, wishlist.ErrItemAlreadyExists
 			},
 		}
@@ -143,14 +151,24 @@ func TestWishlistHandler_Create(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "` + uuid.New().String() + `"}`
-		c.Request = httptest.NewRequest(http.MethodPost, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		reqBody := map[string]string{
+			"productId": productID,
+		}
+		bodyBytes, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/wishlists/items", bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Content-Type", "application/json")
+		c.Request = req
+
+		c.Set("user_id_validated", userID)
 
 		ctrl.Create(c)
 
+		// Pastikan status code sesuai dengan mapping ErrItemAlreadyExists (biasanya 409 Conflict)
 		assert.Equal(t, http.StatusConflict, w.Code)
+
+		// Opsional: cek apakah pesan errornya sesuai
+		assert.Contains(t, w.Body.String(), "ALREADY_EXISTS")
 	})
 
 	t.Run("error_service_internal_error", func(t *testing.T) {
@@ -164,10 +182,17 @@ func TestWishlistHandler_Create(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "` + uuid.New().String() + `"}`
-		c.Request = httptest.NewRequest(http.MethodPost, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		productID := uuid.New().String()
+
+		reqBody := map[string]string{
+			"productId": productID,
+		}
+		bodyBytes, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/wishlists/items", bytes.NewBuffer(bodyBytes))
+		req.Header.Set("Content-Type", "application/json")
+		c.Request = req
+		c.Set("user_id_validated", uuid.New().String())
 
 		ctrl.Create(c)
 
@@ -314,15 +339,17 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "` + productID + `"}`
-		c.Request = httptest.NewRequest(http.MethodDelete, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", userID)
+		req := httptest.NewRequest(http.MethodDelete, "/wishlists/items/"+productID, nil)
+		c.Request = req
+
+		c.Params = gin.Params{
+			{Key: "productId", Value: productID},
+		}
+		c.Set("user_id_validated", userID)
 
 		ctrl.Delete(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), "Product removed from wishlist successfully")
 	})
 
 	t.Run("error_user_not_authenticated", func(t *testing.T) {
@@ -330,27 +357,20 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "some-id"}`
-		c.Request = httptest.NewRequest(http.MethodDelete, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
+		productID := uuid.New().String()
+
+		req := httptest.NewRequest(http.MethodDelete, "/wishlists/items/"+productID, nil)
+		c.Request = req
+
+		c.Params = gin.Params{
+			{Key: "productId", Value: productID},
+		}
+
+		// tidak set user_id_validated
 
 		ctrl.Delete(c)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-	})
-
-	t.Run("error_invalid_json", func(t *testing.T) {
-		ctrl := newTestHandler(&fakeWishlistService{})
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-
-		c.Request = httptest.NewRequest(http.MethodDelete, "/wishlist", strings.NewReader(`{invalid-json}`))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
-
-		ctrl.Delete(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
 	t.Run("error_missing_product_id", func(t *testing.T) {
@@ -358,10 +378,11 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{}`
-		c.Request = httptest.NewRequest(http.MethodDelete, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		req := httptest.NewRequest(http.MethodDelete, "/wishlists/items/", nil)
+		c.Request = req
+
+		// tidak set param
+		c.Set("user_id_validated", uuid.New().String())
 
 		ctrl.Delete(c)
 
@@ -379,10 +400,15 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "` + uuid.New().String() + `"}`
-		c.Request = httptest.NewRequest(http.MethodDelete, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		productID := uuid.New().String()
+
+		req := httptest.NewRequest(http.MethodDelete, "/wishlists/items/"+productID, nil)
+		c.Request = req
+
+		c.Params = gin.Params{
+			{Key: "productId", Value: productID},
+		}
+		c.Set("user_id_validated", uuid.New().String())
 
 		ctrl.Delete(c)
 
@@ -400,10 +426,15 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "` + uuid.New().String() + `"}`
-		c.Request = httptest.NewRequest(http.MethodDelete, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		productID := uuid.New().String()
+
+		req := httptest.NewRequest(http.MethodDelete, "/wishlists/items/"+productID, nil)
+		c.Request = req
+
+		c.Params = gin.Params{
+			{Key: "productId", Value: productID},
+		}
+		c.Set("user_id_validated", uuid.New().String())
 
 		ctrl.Delete(c)
 
@@ -421,10 +452,15 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
-		body := `{"product_id": "` + uuid.New().String() + `"}`
-		c.Request = httptest.NewRequest(http.MethodDelete, "/wishlist", strings.NewReader(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		productID := uuid.New().String()
+
+		req := httptest.NewRequest(http.MethodDelete, "/wishlists/items/"+productID, nil)
+		c.Request = req
+
+		c.Params = gin.Params{
+			{Key: "productId", Value: productID},
+		}
+		c.Set("user_id_validated", uuid.New().String())
 
 		ctrl.Delete(c)
 

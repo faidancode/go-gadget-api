@@ -196,7 +196,7 @@ func TestWishlistService_List(t *testing.T) {
 		assert.Equal(t, 2, res.ItemCount)
 		assert.Len(t, res.Items, 2)
 		assert.Equal(t, "Product 1", res.Items[0].Product.Name)
-		assert.Equal(t, int64(100000), res.Items[0].Product.Price)
+		assert.Equal(t, float64(100000), res.Items[0].Product.Price)
 	})
 
 	t.Run("success_empty_wishlist", func(t *testing.T) {
