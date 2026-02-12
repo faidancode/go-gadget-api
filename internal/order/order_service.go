@@ -76,8 +76,6 @@ func (s *service) Checkout(
 	req CheckoutRequest,
 ) (OrderResponse, error) {
 
-	log.Println("DEBUG: Checkout started")
-
 	// ===============================
 	// 1. Validasi & Ambil Cart
 	// ===============================

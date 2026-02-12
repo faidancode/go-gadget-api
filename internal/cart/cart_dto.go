@@ -19,11 +19,14 @@ type CartCountResponse struct {
 }
 
 type CartItemDetailResponse struct {
-	ID        string `json:"id"`
-	ProductID string `json:"productId"`
-	Qty       int32  `json:"qty"`
-	Price     int32  `json:"price"`
-	CreatedAt string `json:"createdAt"`
+	ID              string `json:"id"`
+	ProductID       string `json:"productId"`
+	ProductName     string `json:"name"`
+	ProductSlug     string `json:"slug"`
+	ProductImageUrl string `json:"imageUrl"`
+	Qty             int32  `json:"qty"`
+	Price           int32  `json:"price"`
+	CreatedAt       string `json:"createdAt"`
 }
 
 type CartDetailResponse struct {

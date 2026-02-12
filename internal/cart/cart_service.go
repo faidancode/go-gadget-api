@@ -183,11 +183,14 @@ func (s *service) Detail(ctx context.Context, userID string) (CartDetailResponse
 	items := make([]CartItemDetailResponse, 0, len(rows))
 	for _, r := range rows {
 		items = append(items, CartItemDetailResponse{
-			ID:        r.ID.String(),
-			ProductID: r.ProductID.String(),
-			Qty:       r.Quantity,
-			Price:     r.PriceAtAdd,
-			CreatedAt: r.CreatedAt.Format(time.RFC3339),
+			ID:              r.ID.String(),
+			ProductID:       r.ProductID.String(),
+			ProductName:     r.ProductName,
+			ProductSlug:     r.ProductSlug,
+			ProductImageUrl: r.ProductImageUrl.String,
+			Qty:             r.Quantity,
+			Price:           r.PriceAtAdd,
+			CreatedAt:       r.CreatedAt.Format(time.RFC3339),
 		})
 	}
 

@@ -38,7 +38,7 @@ func BuildApp(router *gin.Engine) error {
 	}
 
 	// 3. Register Modules & Routes
-	registerModules(router, db, cloudinaryService)
+	registerModules(router, db, redisClient, cloudinaryService)
 
 	return nil
 }

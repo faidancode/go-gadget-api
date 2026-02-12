@@ -4,14 +4,15 @@ import (
 	"go-gadget-api/internal/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
+func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client) {
 	orders := r.Group("/orders")
 	orders.Use(middleware.AuthMiddleware()) // Semua route order butuh login
 	{
 		// Customer Routes
-		orders.POST("/checkout", handler.Checkout)
+		orders.POST("/checkout", middleware.Idempotency(rdb), handler.Checkout)
 		orders.GET("", handler.List)
 		orders.GET("/:id", handler.Detail)
 		orders.PATCH("/:id/cancel", handler.Cancel)

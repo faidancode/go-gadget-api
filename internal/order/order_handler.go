@@ -1,23 +1,27 @@
 package order
 
 import (
+	"encoding/json"
 	"fmt"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/response"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type Handler struct {
 	service Service
+	rdb     *redis.Client
 }
 
-func NewHandler(svc Service) *Handler {
-	return &Handler{service: svc}
+func NewHandler(svc Service, rdb *redis.Client) *Handler {
+	return &Handler{service: svc, rdb: rdb}
 }
 
 // ==================== CUSTOMER ENDPOINTS ====================
@@ -33,6 +37,15 @@ func (ctrl *Handler) Checkout(c *gin.Context) {
 		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated", nil)
 		return
 	}
+
+	lockKey, _ := c.Get("idempotency_lock_key")
+
+	// Pastikan lock dihapus di akhir request
+	defer func() {
+		if lockKey != nil {
+			ctrl.rdb.Del(c.Request.Context(), lockKey.(string))
+		}
+	}()
 
 	var req CheckoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -55,6 +68,11 @@ func (ctrl *Handler) Checkout(c *gin.Context) {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
+	}
+
+	if cacheKey, exists := c.Get("idempotency_cache_key"); exists {
+		jsonData, _ := json.Marshal(res)
+		ctrl.rdb.Set(c.Request.Context(), cacheKey.(string), jsonData, 24*time.Hour)
 	}
 
 	response.Success(c, http.StatusCreated, res, nil)

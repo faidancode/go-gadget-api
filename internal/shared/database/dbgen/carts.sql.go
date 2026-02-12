@@ -7,6 +7,7 @@ package dbgen
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -157,23 +158,30 @@ func (q *Queries) GetCartByUserID(ctx context.Context, userID uuid.UUID) (Cart, 
 
 const getCartDetail = `-- name: GetCartDetail :many
 SELECT
-  ci.id,
-  ci.product_id,
-  ci.quantity,
-  ci.price_at_add,
-  ci.created_at
+    ci.id,
+    ci.product_id,
+    p.name AS product_name,
+    p.slug AS product_slug,
+    p.image_url AS product_image_url,
+    ci.quantity,
+    ci.price_at_add,
+    ci.created_at
 FROM carts c
 JOIN cart_items ci ON ci.cart_id = c.id
+JOIN products p ON ci.product_id = p.id
 WHERE c.user_id = $1
 ORDER BY ci.created_at DESC
 `
 
 type GetCartDetailRow struct {
-	ID         uuid.UUID `json:"id"`
-	ProductID  uuid.UUID `json:"product_id"`
-	Quantity   int32     `json:"quantity"`
-	PriceAtAdd int32     `json:"price_at_add"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID              uuid.UUID      `json:"id"`
+	ProductID       uuid.UUID      `json:"product_id"`
+	ProductName     string         `json:"product_name"`
+	ProductSlug     string         `json:"product_slug"`
+	ProductImageUrl sql.NullString `json:"product_image_url"`
+	Quantity        int32          `json:"quantity"`
+	PriceAtAdd      int32          `json:"price_at_add"`
+	CreatedAt       time.Time      `json:"created_at"`
 }
 
 func (q *Queries) GetCartDetail(ctx context.Context, userID uuid.UUID) ([]GetCartDetailRow, error) {
@@ -188,6 +196,9 @@ func (q *Queries) GetCartDetail(ctx context.Context, userID uuid.UUID) ([]GetCar
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProductID,
+			&i.ProductName,
+			&i.ProductSlug,
+			&i.ProductImageUrl,
 			&i.Quantity,
 			&i.PriceAtAdd,
 			&i.CreatedAt,

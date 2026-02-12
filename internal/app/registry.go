@@ -19,9 +19,10 @@ import (
 	"go-gadget-api/internal/wishlist"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinary.Service) {
+func registerModules(router *gin.Engine, db *sql.DB, rdb *redis.Client, cloudinaryService cloudinary.Service) {
 	queries := dbgen.New(db)
 
 	// --- Repositories ---
@@ -65,7 +66,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 	cartHandler := cart.NewHandler(cartService)
 	addressHandler := address.NewHandler(addressService)
 	productHandler := product.NewHandler(productService, reviewEligibilityAdapter)
-	orderHandler := order.NewHandler(orderService)
+	orderHandler := order.NewHandler(orderService, rdb)
 	customerHandler := customer.NewHandler(customerService)
 	wishlistHandler := wishlist.NewHandler(wishlistService)
 
@@ -79,7 +80,7 @@ func registerModules(router *gin.Engine, db *sql.DB, cloudinaryService cloudinar
 		review.RegisterRoutes(api, reviewHandler)
 		cart.RegisterRoutes(api, cartHandler)
 		address.RegisterRoutes(api, addressHandler)
-		order.RegisterRoutes(api, orderHandler)
+		order.RegisterRoutes(api, orderHandler, rdb)
 		customer.RegisterRoutes(api, customerHandler)
 		wishlist.RegisterRoutes(api, wishlistHandler)
 	}

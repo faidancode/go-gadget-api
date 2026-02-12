@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -77,8 +78,8 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func newTestHandler(svc order.Service) *order.Handler {
-	return order.NewHandler(svc)
+func newTestHandler(svc order.Service, rdb *redis.Client) *order.Handler {
+	return order.NewHandler(svc, rdb)
 }
 
 func addAuthCookie(req *http.Request) {
@@ -98,7 +99,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.POST("/orders", func(c *gin.Context) {
 			c.Set("user_id_validated", userID)
@@ -119,7 +120,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 
 	t.Run("invalid_json_payload", func(t *testing.T) {
 		userID := uuid.New().String()
-		ctrl := newTestHandler(&fakeOrderService{})
+		ctrl := newTestHandler(&fakeOrderService{}, nil)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(`{invalid}`))
@@ -136,7 +137,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 				return order.OrderResponse{}, order.ErrCartEmpty
 			},
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"address_id":"a"}`))
@@ -155,7 +156,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 
@@ -184,7 +185,7 @@ func TestOrderHandler_List(t *testing.T) {
 				return []order.OrderResponse{{OrderNumber: "ORD-001"}}, 1, nil
 			},
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/orders?page=1&limit=10", nil)
@@ -201,7 +202,7 @@ func TestOrderHandler_List(t *testing.T) {
 				return nil, 0, errors.New("db error")
 			},
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -222,7 +223,7 @@ func TestOrderHandler_Detail(t *testing.T) {
 				return order.OrderResponse{OrderNumber: "ORD-123"}, nil
 			},
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.GET("/orders/:id", ctrl.Detail)
 
@@ -241,7 +242,7 @@ func TestOrderHandler_Detail(t *testing.T) {
 				return order.OrderResponse{}, order.ErrOrderNotFound
 			},
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.GET("/orders/:id", ctrl.Detail)
 
@@ -260,7 +261,7 @@ func TestOrderHandler_Cancel(t *testing.T) {
 		svc := &fakeOrderService{
 			cancelFunc: func(ctx context.Context, id string) error { return nil },
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.PATCH("/orders/:id/cancel", ctrl.Cancel)
 
@@ -276,7 +277,7 @@ func TestOrderHandler_Cancel(t *testing.T) {
 		svc := &fakeOrderService{
 			cancelFunc: func(ctx context.Context, id string) error { return order.ErrOrderNotFound },
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.PATCH("/orders/:id/cancel", ctrl.Cancel)
 
@@ -299,7 +300,7 @@ func TestOrderHandler_ListAdmin(t *testing.T) {
 				return []order.OrderResponse{{OrderNumber: "ADM-001"}}, 1, nil
 			},
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/admin/orders?status=SHIPPED&page=1&limit=20", nil)
@@ -321,7 +322,7 @@ func TestOrderHandler_UpdateStatusByAdmin(t *testing.T) {
 				return order.OrderResponse{Status: "SHIPPED"}, nil
 			},
 		}
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.PATCH("/admin/orders/:id/status", ctrl.UpdateStatusByAdmin)
 
@@ -342,7 +343,7 @@ func TestOrderHandler_UpdateStatusByAdmin(t *testing.T) {
 			},
 		}
 
-		ctrl := newTestHandler(svc)
+		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.PATCH("/admin/orders/:id/status", ctrl.UpdateStatusByAdmin)
 

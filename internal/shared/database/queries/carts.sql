@@ -47,13 +47,17 @@ WHERE id = $1;
 
 -- name: GetCartDetail :many
 SELECT
-  ci.id,
-  ci.product_id,
-  ci.quantity,
-  ci.price_at_add,
-  ci.created_at
+    ci.id,
+    ci.product_id,
+    p.name AS product_name,
+    p.slug AS product_slug,
+    p.image_url AS product_image_url,
+    ci.quantity,
+    ci.price_at_add,
+    ci.created_at
 FROM carts c
 JOIN cart_items ci ON ci.cart_id = c.id
+JOIN products p ON ci.product_id = p.id
 WHERE c.user_id = $1
 ORDER BY ci.created_at DESC;
 
