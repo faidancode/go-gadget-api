@@ -14,15 +14,26 @@ import (
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. Get token
-		tokenString, err := c.Cookie("access_token")
-		if err != nil {
-			response.Error(c, autherrors.ErrUnauthorized.HTTPStatus, autherrors.ErrUnauthorized.Code, autherrors.ErrUnauthorized.Message, nil)
+		var tokenString string
+
+		authHeader := c.GetHeader("Authorization")
+		tokenString, found := strings.CutPrefix(authHeader, "Bearer ")
+		if !found {
+			tokenString = ""
+		}
+
+		if tokenString == "" {
+			if cookie, err := c.Cookie("access_token"); err == nil {
+				tokenString = cookie
+			}
+		}
+
+		if tokenString == "" {
+			response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Token not found", nil)
 			c.Abort()
 			return
 		}
 
-		// 2. Parse & Validate
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method")
@@ -40,7 +51,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 3. Extract Claims
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", "Invalid token claims", nil)
@@ -48,7 +58,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 4. Validate & Extract user_id
 		userID, ok := claims["user_id"].(string)
 		if !ok || userID == "" {
 			response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", "User ID not found in token", nil)
@@ -58,8 +67,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		role, _ := claims["role"].(string)
 
-		// 5. Set validated values
-		c.Set("user_id_validated", userID) // ✅ Langsung set validated
+		c.Set("user_id_validated", userID)
 		c.Set("role", role)
 
 		c.Next()

@@ -168,7 +168,7 @@ func TestWishlistHandler_Create(t *testing.T) {
 		assert.Equal(t, http.StatusConflict, w.Code)
 
 		// Opsional: cek apakah pesan errornya sesuai
-		assert.Contains(t, w.Body.String(), "ALREADY_EXISTS")
+		assert.Contains(t, w.Body.String(), wishlist.ErrItemAlreadyExists.Error())
 	})
 
 	t.Run("error_service_internal_error", func(t *testing.T) {

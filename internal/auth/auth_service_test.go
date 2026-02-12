@@ -26,7 +26,7 @@ func TestService_Login(t *testing.T) {
 	t.Run("Success Login", func(t *testing.T) {
 		mockRepo.EXPECT().
 			GetByEmail(ctx, "admin").
-			Return(dbgen.User{Email: "admin", Password: string(pw)}, nil)
+			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw)}, nil)
 
 		token, refreshToken, resp, err := service.Login(ctx, "admin", "password123")
 
@@ -39,7 +39,7 @@ func TestService_Login(t *testing.T) {
 	t.Run("Wrong Password", func(t *testing.T) {
 		mockRepo.EXPECT().
 			GetByEmail(ctx, "admin").
-			Return(dbgen.User{Email: "admin", Password: string(pw)}, nil)
+			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw)}, nil)
 
 		_, _, _, err := service.Login(ctx, "admin", "wrongpass")
 		assert.Error(t, err)

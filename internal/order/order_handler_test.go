@@ -101,7 +101,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 		ctrl := newTestHandler(svc)
 		r := setupTestRouter()
 		r.POST("/orders", func(c *gin.Context) {
-			c.Set("user_id", userID)
+			c.Set("user_id_validated", userID)
 			ctrl.Checkout(c)
 		})
 
@@ -118,17 +118,19 @@ func TestOrderHandler_Checkout(t *testing.T) {
 	})
 
 	t.Run("invalid_json_payload", func(t *testing.T) {
+		userID := uuid.New().String()
 		ctrl := newTestHandler(&fakeOrderService{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(`{invalid}`))
-		c.Set("user_id", "user-1")
+		c.Set("user_id_validated", userID)
 
 		ctrl.Checkout(c)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
 	t.Run("cart_is_empty", func(t *testing.T) {
+		userID := uuid.New().String()
 		svc := &fakeOrderService{
 			checkoutFunc: func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
 				return order.OrderResponse{}, order.ErrCartEmpty
@@ -139,13 +141,14 @@ func TestOrderHandler_Checkout(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"address_id":"a"}`))
 		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", "user-1")
+		c.Set("user_id_validated", userID)
 
 		ctrl.Checkout(c)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
 	t.Run("service_internal_error", func(t *testing.T) {
+		userID := uuid.New().String()
 		svc := &fakeOrderService{
 			checkoutFunc: func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
 				return order.OrderResponse{}, errors.New("db error")
@@ -164,7 +167,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 			strings.NewReader(`{"addressId":"`+addressID+`"}`),
 		)
 		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id", uuid.New().String())
+		c.Set("user_id_validated", userID)
 
 		ctrl.Checkout(c)
 

@@ -185,7 +185,7 @@ func TestOrderService_Checkout(t *testing.T) {
 
 		orderRepo.EXPECT().
 			CreateOrder(gomock.Any(), gomock.Any()).
-			Return(dbgen.Order{}, errors.New("insert failed")).
+			Return(dbgen.Order{}, order.ErrOrderFailed).
 			Times(1)
 
 		_, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
@@ -200,6 +200,7 @@ func TestOrderService_Checkout(t *testing.T) {
 		userID := uuid.New()
 
 		sqlMock.ExpectBegin()
+		// Rollback akan terpanggil karena 'committed' masih false saat return error
 		sqlMock.ExpectRollback()
 
 		cartSvc.EXPECT().
@@ -210,8 +211,12 @@ func TestOrderService_Checkout(t *testing.T) {
 				},
 			}, nil).Times(1)
 
+		// Setup Repo dengan WithTx
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
-		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo).Times(1)
+
+		// PENTING: outboxRepo.WithTx JANGAN dipanggil di sini
+		// karena CreateOrderItem sudah melempar error dan fungsi langsung return.
+		// Jadi eksekusi tidak akan sampai ke bagian Outbox Event.
 
 		orderRepo.EXPECT().
 			CreateOrder(gomock.Any(), gomock.Any()).
@@ -221,13 +226,15 @@ func TestOrderService_Checkout(t *testing.T) {
 
 		orderRepo.EXPECT().
 			CreateOrderItem(gomock.Any(), gomock.Any()).
-			Return(errors.New("item failed")).
+			Return(order.ErrOrderFailed). // Sengaja dibuat error
 			Times(1)
 
+		// Execution
 		_, err := svc.Checkout(ctx, userID.String(), order.CheckoutRequest{})
+
+		// Assertion
 		require.Error(t, err)
 		assert.ErrorIs(t, err, order.ErrOrderFailed)
-
 		require.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 
@@ -414,8 +421,7 @@ func TestOrderService_Detail(t *testing.T) {
 
 	t.Run("success_get_detail", func(t *testing.T) {
 		orderID := uuid.New()
-		orderRepo.EXPECT().GetByID(gomock.Any(), orderID).Return(dbgen.Order{ID: orderID, OrderNumber: "ORD-123"}, nil)
-		orderRepo.EXPECT().GetItems(gomock.Any(), orderID).Return([]dbgen.OrderItem{}, nil)
+		orderRepo.EXPECT().GetByID(gomock.Any(), orderID).Return(dbgen.GetOrderByIDRow{ID: orderID, OrderNumber: "ORD-123"}, nil)
 
 		res, err := svc.Detail(ctx, orderID.String())
 		assert.NoError(t, err)
@@ -424,7 +430,7 @@ func TestOrderService_Detail(t *testing.T) {
 
 	t.Run("error_order_not_found", func(t *testing.T) {
 		orderID := uuid.New()
-		orderRepo.EXPECT().GetByID(gomock.Any(), orderID).Return(dbgen.Order{}, sql.ErrNoRows)
+		orderRepo.EXPECT().GetByID(gomock.Any(), orderID).Return(dbgen.GetOrderByIDRow{}, sql.ErrNoRows)
 
 		_, err := svc.Detail(ctx, orderID.String())
 		assert.Error(t, err)
@@ -457,7 +463,7 @@ func TestOrderService_Cancel(t *testing.T) {
 		// 1. Mock GetByID (DILUAR/SEBELUM transaksi)
 		orderRepo.EXPECT().
 			GetByID(gomock.Any(), orderID).
-			Return(dbgen.Order{
+			Return(dbgen.GetOrderByIDRow{
 				ID: orderID, Status: "PENDING",
 			}, nil)
 
@@ -483,7 +489,7 @@ func TestOrderService_Cancel(t *testing.T) {
 	t.Run("error_order_not_pending", func(t *testing.T) {
 		orderID := uuid.New()
 		// Tidak ada BeginTx karena divalidasi sebelum transaksi (opsional, tergantung logic service Anda)
-		orderRepo.EXPECT().GetByID(gomock.Any(), orderID).Return(dbgen.Order{
+		orderRepo.EXPECT().GetByID(gomock.Any(), orderID).Return(dbgen.GetOrderByIDRow{
 			ID: orderID, Status: "COMPLETED",
 		}, nil)
 
@@ -521,7 +527,7 @@ func TestOrderService_UpdateStatusByCustomer(t *testing.T) {
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
 
 		// 1. Mock GetByID: Pastikan UserID sama dan status SHIPPED/DELIVERED
-		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.GetOrderByIDRow{
 			ID: orderID, UserID: userID, Status: "SHIPPED",
 		}, nil)
 
@@ -545,7 +551,7 @@ func TestOrderService_UpdateStatusByCustomer(t *testing.T) {
 		mock.ExpectBegin()
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
 
-		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.GetOrderByIDRow{
 			ID: orderID, UserID: realOwnerID, Status: "SHIPPED",
 		}, nil)
 
@@ -586,7 +592,7 @@ func TestOrderService_UpdateStatusByAdmin(t *testing.T) {
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
 
 		// 1. Mock GetByID untuk validasi status awal (harus PAID)
-		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.GetOrderByIDRow{
 			ID: orderID, Status: "PAID",
 		}, nil)
 
@@ -610,7 +616,7 @@ func TestOrderService_UpdateStatusByAdmin(t *testing.T) {
 		mock.ExpectBegin()
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
 
-		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.Order{
+		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.GetOrderByIDRow{
 			ID: orderID, Status: "PROCESSING",
 		}, nil)
 
