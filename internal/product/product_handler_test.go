@@ -238,7 +238,7 @@ func TestListAdminProducts(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		r.POST("/products", newTestHandler(svc, &fakeReviewService{}).GetAdminList)
+		r.GET("/admin/products", newTestHandler(svc, &fakeReviewService{}).GetAdminList)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/products?page=1&limit=10", nil)
 		w := httptest.NewRecorder()
@@ -256,7 +256,7 @@ func TestListAdminProducts(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		r.POST("/products", newTestHandler(svc, &fakeReviewService{}).GetAdminList)
+		r.GET("/admin/products", newTestHandler(svc, &fakeReviewService{}).GetAdminList)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/products", nil)
 		w := httptest.NewRecorder()
@@ -283,7 +283,7 @@ func TestGetProductByID(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		r.POST("/products", newTestHandler(svc, &fakeReviewService{}).GetByID)
+		r.GET("/admin/products/:id", newTestHandler(svc, &fakeReviewService{}).GetByID)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/products/"+id, nil)
 		w := httptest.NewRecorder()
@@ -301,7 +301,7 @@ func TestGetProductByID(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		r.POST("/products", newTestHandler(svc, &fakeReviewService{}).GetByID)
+		r.GET("/admin/products/:id", newTestHandler(svc, &fakeReviewService{}).GetByID)
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/products/"+id, nil)
 		w := httptest.NewRecorder()
@@ -326,7 +326,7 @@ func TestGetProductBySlug(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		r.POST("/products", newTestHandler(svc, &fakeReviewService{}).GetBySlug)
+		r.GET("/products/:slug", newTestHandler(svc, &fakeReviewService{}).GetBySlug)
 
 		req := httptest.NewRequest(http.MethodGet, "/products/iphone-15", nil)
 		w := httptest.NewRecorder()
@@ -371,9 +371,9 @@ func TestDeleteProduct(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		r.POST("/products", newTestHandler(svc, &fakeReviewService{}).Delete)
+		r.DELETE("/admin/products/:id", newTestHandler(svc, &fakeReviewService{}).Delete)
 
-		req := httptest.NewRequest(http.MethodDelete, "/products/"+id, nil)
+		req := httptest.NewRequest(http.MethodDelete, "/admin/products/"+id, nil)
 		w := httptest.NewRecorder()
 
 		r.ServeHTTP(w, req)
@@ -382,6 +382,7 @@ func TestDeleteProduct(t *testing.T) {
 	})
 
 	t.Run("not_found", func(t *testing.T) {
+		productID := uuid.NewString()
 		svc := &fakeProductService{
 			DeleteFn: func(ctx context.Context, pid string) error {
 				return producterrors.ErrProductNotFound
@@ -389,9 +390,9 @@ func TestDeleteProduct(t *testing.T) {
 		}
 
 		r := setupTestRouter()
-		r.POST("/products", newTestHandler(svc, &fakeReviewService{}).Delete)
+		r.DELETE("/admin/products/:id", newTestHandler(svc, &fakeReviewService{}).Delete)
 
-		req := httptest.NewRequest(http.MethodDelete, "/products/"+id, nil)
+		req := httptest.NewRequest(http.MethodDelete, "/admin/products/"+productID, nil)
 		w := httptest.NewRecorder()
 
 		r.ServeHTTP(w, req)

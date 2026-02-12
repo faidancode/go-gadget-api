@@ -302,14 +302,15 @@ func (h *Handler) Update(c *gin.Context) {
 
 // 6. DELETE PRODUCT (Soft Delete)
 func (h *Handler) Delete(c *gin.Context) {
-	if err := h.productService.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		response.Error(
-			c,
-			http.StatusInternalServerError,
-			"DELETE_ERROR",
-			"Gagal menghapus produk",
-			err.Error(),
-		)
+	id := c.Param("id")
+
+	err := h.productService.Delete(c.Request.Context(), id)
+	if err != nil {
+		// Mapping error dari service ke HTTP error
+		// Jika err adalah ErrProductNotFound, mapping ini harus menghasilkan status 404
+		httpErr := apperror.ToHTTP(err)
+
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 

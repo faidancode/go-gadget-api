@@ -352,9 +352,11 @@ func TestProductService_ListAdmin(t *testing.T) {
 	}
 
 	t.Run("positive - success list admin", func(t *testing.T) {
+		// 1. Persiapan Data (Setup)
+		productID := uuid.New()
 		rows := []dbgen.ListProductsAdminRow{
 			{
-				ID:         uuid.New(),
+				ID:         productID,
 				Name:       "Admin Product",
 				Price:      "500.00",
 				TotalCount: 1,
@@ -362,22 +364,32 @@ func TestProductService_ListAdmin(t *testing.T) {
 			},
 		}
 
-		// ListAdmin melakukan normalisasi sortCol dan sortDir
+		// 2. Ekspektasi Params (Harus identik dengan hasil mapping di Service)
+		// Field yang tidak diisi di Service (IsActive, CategoryID) akan menjadi Zero Value (Valid: false)
+		expectedParams := dbgen.ListProductsAdminParams{
+			Limit:   int32(req.Limit),
+			Offset:  0,
+			Search:  sql.NullString{String: "", Valid: false},
+			SortCol: "name",
+			SortDir: "asc",
+		}
+
+		// 3. Mock Expectation
 		deps.repo.EXPECT().
-			ListAdmin(ctx, dbgen.ListProductsAdminParams{
-				Limit:   int32(req.Limit),
-				Offset:  0,
-				Search:  sql.NullString{},
-				SortCol: "name",
-				SortDir: "asc",
-			}).
-			Return(rows, nil)
+			ListAdmin(gomock.Any(), expectedParams).
+			Return(rows, nil).
+			Times(1)
 
+		// 4. Execution
 		res, total, err := deps.service.ListAdmin(ctx, req)
+		t.Logf("Response: %+v, Total: %d, Error: %v", res, total, err)
 
+		// 5. Assertion
 		assert.NoError(t, err)
 		assert.Equal(t, int64(1), total)
+		assert.Len(t, res, 1)
 		assert.Equal(t, "Admin Product", res[0].Name)
+		assert.Equal(t, productID.String(), res[0].ID)
 	})
 
 	t.Run("positive - list admin with defaults", func(t *testing.T) {

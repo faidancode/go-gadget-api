@@ -8,6 +8,14 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// Bisa digunakan untuk string, int, bool, dll.
+func PointerValueWithDefault[T any](val *T, defaultValue T) T {
+	if val == nil {
+		return defaultValue
+	}
+	return *val
+}
+
 // =======================
 // RAW VALUE TO NULL (POSTGRES)
 // =======================
@@ -34,10 +42,6 @@ func RawInt32ToNull(i int32) sql.NullInt32 {
 // STRING
 // =======================
 
-func StringValue(s string) string {
-	return s
-}
-
 func StringPtrValue(s *string) string {
 	if s == nil {
 		return ""
@@ -49,9 +53,11 @@ func StringPtr(s string) *string {
 	return &s
 }
 
+// internal/helper/helper.go
+
 func StringToNull(s *string) sql.NullString {
-	if s == nil {
-		return sql.NullString{}
+	if s == nil || *s == "" { // check empty string
+		return sql.NullString{Valid: false}
 	}
 	return sql.NullString{String: *s, Valid: true}
 }
@@ -80,10 +86,6 @@ func StringPtrToUUID(s *string) uuid.UUID {
 // =======================
 // BOOL
 // =======================
-
-func BoolValue(b bool) bool {
-	return b
-}
 
 func BoolPtrValue(b *bool, defaultValue bool) bool {
 	if b == nil {

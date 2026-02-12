@@ -189,11 +189,12 @@ func (s *service) ListAdmin(
 	}
 
 	params := dbgen.ListProductsAdminParams{
-		Limit:   int32(limit),
-		Offset:  int32(offset),
-		Search:  helper.StringToNull(&req.Search),
-		SortCol: sortCol,
-		SortDir: sortDir,
+		Limit:      int32(limit),
+		Offset:     int32(offset),
+		Search:     sql.NullString{String: req.Search, Valid: req.Search != ""},
+		SortCol:    sortCol,
+		SortDir:    sortDir,
+		CategoryID: uuid.NullUUID{Valid: false},
 	}
 
 	if req.Category != "" {
