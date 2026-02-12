@@ -75,13 +75,13 @@ func TestAddressHandler_Create(t *testing.T) {
 
 		body := `{
 			"label": "Home",
-			"recipient_name": "John Doe",
-			"recipient_phone": "08123456789",
+			"recipientName": "John Doe",
+			"recipientPhone": "08123456789",
 			"street": "Jl Test",
 			"city": "Jakarta",
 			"province": "DKI Jakarta",
-			"postal_code": "12345",
-			"is_primary": true
+			"postalCode": "12345",
+			"isPrimary": true
 		}`
 
 		req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString(body))
@@ -128,13 +128,13 @@ func TestAddressHandler_Create(t *testing.T) {
 
 		body := `{
 			"label": "Home",
-			"recipient_name": "John Doe",
-			"recipient_phone": "08123456789",
+			"recipientName": "John Doe",
+			"recipientPhone": "08123456789",
 			"street": "Jl Test",
 			"city": "Jakarta",
 			"province": "DKI Jakarta",
-			"postal_code": "12345",
-			"is_primary": false
+			"postalCode": "12345",
+			"isPrimary": true
 		}`
 		req := httptest.NewRequest(http.MethodPost, "/addresses", bytes.NewBufferString(body))
 		req.Header.Set("Content-Type", "application/json")
