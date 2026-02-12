@@ -26,6 +26,7 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 	adminProducts.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
 	{
 		adminProducts.GET("", handler.GetAdminList)
+		adminProducts.GET("/:id", handler.GetByID)
 		adminProducts.POST("", handler.Create)
 		adminProducts.PATCH("/:id", handler.Update)
 		adminProducts.DELETE("/:id", handler.Delete)

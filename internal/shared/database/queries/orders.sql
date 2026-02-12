@@ -113,9 +113,9 @@ WHERE order_id = $1;
 
 -- name: UpdateOrderStatus :one
 UPDATE orders 
-SET status = $2, 
+SET status = @status::text, 
     updated_at = NOW(),
-    completed_at = CASE WHEN $2 = 'COMPLETED' THEN NOW() ELSE completed_at END,
-    cancelled_at = CASE WHEN $2 = 'CANCELLED' THEN NOW() ELSE cancelled_at END
+    completed_at = CASE WHEN @status::text = 'COMPLETED' THEN NOW() ELSE completed_at END,
+    cancelled_at = CASE WHEN @status::text = 'CANCELLED' THEN NOW() ELSE cancelled_at END
 WHERE id = $1
 RETURNING *;

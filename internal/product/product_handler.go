@@ -116,7 +116,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 	// 2. Parse form fields
 	req := CreateProductRequest{
-		CategoryID:  c.PostForm("category_id"),
+		CategoryID:  c.PostForm("categoryId"),
 		Name:        c.PostForm("name"),
 		Description: c.PostForm("description"),
 		SKU:         c.PostForm("sku"),

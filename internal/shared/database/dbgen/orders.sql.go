@@ -446,10 +446,10 @@ func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams
 
 const updateOrderStatus = `-- name: UpdateOrderStatus :one
 UPDATE orders 
-SET status = $2, 
+SET status = $2::text, 
     updated_at = NOW(),
-    completed_at = CASE WHEN $2 = 'COMPLETED' THEN NOW() ELSE completed_at END,
-    cancelled_at = CASE WHEN $2 = 'CANCELLED' THEN NOW() ELSE cancelled_at END
+    completed_at = CASE WHEN $2::text = 'COMPLETED' THEN NOW() ELSE completed_at END,
+    cancelled_at = CASE WHEN $2::text = 'CANCELLED' THEN NOW() ELSE cancelled_at END
 WHERE id = $1
 RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id
 `

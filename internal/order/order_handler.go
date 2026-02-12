@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -223,15 +222,24 @@ func (c *Handler) UpdateStatusByAdmin(ctx *gin.Context) {
 }
 
 // PATCH /api/v1/orders/:id/complete
-func (c *Handler) UpdateStatusByCustomer(ctx *gin.Context) {
+func (c *Handler) Complete(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	// Ambil UserID dari middleware Auth
-	userIDStr, _ := ctx.Get("user_id")
-	userID, _ := uuid.Parse(userIDStr.(string))
+	userID := ctx.GetString("user_id_validated")
+	if userID == "" {
+		response.Error(
+			ctx,
+			http.StatusUnauthorized,
+			"UNAUTHORIZED",
+			"User not authenticated",
+			nil,
+		)
+		return
+	}
 
 	// Langsung paksa status ke COMPLETED karena ini endpoint khusus customer
-	res, err := c.service.UpdateStatusByCustomer(ctx.Request.Context(), id, userID, "COMPLETED")
+	res, err := c.service.Complete(ctx.Request.Context(), id, userID, "COMPLETED")
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return

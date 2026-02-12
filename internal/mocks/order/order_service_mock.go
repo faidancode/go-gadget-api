@@ -14,7 +14,6 @@ import (
 	order "go-gadget-api/internal/order"
 	reflect "reflect"
 
-	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -69,6 +68,21 @@ func (m *MockService) Checkout(ctx context.Context, userID string, req order.Che
 func (mr *MockServiceMockRecorder) Checkout(ctx, userID, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Checkout", reflect.TypeOf((*MockService)(nil).Checkout), ctx, userID, req)
+}
+
+// Complete mocks base method.
+func (m *MockService) Complete(ctx context.Context, orderID, nextStatus string) (order.OrderResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Complete", ctx, orderID, nextStatus)
+	ret0, _ := ret[0].(order.OrderResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Complete indicates an expected call of Complete.
+func (mr *MockServiceMockRecorder) Complete(ctx, orderID, nextStatus any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Complete", reflect.TypeOf((*MockService)(nil).Complete), ctx, orderID, nextStatus)
 }
 
 // Detail mocks base method.
@@ -131,19 +145,4 @@ func (m *MockService) UpdateStatusByAdmin(ctx context.Context, orderID, nextStat
 func (mr *MockServiceMockRecorder) UpdateStatusByAdmin(ctx, orderID, nextStatus, receiptNo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatusByAdmin", reflect.TypeOf((*MockService)(nil).UpdateStatusByAdmin), ctx, orderID, nextStatus, receiptNo)
-}
-
-// UpdateStatusByCustomer mocks base method.
-func (m *MockService) UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, nextStatus string) (order.OrderResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateStatusByCustomer", ctx, orderID, userID, nextStatus)
-	ret0, _ := ret[0].(order.OrderResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateStatusByCustomer indicates an expected call of UpdateStatusByCustomer.
-func (mr *MockServiceMockRecorder) UpdateStatusByCustomer(ctx, orderID, userID, nextStatus any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatusByCustomer", reflect.TypeOf((*MockService)(nil).UpdateStatusByCustomer), ctx, orderID, userID, nextStatus)
 }

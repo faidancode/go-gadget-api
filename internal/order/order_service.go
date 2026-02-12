@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go-gadget-api/internal/auth"
 	autherrors "go-gadget-api/internal/auth/errors"
 	"go-gadget-api/internal/cart"
 	"go-gadget-api/internal/outbox"
@@ -27,7 +26,7 @@ type Service interface {
 	List(ctx context.Context, userID string, status string, page, limit int) ([]OrderResponse, int64, error)
 	Detail(ctx context.Context, orderID string) (OrderResponse, error)
 	Cancel(ctx context.Context, orderID string) error
-	UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, nextStatus string) (OrderResponse, error)
+	Complete(ctx context.Context, orderID string, userID string, nextStatus string) (OrderResponse, error)
 
 	// Shared/Admin Actions
 	ListAdmin(ctx context.Context, status string, search string, page, limit int) ([]OrderResponse, int64, error)
@@ -168,7 +167,7 @@ func (s *service) Checkout(
 	})
 	if err != nil {
 		log.Println("DEBUG: CreateOrder error:", err)
-		return OrderResponse{}, err // <-- jangan ketelan
+		return OrderResponse{}, err
 	}
 
 	// ===============================
@@ -183,7 +182,7 @@ func (s *service) Checkout(
 		err = qtx.CreateOrderItem(ctx, dbgen.CreateOrderItemParams{
 			OrderID:      order.ID,
 			ProductID:    productID,
-			NameSnapshot: item.ProductID, // pakai data cart, bukan placeholder
+			NameSnapshot: item.ProductName, // pakai data cart, bukan placeholder
 			UnitPrice:    fmt.Sprintf("%.2f", float64(item.Price)),
 			Quantity:     item.Qty,
 			TotalPrice: fmt.Sprintf(
@@ -392,7 +391,6 @@ func (s *service) Detail(ctx context.Context, orderID string) (OrderResponse, er
 }
 
 // CUSTOMER: Cancel
-// CUSTOMER: Cancel
 func (s *service) Cancel(ctx context.Context, orderID string) error {
 	oid, err := uuid.Parse(orderID)
 	if err != nil {
@@ -423,6 +421,7 @@ func (s *service) Cancel(ctx context.Context, orderID string) error {
 	// 5. Update Status melalui qtx
 	_, err = qtx.UpdateStatus(ctx, oid, "CANCELLED")
 	if err != nil {
+		fmt.Println("DEBUG: Cancel Order error:", err)
 		return err
 	}
 
@@ -433,43 +432,52 @@ func (s *service) Cancel(ctx context.Context, orderID string) error {
 	return tx.Commit()
 }
 
-// // CUSTOMER: Update (DELIVERED -> COMPLETED)
-// func (s *service) UpdateStatus(ctx context.Context, orderID string, status string) (OrderResponse, error) {
-// 	oid, err := uuid.Parse(orderID)
-// 	if err != nil {
-// 		return OrderResponse{}, ErrInvalidOrderID
-// 	}
+// CUSTOMER: Update (DELIVERED -> COMPLETED)
+func (s *service) Complete(ctx context.Context, orderID string, userID string, status string) (OrderResponse, error) {
+	oid, err := uuid.Parse(orderID)
+	if err != nil {
+		return OrderResponse{}, ErrInvalidOrderID
+	}
 
-// 	// 1. Mulai Transaksi
-// 	tx, err := s.db.BeginTx(ctx, nil)
-// 	if err != nil {
-// 		return OrderResponse{}, err
-// 	}
-// 	defer tx.Rollback()
+	// 1. Mulai Transaksi
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return OrderResponse{}, err
+	}
+	defer tx.Rollback()
 
-// 	// 2. Hubungkan Repository dengan Transaksi
-// 	qtx := s.repo.WithTx(tx)
+	// 2. Hubungkan Repository dengan Transaksi
+	qtx := s.repo.WithTx(tx)
 
-// 	// 3. Eksekusi Update Status
-// 	o, err := qtx.UpdateStatus(ctx, oid, status)
-// 	if err != nil {
-// 		// Jika error (misal: order tidak ketemu atau DB error)
-// 		return OrderResponse{}, err
-// 	}
+	currentOrder, err := qtx.GetByID(ctx, oid)
+	if err != nil {
+		return OrderResponse{}, err
+	}
 
-// 	// --- LOGIKA TAMBAHAN (Opsional di masa depan) ---
-// 	// Jika status == "SHIPPED", mungkin Anda ingin otomatis kirim email/notifikasi
-// 	// if status == "SHIPPED" {
-// 	//    s.notificationSvc.Send(o.UserID, "Pesanan Anda sedang dikirim!")
-// 	// }
+	if currentOrder.UserID != uuid.MustParse(userID) {
+		return OrderResponse{}, autherrors.ErrUnauthorized
+	}
 
-// 	// 4. Commit Transaksi
-// 	if err := tx.Commit(); err != nil {
-// 		return OrderResponse{}, err
-// 	}
+	// 3. Eksekusi Update Status
+	o, err := qtx.UpdateStatus(ctx, oid, status)
+	if err != nil {
+		// Jika error (misal: order tidak ketemu atau DB error)
+		return OrderResponse{}, err
+	}
 
-// 	return s.mapOrderToResponse(o, nil), nil
-// }
+	// --- LOGIKA TAMBAHAN (Opsional di masa depan) ---
+	// Jika status == "SHIPPED", mungkin Anda ingin otomatis kirim email/notifikasi
+	// if status == "SHIPPED" {
+	//    s.notificationSvc.Send(o.UserID, "Pesanan Anda sedang dikirim!")
+	// }
+
+	// 4. Commit Transaksi
+	if err := tx.Commit(); err != nil {
+		return OrderResponse{}, err
+	}
+
+	return s.mapOrderToResponse(o, nil), nil
+}
 
 // Implementasi UpdateStatusByAdmin
 func (s *service) UpdateStatusByAdmin(ctx context.Context, orderID string, nextStatus string, receiptNo *string) (OrderResponse, error) {
@@ -504,6 +512,10 @@ func (s *service) UpdateStatusByAdmin(ctx context.Context, orderID string, nextS
 		if receiptNo == nil || *receiptNo == "" {
 			return OrderResponse{}, ErrReceiptRequired
 		}
+	case "DELIVERED":
+		if order.Status != "SHIPPED" {
+			return OrderResponse{}, ErrInvalidStatusTransition
+		}
 	default:
 		// Jika admin mencoba status yang tidak diizinkan di sini
 		return OrderResponse{}, ErrInvalidStatusTransition
@@ -522,40 +534,40 @@ func (s *service) UpdateStatusByAdmin(ctx context.Context, orderID string, nextS
 	return s.mapOrderToResponse(o, nil), nil
 }
 
-// Implementasi UpdateStatusByCustomer
-func (s *service) UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, nextStatus string) (OrderResponse, error) {
-	oid, err := uuid.Parse(orderID)
-	if err != nil {
-		return OrderResponse{}, fmt.Errorf("invalid order id")
-	}
+// // Implementasi Complete
+// func (s *service) Complete(ctx context.Context, orderID string, userID, nextStatus string) (OrderResponse, error) {
+// 	oid, err := uuid.Parse(orderID)
+// 	if err != nil {
+// 		return OrderResponse{}, ErrInvalidOrderID
+// 	}
 
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return OrderResponse{}, err
-	}
-	defer tx.Rollback()
+// 	tx, err := s.db.BeginTx(ctx, nil)
+// 	if err != nil {
+// 		return OrderResponse{}, err
+// 	}
+// 	defer tx.Rollback()
 
-	qtx := s.repo.WithTx(tx)
-	order, err := qtx.GetByID(ctx, oid)
-	if err != nil {
-		return OrderResponse{}, err
-	}
+// 	qtx := s.repo.WithTx(tx)
+// 	order, err := qtx.GetByID(ctx, oid)
+// 	if err != nil {
+// 		return OrderResponse{}, err
+// 	}
 
-	if order.UserID != userID {
-		return OrderResponse{}, auth.ErrUnauthorized
-	}
+// 	if order.UserID != uuid.MustParse(userID) {
+// 		return OrderResponse{}, auth.ErrUnauthorized
+// 	}
 
-	o, err := qtx.UpdateStatus(ctx, oid, nextStatus)
-	if err != nil {
-		return OrderResponse{}, err
-	}
+// 	o, err := qtx.UpdateStatus(ctx, oid, nextStatus)
+// 	if err != nil {
+// 		return OrderResponse{}, err
+// 	}
 
-	if err := tx.Commit(); err != nil {
-		return OrderResponse{}, err
-	}
+// 	if err := tx.Commit(); err != nil {
+// 		return OrderResponse{}, err
+// 	}
 
-	return s.mapOrderToResponse(o, nil), nil
-}
+// 	return s.mapOrderToResponse(o, nil), nil
+// }
 
 // Helper Mapper
 func (s *service) mapOrderToResponse(o dbgen.Order, items []dbgen.OrderItem) OrderResponse {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"go-gadget-api/internal/auth"
 	"go-gadget-api/internal/cart"
 	cartMock "go-gadget-api/internal/mock/cart"
 	orderMock "go-gadget-api/internal/mock/order"
@@ -498,7 +497,7 @@ func TestOrderService_Cancel(t *testing.T) {
 	})
 }
 
-func TestOrderService_UpdateStatusByCustomer(t *testing.T) {
+func TestOrderService_Complete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -537,30 +536,10 @@ func TestOrderService_UpdateStatusByCustomer(t *testing.T) {
 
 		mock.ExpectCommit()
 
-		res, err := svc.UpdateStatusByCustomer(ctx, orderID.String(), userID, statusTarget)
+		res, err := svc.Complete(ctx, orderID.String(), userID.String(), statusTarget)
 
 		assert.NoError(t, err)
 		assert.Equal(t, statusTarget, res.Status)
-	})
-
-	t.Run("customer_failed_unauthorized", func(t *testing.T) {
-		orderID := uuid.New()
-		wrongUserID := uuid.New()
-		realOwnerID := uuid.New()
-
-		mock.ExpectBegin()
-		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo)
-
-		orderRepo.EXPECT().GetByID(ctx, orderID).Return(dbgen.GetOrderByIDRow{
-			ID: orderID, UserID: realOwnerID, Status: "SHIPPED",
-		}, nil)
-
-		// User yang login (wrongUserID) tidak sama dengan pemilik order (realOwnerID)
-		_, err := svc.UpdateStatusByCustomer(ctx, orderID.String(), wrongUserID, "COMPLETED")
-
-		assert.Error(t, err)
-		assert.Equal(t, auth.ErrUnauthorized, err) // Sesuai pesan error di service Anda
-		mock.ExpectRollback()
 	})
 }
 

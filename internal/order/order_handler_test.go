@@ -19,13 +19,13 @@ import (
 // ==================== FAKE SERVICE ====================
 
 type fakeOrderService struct {
-	checkoutFunc             func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error)
-	listFunc                 func(ctx context.Context, userID string, status string, page, limit int) ([]order.OrderResponse, int64, error)
-	detailFunc               func(ctx context.Context, orderID string) (order.OrderResponse, error)
-	cancelFunc               func(ctx context.Context, orderID string) error
-	listAdminFunc            func(ctx context.Context, status string, search string, page, limit int) ([]order.OrderResponse, int64, error)
-	updateStatusCustomerFunc func(ctx context.Context, orderID string, userID uuid.UUID, status string) (order.OrderResponse, error)
-	updateStatusAdminFunc    func(ctx context.Context, orderID string, status string, receiptNo *string) (order.OrderResponse, error)
+	checkoutFunc          func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error)
+	listFunc              func(ctx context.Context, userID string, status string, page, limit int) ([]order.OrderResponse, int64, error)
+	detailFunc            func(ctx context.Context, orderID string) (order.OrderResponse, error)
+	cancelFunc            func(ctx context.Context, orderID string) error
+	completeFunc          func(ctx context.Context, orderID string, userID string, nextStatus string) (order.OrderResponse, error)
+	listAdminFunc         func(ctx context.Context, status string, search string, page, limit int) ([]order.OrderResponse, int64, error)
+	updateStatusAdminFunc func(ctx context.Context, orderID string, status string, receiptNo *string) (order.OrderResponse, error)
 }
 
 func (f *fakeOrderService) Checkout(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
@@ -58,9 +58,9 @@ func (f *fakeOrderService) ListAdmin(ctx context.Context, status, search string,
 	}
 	return []order.OrderResponse{}, 0, nil
 }
-func (f *fakeOrderService) UpdateStatusByCustomer(ctx context.Context, orderID string, userID uuid.UUID, status string) (order.OrderResponse, error) {
-	if f.updateStatusCustomerFunc != nil {
-		return f.updateStatusCustomerFunc(ctx, orderID, userID, status)
+func (f *fakeOrderService) Complete(ctx context.Context, orderID string, userID string, nextStatus string) (order.OrderResponse, error) {
+	if f.completeFunc != nil {
+		return f.completeFunc(ctx, orderID, userID, nextStatus)
 	}
 	return order.OrderResponse{}, nil
 }

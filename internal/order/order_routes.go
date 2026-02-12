@@ -21,11 +21,12 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client) {
 		orders.GET("", handler.List)
 		orders.GET("/:id", handler.Detail)
 		orders.PATCH("/:id/cancel", handler.Cancel)
-		orders.PATCH("/:id/status", handler.UpdateStatusByCustomer)
+		orders.PATCH("/:id/complete", handler.Complete)
 
 	}
 	// Admin Routes (Management)
 	adminOrders := r.Group("/admin/orders")
+	adminOrders.Use(middleware.AuthMiddleware())
 	adminOrders.Use(middleware.RoleMiddleware("ADMIN", "SUPERADMIN"))
 	adminOrders.Use(middleware.RateLimitByIP(10, 20))
 	{
