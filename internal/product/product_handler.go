@@ -6,6 +6,7 @@ import (
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/httpx"
 	"go-gadget-api/internal/pkg/response"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"strconv"
@@ -99,85 +100,59 @@ func (h *Handler) GetAdminList(c *gin.Context) {
 	)
 }
 
-// 3. CREATE PRODUCT
 func (h *Handler) Create(c *gin.Context) {
-	// 1. Parse multipart form
-	err := c.Request.ParseMultipartForm(10 << 20) // 10 MB max
-	if err != nil {
-		response.Error(
-			c,
-			http.StatusBadRequest,
-			"INVALID_FORM",
-			"Invalid multipart form",
-			err.Error(),
-		)
+	// 1. Parse multipart form (max 10 MB)
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		response.Error(c, http.StatusBadRequest, "INVALID_FORM", "Invalid multipart form", err.Error())
 		return
 	}
 
-	// 2. Parse form fields
+	// 2. Parse form values secara MANUAL (Seperti di Category)
+	var price float64
+	fmt.Sscanf(c.PostForm("price"), "%f", &price)
+
+	var stock int32
+	fmt.Sscanf(c.PostForm("stock"), "%d", &stock)
+
 	req := CreateProductRequest{
 		CategoryID:  c.PostForm("categoryId"),
 		Name:        c.PostForm("name"),
 		Description: c.PostForm("description"),
 		SKU:         c.PostForm("sku"),
+		Price:       price,
+		Stock:       stock,
 	}
 
-	// Parse numeric fields
-	var price float64
-	var stock int32
-	if priceStr := c.PostForm("price"); priceStr != "" {
-		_, err := fmt.Sscanf(priceStr, "%f", &price)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_PRICE", "Invalid price format", nil)
-			return
-		}
-		req.Price = price
-	}
+	// Debug log setelah diisi manual
+	log.Printf("Received CreateProductRequest: %+v", req)
 
-	if stockStr := c.PostForm("stock"); stockStr != "" {
-		_, err := fmt.Sscanf(stockStr, "%d", &stock)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, "INVALID_STOCK", "Invalid stock format", nil)
-			return
-		}
-		req.Stock = stock
-	}
-
-	// 3. Validate required fields
-	if req.CategoryID == "" || req.Name == "" || req.Price == 0 || req.Stock == 0 {
-		response.Error(
-			c,
-			http.StatusBadRequest,
-			"VALIDATION_ERROR",
-			"Missing required fields: category_id, name, price, stock",
-			nil,
-		)
-		return
-	}
-
-	// 4. Get uploaded file (optional)
-	var file multipart.File
-	var filename string
+	// 3. Handle optional file upload
+	var (
+		file     multipart.File
+		filename string
+	)
 	fileHeader, err := c.FormFile("image")
 	if err == nil && fileHeader != nil {
-		file, err = fileHeader.Open()
+		openedFile, err := fileHeader.Open()
 		if err != nil {
-			response.Error(c, http.StatusBadRequest, "FILE_ERROR", "Failed to open uploaded file", err.Error())
+			response.Error(c, http.StatusBadRequest, "FILE_ERROR", "Failed to open file", err.Error())
 			return
 		}
-		defer file.Close()
+		defer openedFile.Close()
+		file = openedFile
 		filename = fileHeader.Filename
 	}
 
-	// 5. Call service
-	res, err := h.productService.Create(c.Request.Context(), req, file, filename)
+	// 4. Call service
+	result, err := h.productService.Create(c.Request.Context(), req, file, filename)
 	if err != nil {
+		// Gunakan helper apperror.ToHTTP agar error mapping Anda berjalan
 		httpErr := apperror.ToHTTP(err)
-		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, err.Error())
 		return
 	}
 
-	response.Success(c, http.StatusCreated, res, nil)
+	response.Success(c, http.StatusCreated, result, nil)
 }
 
 // 4. GET BY ID (Admin / Detail)

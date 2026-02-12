@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"go-gadget-api/internal/category"
+	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/constants"
 	producterrors "go-gadget-api/internal/product/errors"
 	"go-gadget-api/internal/shared/database/dbgen"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
@@ -57,6 +59,7 @@ type service struct {
 	categoryRepo   category.Repository
 	reviewRepo     ReviewRepository
 	cloudinaryRepo CloudinaryService
+	validate       *validator.Validate
 }
 
 func NewService(db *sql.DB, repo Repository, categoryRepo category.Repository, reviewRepo ReviewRepository, cloudinaryRepo CloudinaryService) Service {
@@ -66,6 +69,7 @@ func NewService(db *sql.DB, repo Repository, categoryRepo category.Repository, r
 		categoryRepo:   categoryRepo,
 		reviewRepo:     reviewRepo,
 		cloudinaryRepo: cloudinaryRepo,
+		validate:       validator.New(),
 	}
 }
 
@@ -213,8 +217,16 @@ func (s *service) ListAdmin(
 	return s.mapToAdminResponse(rows)
 }
 
+// internal/product/service/product_service.go
+
 func (s *service) Create(ctx context.Context, req CreateProductRequest, file multipart.File, filename string) (ProductAdminResponse, error) {
-	// 1. Validate category
+	fmt.Println("Validating CreateProductRequest:", req)
+	// 1. Validasi Struct (Sesuai pola brand service)
+	if err := s.validate.Struct(req); err != nil {
+		return ProductAdminResponse{}, apperror.MapValidationError(err)
+	}
+
+	// 2. Parsing & Validasi Business Logic (Fail Fast)
 	catID, err := uuid.Parse(req.CategoryID)
 	if err != nil {
 		return ProductAdminResponse{}, producterrors.ErrInvalidCategoryID
@@ -225,19 +237,20 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 		return ProductAdminResponse{}, producterrors.ErrCategoryNotFound
 	}
 
-	// 2. Generate slug
+	// 3. Persiapan Data (Slug & Price)
 	slug := strings.ToLower(strings.ReplaceAll(req.Name, " ", "-")) + "-" + uuid.New().String()[:5]
 	priceStr := fmt.Sprintf("%.2f", req.Price)
 
-	// 3. Start transaction
+	// 4. Start Transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 	defer tx.Rollback()
 
-	// 4. Create product in DB (without image first)
 	qtx := s.repo.WithTx(tx)
+
+	// 5. Create Product (Tanpa Image dulu)
 	product, err := qtx.Create(ctx, dbgen.CreateProductParams{
 		CategoryID:  catID,
 		Name:        req.Name,
@@ -246,24 +259,24 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 		Price:       priceStr,
 		Stock:       req.Stock,
 		Sku:         helper.StringToNull(&req.SKU),
-		ImageUrl:    sql.NullString{}, // Empty first
+		ImageUrl:    sql.NullString{},
 	})
 	if err != nil {
 		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 
-	// 5. Upload image to Cloudinary (if provided)
+	// 6. Handle Image Upload (Jika ada)
 	var imageURL string
 	if file != nil && filename != "" {
-		// Generate unique filename
+		// Gunakan product.ID untuk nama file yang unik
 		uniqueFilename := fmt.Sprintf("%s-%s", product.ID.String(), filename)
+
 		imageURL, err = s.cloudinaryRepo.UploadImage(ctx, file, uniqueFilename, constants.CloudinaryProductFolder)
 		if err != nil {
-			// Upload failed, rollback transaction
-			return ProductAdminResponse{}, fmt.Errorf("failed to upload image: %w", err)
+			return ProductAdminResponse{}, producterrors.ErrImageUploadFailed
 		}
 
-		// 6. Update product with image URL
+		// 7. Update Product dengan Image URL
 		_, err = qtx.Update(ctx, dbgen.UpdateProductParams{
 			ID:          product.ID,
 			CategoryID:  product.CategoryID,
@@ -276,22 +289,22 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 			IsActive:    product.IsActive,
 		})
 		if err != nil {
-			// Update failed, should delete uploaded image
+			// Cleanup: Hapus gambar yang sudah terlanjur diupload jika update DB gagal
 			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
 			return ProductAdminResponse{}, producterrors.ErrProductFailed
 		}
 	}
 
-	// 7. Commit transaction
+	// 8. Commit Transaction
 	if err := tx.Commit(); err != nil {
-		// Commit failed, delete uploaded image if exists
 		if imageURL != "" {
-			_ = s.cloudinaryRepo.DeleteImage(ctx, fmt.Sprintf("%s-%s", product.ID.String(), filename))
+			uniqueFilename := fmt.Sprintf("%s-%s", product.ID.String(), filename)
+			_ = s.cloudinaryRepo.DeleteImage(ctx, uniqueFilename)
 		}
 		return ProductAdminResponse{}, producterrors.ErrProductFailed
 	}
 
-	// 8. Return created product
+	// 9. Return (Panggil GetByID untuk hasil yang konsisten)
 	return s.GetByID(ctx, product.ID.String())
 }
 
