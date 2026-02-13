@@ -5,7 +5,7 @@ gadget-api/.env
 # Ignore Go Binaries
 **/bin/
 gadget-api/gadget-api
-internal/shared/database/seed_user.go
+/internal/shared/database/seed/seed_user.go
 gadget-api/main
 *.exe
 *.exe~
