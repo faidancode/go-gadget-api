@@ -28,13 +28,20 @@ func NewHandler(svc Service, rdb *redis.Client, logger ...*zap.Logger) *Handler 
 	return &Handler{service: svc, rdb: rdb, logger: l}
 }
 
+func getUserIDFromContext(c *gin.Context) string {
+	if uid := c.GetString("user_id"); uid != "" {
+		return uid
+	}
+	return c.GetString("user_id")
+}
+
 // ==================== CUSTOMER ENDPOINTS ====================
 
 // Checkout creates a new order from user's cart
 // POST /orders
 func (h *Handler) Checkout(c *gin.Context) {
 	// Mengambil userID dari context (disetel oleh AuthMiddleware)
-	userID := c.GetString("user_id_validated") // Gunakan key yang konsisten dengan middleware Anda
+	userID := getUserIDFromContext(c)
 
 	h.logger.Debug("http checkout request",
 		zap.String("user_id", userID),
@@ -89,7 +96,7 @@ func (h *Handler) Checkout(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	userID := c.GetString("user_id")
+	userID := getUserIDFromContext(c)
 	status := c.Query("status")
 	// Jika Anda ingin defaultnya kosong atau "ALL" agar di SQL nanti jadi NULL
 	if status == "ALL" {
@@ -237,7 +244,7 @@ func (c *Handler) Complete(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	// Ambil UserID dari middleware Auth
-	userID := ctx.GetString("user_id")
+	userID := getUserIDFromContext(ctx)
 	if userID == "" {
 		response.Error(
 			ctx,

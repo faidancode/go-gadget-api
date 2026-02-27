@@ -85,4 +85,34 @@ var (
 		"Invalid user id",
 		http.StatusBadRequest,
 	)
+
+	ErrResetTokenInvalid = apperror.New(
+		apperror.CodeUnauthorized,
+		"Reset password link is invalid or has expired",
+		http.StatusUnauthorized,
+	)
+
+	ErrResetTokenExpired = apperror.New(
+		apperror.CodeUnauthorized,
+		"Reset password link has expired. Please request a new one",
+		http.StatusUnauthorized,
+	)
+
+	ErrConfirmationTokenInvalid = apperror.New(
+		apperror.CodeUnauthorized,
+		"Email confirmation link is invalid or has expired",
+		http.StatusUnauthorized,
+	)
+
+	ErrConfirmationTokenExpired = apperror.New(
+		apperror.CodeUnauthorized,
+		"Email confirmation link has expired. Please request a new one",
+		http.StatusUnauthorized,
+	)
+
+	ErrConfirmationPinInvalid = apperror.New(
+		apperror.CodeUnauthorized,
+		"Invalid confirmation PIN",
+		http.StatusUnauthorized,
+	)
 )

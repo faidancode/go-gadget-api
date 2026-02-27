@@ -73,6 +73,15 @@ type Category struct {
 	DeletedAt   sql.NullTime   `json:"deleted_at"`
 }
 
+type EmailConfirmationToken struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Token     string    `json:"token"`
+	Pin       string    `json:"pin"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 type Order struct {
 	ID              uuid.UUID       `json:"id"`
 	OrderNumber     string          `json:"order_number"`
@@ -123,6 +132,14 @@ type OutboxEvent struct {
 	ProcessedAt   sql.NullTime    `json:"processed_at"`
 }
 
+type PasswordResetToken struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 type Product struct {
 	ID            uuid.UUID      `json:"id"`
 	CategoryID    uuid.UUID      `json:"category_id"`
@@ -154,13 +171,14 @@ type Review struct {
 }
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	Password  string    `json:"password"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             uuid.UUID `json:"id"`
+	Email          string    `json:"email"`
+	Name           string    `json:"name"`
+	Password       string    `json:"password"`
+	Role           string    `json:"role"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	EmailConfirmed bool      `json:"email_confirmed"`
 }
 
 type Wishlist struct {

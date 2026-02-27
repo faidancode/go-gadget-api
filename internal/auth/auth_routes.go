@@ -32,6 +32,36 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 			handler.RefreshToken,
 		)
 
+		auth.POST("/password-reset/request",
+			middleware.RateLimitByIP(0.2, 2),
+			handler.RequestPasswordReset,
+		)
+
+		auth.POST("/password-reset/confirm",
+			middleware.RateLimitByIP(0.2, 2),
+			handler.ResetPassword,
+		)
+
+		auth.POST("/email-confirmation/request",
+			middleware.RateLimitByIP(0.2, 2),
+			handler.RequestEmailConfirmation,
+		)
+
+		auth.POST("/email-confirmation/resend",
+			middleware.RateLimitByIP(0.2, 2),
+			handler.ResendEmailConfirmation,
+		)
+
+		auth.GET("/email-confirmation/verify",
+			middleware.RateLimitByIP(1, 3),
+			handler.ConfirmEmailByToken,
+		)
+
+		auth.POST("/email-confirmation/verify-pin",
+			middleware.RateLimitByIP(1, 3),
+			handler.ConfirmEmailByPin,
+		)
+
 		// 4. Logout & Me (Authenticated - per User)
 		// Menggunakan middleware AuthMiddleware dulu untuk mendapatkan user_id_validated
 		authenticated := auth.Group("/")

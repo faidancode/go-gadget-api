@@ -69,7 +69,7 @@ func TestAddressHandler_Create(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.POST("/addresses", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Create(c)
 		})
 
@@ -98,7 +98,7 @@ func TestAddressHandler_Create(t *testing.T) {
 		router := setupTestRouter()
 
 		router.POST("/addresses", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Create(c)
 		})
 
@@ -122,7 +122,7 @@ func TestAddressHandler_Create(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.POST("/addresses", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Create(c)
 		})
 
@@ -160,7 +160,7 @@ func TestAddressHandler_List(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.GET("/addresses", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.List(c)
 		})
 
@@ -183,7 +183,7 @@ func TestAddressHandler_List(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.GET("/addresses", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.List(c)
 		})
 
@@ -212,7 +212,7 @@ func TestAddressHandler_Detail(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.GET("/addresses/:id", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Detail(c)
 		})
 
@@ -235,7 +235,7 @@ func TestAddressHandler_Detail(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.GET("/addresses/:id", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Detail(c)
 		})
 
@@ -262,7 +262,7 @@ func TestAddressHandler_Delete(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.DELETE("/addresses/:id", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Delete(c)
 		})
 
@@ -285,7 +285,7 @@ func TestAddressHandler_Delete(t *testing.T) {
 		ctrl := address.NewHandler(svc)
 
 		router.DELETE("/addresses/:id", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Delete(c)
 		})
 

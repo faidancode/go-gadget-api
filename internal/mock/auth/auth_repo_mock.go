@@ -11,8 +11,10 @@ package mock
 
 import (
 	context "context"
+	auth "go-gadget-api/internal/auth"
 	dbgen "go-gadget-api/internal/shared/database/dbgen"
 	reflect "reflect"
+	time "time"
 
 	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
@@ -85,4 +87,191 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetUs
 func (mr *MockRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
+}
+
+// DeleteEmailConfirmationTokenByPin mocks base method.
+func (m *MockRepository) DeleteEmailConfirmationTokenByPin(ctx context.Context, pin string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEmailConfirmationTokenByPin", ctx, pin)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteEmailConfirmationTokenByPin indicates an expected call of DeleteEmailConfirmationTokenByPin.
+func (mr *MockRepositoryMockRecorder) DeleteEmailConfirmationTokenByPin(ctx, pin any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEmailConfirmationTokenByPin", reflect.TypeOf((*MockRepository)(nil).DeleteEmailConfirmationTokenByPin), ctx, pin)
+}
+
+// DeleteEmailConfirmationTokenByToken mocks base method.
+func (m *MockRepository) DeleteEmailConfirmationTokenByToken(ctx context.Context, token string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEmailConfirmationTokenByToken", ctx, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteEmailConfirmationTokenByToken indicates an expected call of DeleteEmailConfirmationTokenByToken.
+func (mr *MockRepositoryMockRecorder) DeleteEmailConfirmationTokenByToken(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEmailConfirmationTokenByToken", reflect.TypeOf((*MockRepository)(nil).DeleteEmailConfirmationTokenByToken), ctx, token)
+}
+
+// DeleteEmailConfirmationTokensByUserID mocks base method.
+func (m *MockRepository) DeleteEmailConfirmationTokensByUserID(ctx context.Context, userID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEmailConfirmationTokensByUserID", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteEmailConfirmationTokensByUserID indicates an expected call of DeleteEmailConfirmationTokensByUserID.
+func (mr *MockRepositoryMockRecorder) DeleteEmailConfirmationTokensByUserID(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEmailConfirmationTokensByUserID", reflect.TypeOf((*MockRepository)(nil).DeleteEmailConfirmationTokensByUserID), ctx, userID)
+}
+
+// DeletePasswordResetTokenByToken mocks base method.
+func (m *MockRepository) DeletePasswordResetTokenByToken(ctx context.Context, token string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeletePasswordResetTokenByToken", ctx, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeletePasswordResetTokenByToken indicates an expected call of DeletePasswordResetTokenByToken.
+func (mr *MockRepositoryMockRecorder) DeletePasswordResetTokenByToken(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePasswordResetTokenByToken", reflect.TypeOf((*MockRepository)(nil).DeletePasswordResetTokenByToken), ctx, token)
+}
+
+// GetEmailConfirmationTokenByToken mocks base method.
+func (m *MockRepository) GetEmailConfirmationTokenByToken(ctx context.Context, token string) (auth.EmailConfirmationTokenRecord, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEmailConfirmationTokenByToken", ctx, token)
+	ret0, _ := ret[0].(auth.EmailConfirmationTokenRecord)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEmailConfirmationTokenByToken indicates an expected call of GetEmailConfirmationTokenByToken.
+func (mr *MockRepositoryMockRecorder) GetEmailConfirmationTokenByToken(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEmailConfirmationTokenByToken", reflect.TypeOf((*MockRepository)(nil).GetEmailConfirmationTokenByToken), ctx, token)
+}
+
+// GetLatestEmailConfirmationTokenByUserID mocks base method.
+func (m *MockRepository) GetLatestEmailConfirmationTokenByUserID(ctx context.Context, userID uuid.UUID) (auth.EmailConfirmationTokenRecord, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestEmailConfirmationTokenByUserID", ctx, userID)
+	ret0, _ := ret[0].(auth.EmailConfirmationTokenRecord)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLatestEmailConfirmationTokenByUserID indicates an expected call of GetLatestEmailConfirmationTokenByUserID.
+func (mr *MockRepositoryMockRecorder) GetLatestEmailConfirmationTokenByUserID(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestEmailConfirmationTokenByUserID", reflect.TypeOf((*MockRepository)(nil).GetLatestEmailConfirmationTokenByUserID), ctx, userID)
+}
+
+// GetLatestPasswordResetTokenByUserID mocks base method.
+func (m *MockRepository) GetLatestPasswordResetTokenByUserID(ctx context.Context, userID uuid.UUID) (auth.PasswordResetTokenRecord, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestPasswordResetTokenByUserID", ctx, userID)
+	ret0, _ := ret[0].(auth.PasswordResetTokenRecord)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLatestPasswordResetTokenByUserID indicates an expected call of GetLatestPasswordResetTokenByUserID.
+func (mr *MockRepositoryMockRecorder) GetLatestPasswordResetTokenByUserID(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestPasswordResetTokenByUserID", reflect.TypeOf((*MockRepository)(nil).GetLatestPasswordResetTokenByUserID), ctx, userID)
+}
+
+// GetPasswordResetToken mocks base method.
+func (m *MockRepository) GetPasswordResetToken(ctx context.Context, token string) (auth.PasswordResetTokenRecord, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPasswordResetToken", ctx, token)
+	ret0, _ := ret[0].(auth.PasswordResetTokenRecord)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPasswordResetToken indicates an expected call of GetPasswordResetToken.
+func (mr *MockRepositoryMockRecorder) GetPasswordResetToken(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPasswordResetToken", reflect.TypeOf((*MockRepository)(nil).GetPasswordResetToken), ctx, token)
+}
+
+// GetUserProfileByEmail mocks base method.
+func (m *MockRepository) GetUserProfileByEmail(ctx context.Context, email string) (auth.UserProfile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserProfileByEmail", ctx, email)
+	ret0, _ := ret[0].(auth.UserProfile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserProfileByEmail indicates an expected call of GetUserProfileByEmail.
+func (mr *MockRepositoryMockRecorder) GetUserProfileByEmail(ctx, email any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserProfileByEmail", reflect.TypeOf((*MockRepository)(nil).GetUserProfileByEmail), ctx, email)
+}
+
+// SetUserEmailConfirmed mocks base method.
+func (m *MockRepository) SetUserEmailConfirmed(ctx context.Context, userID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUserEmailConfirmed", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUserEmailConfirmed indicates an expected call of SetUserEmailConfirmed.
+func (mr *MockRepositoryMockRecorder) SetUserEmailConfirmed(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUserEmailConfirmed", reflect.TypeOf((*MockRepository)(nil).SetUserEmailConfirmed), ctx, userID)
+}
+
+// UpdateUserPassword mocks base method.
+func (m *MockRepository) UpdateUserPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUserPassword", ctx, userID, password)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateUserPassword indicates an expected call of UpdateUserPassword.
+func (mr *MockRepositoryMockRecorder) UpdateUserPassword(ctx, userID, password any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUserPassword", reflect.TypeOf((*MockRepository)(nil).UpdateUserPassword), ctx, userID, password)
+}
+
+// UpsertEmailConfirmationToken mocks base method.
+func (m *MockRepository) UpsertEmailConfirmationToken(ctx context.Context, userID uuid.UUID, token, pin string, expiresAt, createdAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertEmailConfirmationToken", ctx, userID, token, pin, expiresAt, createdAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertEmailConfirmationToken indicates an expected call of UpsertEmailConfirmationToken.
+func (mr *MockRepositoryMockRecorder) UpsertEmailConfirmationToken(ctx, userID, token, pin, expiresAt, createdAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertEmailConfirmationToken", reflect.TypeOf((*MockRepository)(nil).UpsertEmailConfirmationToken), ctx, userID, token, pin, expiresAt, createdAt)
+}
+
+// UpsertPasswordResetToken mocks base method.
+func (m *MockRepository) UpsertPasswordResetToken(ctx context.Context, userID uuid.UUID, token string, expiresAt, createdAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertPasswordResetToken", ctx, userID, token, expiresAt, createdAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertPasswordResetToken indicates an expected call of UpsertPasswordResetToken.
+func (mr *MockRepositoryMockRecorder) UpsertPasswordResetToken(ctx, userID, token, expiresAt, createdAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertPasswordResetToken", reflect.TypeOf((*MockRepository)(nil).UpsertPasswordResetToken), ctx, userID, token, expiresAt, createdAt)
 }

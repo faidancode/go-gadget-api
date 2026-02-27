@@ -10,6 +10,7 @@ import (
 	"go-gadget-api/internal/category"
 	"go-gadget-api/internal/cloudinary"
 	"go-gadget-api/internal/customer"
+	"go-gadget-api/internal/email"
 	"go-gadget-api/internal/order"
 	"go-gadget-api/internal/outbox"
 	"go-gadget-api/internal/product"
@@ -33,7 +34,7 @@ func registerModules(
 	queries := dbgen.New(db)
 
 	// --- Repositories ---
-	authRepo := auth.NewRepository(queries)
+	authRepo := auth.NewRepository(queries, db)
 	categoryRepo := category.NewRepository(queries)
 	brandRepo := brand.NewRepository(queries)
 	productRepo := product.NewRepository(queries)
@@ -46,7 +47,12 @@ func registerModules(
 	wishlistRepo := wishlist.NewRepository(queries)
 
 	// --- Services ---
-	authService := auth.NewService(authRepo)
+	emailService, err := email.NewResendServiceFromEnv()
+	if err != nil {
+		panic(err)
+	}
+
+	authService := auth.NewService(authRepo, emailService)
 	categoryService := category.NewService(db, categoryRepo, cloudinaryService)
 	brandService := brand.NewService(db, brandRepo, cloudinaryService)
 	reviewService := review.NewService(db, reviewRepo, productRepo)

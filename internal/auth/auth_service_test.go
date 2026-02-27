@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"go-gadget-api/internal/auth"
+	"go-gadget-api/internal/email"
 	authMock "go-gadget-api/internal/mock/auth"
 	"go-gadget-api/internal/shared/database/dbgen"
 	"testing"
@@ -18,7 +19,7 @@ func TestService_Login(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := authMock.NewMockRepository(ctrl)
-	service := auth.NewService(mockRepo)
+	service := auth.NewService(mockRepo, email.NewNoopService())
 	ctx := context.Background()
 
 	pw, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
@@ -51,19 +52,22 @@ func TestService_Register(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := authMock.NewMockRepository(ctrl)
-	service := auth.NewService(mockRepo)
+	service := auth.NewService(mockRepo, email.NewNoopService())
 	ctx := context.Background()
 
 	t.Run("Success Register", func(t *testing.T) {
 		req := auth.RegisterRequest{
-			Email:    "user@example.com",
-			Password: "password123",
+			Email:     "user@example.com",
+			FirstName: "John",
+			LastName:  "Doe",
+			Password:  "password123",
 		}
 
 		mockRepo.EXPECT().
 			Create(ctx, gomock.Any()).
 			Return(dbgen.CreateUserRow{
 				Email: req.Email,
+				Name:  "John Doe",
 				Role:  "CUSTOMER",
 			}, nil)
 
@@ -71,13 +75,16 @@ func TestService_Register(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, req.Email, resp.Email)
+		assert.Equal(t, "John Doe", resp.Name)
 		assert.Equal(t, "CUSTOMER", resp.Role)
 	})
 
 	t.Run("Error Register", func(t *testing.T) {
 		req := auth.RegisterRequest{
-			Email:    "user@example.com",
-			Password: "password123",
+			Email:     "user@example.com",
+			FirstName: "John",
+			LastName:  "Doe",
+			Password:  "password123",
 		}
 
 		mockRepo.EXPECT().

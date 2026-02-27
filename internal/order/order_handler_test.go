@@ -102,7 +102,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 		ctrl := newTestHandler(svc, nil)
 		r := setupTestRouter()
 		r.POST("/orders", func(c *gin.Context) {
-			c.Set("user_id_validated", userID)
+			c.Set("user_id", userID)
 			ctrl.Checkout(c)
 		})
 
@@ -124,7 +124,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(`{invalid}`))
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.Checkout(c)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -142,7 +142,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"address_id":"a"}`))
 		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.Checkout(c)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -168,7 +168,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 			strings.NewReader(`{"addressId":"`+addressID+`"}`),
 		)
 		c.Request.Header.Set("Content-Type", "application/json")
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.Checkout(c)
 
