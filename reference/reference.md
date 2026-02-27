@@ -369,7 +369,7 @@ func (ctrl *Controller) GetPublicList(c *gin.Context) {
 		req.CategoryID = c.Param("categoryId")
 	}
 
-	data, total, err := ctrl.service.ListPublic(c.Request.Context(), req)
+	data, total, err := h.service.ListPublic(c.Request.Context(), req)
 	if err != nil {
 		response.Error(
 			c,
@@ -398,7 +398,7 @@ func (ctrl *Controller) GetAdminList(c *gin.Context) {
 	sortCol := c.DefaultQuery("sort_col", "created_at")
 	categoryID := c.Query("category_id")
 
-	data, total, err := ctrl.service.ListAdmin(
+	data, total, err := h.service.ListAdmin(
 		c.Request.Context(),
 		page,
 		limit,
@@ -439,7 +439,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), req)
+	res, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
 		response.Error(
 			c,
@@ -456,7 +456,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 
 // 4. GET BY ID (Admin / Detail)
 func (ctrl *Controller) GetByID(c *gin.Context) {
-	res, err := ctrl.service.GetByIDAdmin(c.Request.Context(), c.Param("id"))
+	res, err := h.service.GetByIDAdmin(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
 			c,
@@ -487,7 +487,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Update(c.Request.Context(), id, req)
+	res, err := h.service.Update(c.Request.Context(), id, req)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "product not found" || err.Error() == "category not found" {
@@ -509,7 +509,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 
 // 6. DELETE PRODUCT (Soft Delete)
 func (ctrl *Controller) Delete(c *gin.Context) {
-	if err := ctrl.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
+	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
 		response.Error(
 			c,
 			http.StatusInternalServerError,
@@ -525,7 +525,7 @@ func (ctrl *Controller) Delete(c *gin.Context) {
 
 // 7. RESTORE PRODUCT
 func (ctrl *Controller) Restore(c *gin.Context) {
-	res, err := ctrl.service.Restore(c.Request.Context(), c.Param("id"))
+	res, err := h.service.Restore(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
 			c,

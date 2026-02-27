@@ -16,6 +16,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.5.0
+	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.47.0
 	golang.org/x/text v0.33.0
 	golang.org/x/time v0.14.0
@@ -50,6 +51,7 @@ require (
 	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.20.0 // indirect
 	golang.org/x/mod v0.31.0 // indirect
 	golang.org/x/net v0.48.0 // indirect

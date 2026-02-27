@@ -985,7 +985,7 @@ func (ctrl *Controller) Checkout(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Checkout(c.Request.Context(), req)
+	res, err := h.service.Checkout(c.Request.Context(), req)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -1020,7 +1020,7 @@ func (ctrl *Controller) List(c *gin.Context) {
 		limit = 10
 	}
 
-	orders, total, err := ctrl.service.List(
+	orders, total, err := h.service.List(
 		c.Request.Context(),
 		userID.(string),
 		page,
@@ -1052,7 +1052,7 @@ func (ctrl *Controller) Detail(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Detail(c.Request.Context(), orderID)
+	res, err := h.service.Detail(c.Request.Context(), orderID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -1072,7 +1072,7 @@ func (ctrl *Controller) Cancel(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.service.Cancel(c.Request.Context(), orderID); err != nil {
+	if err := h.service.Cancel(c.Request.Context(), orderID); err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
@@ -1101,7 +1101,7 @@ func (ctrl *Controller) ListAdmin(c *gin.Context) {
 		limit = 20
 	}
 
-	orders, total, err := ctrl.service.ListAdmin(
+	orders, total, err := h.service.ListAdmin(
 		c.Request.Context(),
 		status,
 		search,
@@ -1149,7 +1149,7 @@ func (ctrl *Controller) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.UpdateStatus(
+	res, err := h.service.UpdateStatus(
 		c.Request.Context(),
 		orderID,
 		req.Status,

@@ -6,9 +6,10 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
-func BuildApp(router *gin.Engine) error {
+func BuildApp(router *gin.Engine, logger *zap.Logger) error {
 	// 1. Setup Infrastructure
 	db, err := connection.ConnectDBWithRetry(os.Getenv("DB_URL"), 5)
 	if err != nil {
@@ -38,7 +39,7 @@ func BuildApp(router *gin.Engine) error {
 	}
 
 	// 3. Register Modules & Routes
-	registerModules(router, db, redisClient, cloudinaryService)
+	registerModules(router, db, redisClient, cloudinaryService, logger)
 
 	return nil
 }

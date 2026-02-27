@@ -89,7 +89,7 @@ func TestWishlistHandler_Create(t *testing.T) {
 		c.Request = req
 		// -------------------------
 
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.Create(c)
 
@@ -111,7 +111,7 @@ func TestWishlistHandler_Create(t *testing.T) {
 			{Key: "productId", Value: productID},
 		}
 
-		// tidak set user_id_validated
+		// tidak set user_id
 
 		ctrl.Create(c)
 
@@ -126,7 +126,7 @@ func TestWishlistHandler_Create(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/wishlists/items/", nil)
 		c.Request = req
 
-		c.Set("user_id_validated", uuid.New().String())
+		c.Set("user_id", uuid.New().String())
 		// tidak set param
 
 		ctrl.Create(c)
@@ -160,7 +160,7 @@ func TestWishlistHandler_Create(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		c.Request = req
 
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.Create(c)
 
@@ -192,7 +192,7 @@ func TestWishlistHandler_Create(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/wishlists/items", bytes.NewBuffer(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
 		c.Request = req
-		c.Set("user_id_validated", uuid.New().String())
+		c.Set("user_id", uuid.New().String())
 
 		ctrl.Create(c)
 
@@ -252,7 +252,7 @@ func TestWishlistHandler_List(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 
 		c.Request = httptest.NewRequest(http.MethodGet, "/wishlist", nil)
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.List(c)
 
@@ -280,7 +280,7 @@ func TestWishlistHandler_List(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 
 		c.Request = httptest.NewRequest(http.MethodGet, "/wishlist", nil)
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.List(c)
 
@@ -312,7 +312,7 @@ func TestWishlistHandler_List(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 
 		c.Request = httptest.NewRequest(http.MethodGet, "/wishlist", nil)
-		c.Set("user_id_validated", uuid.New().String())
+		c.Set("user_id", uuid.New().String())
 
 		ctrl.List(c)
 
@@ -345,7 +345,7 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		c.Params = gin.Params{
 			{Key: "productId", Value: productID},
 		}
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		ctrl.Delete(c)
 
@@ -366,7 +366,7 @@ func TestWishlistHandler_Delete(t *testing.T) {
 			{Key: "productId", Value: productID},
 		}
 
-		// tidak set user_id_validated
+		// tidak set user_id
 
 		ctrl.Delete(c)
 
@@ -382,7 +382,7 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		c.Request = req
 
 		// tidak set param
-		c.Set("user_id_validated", uuid.New().String())
+		c.Set("user_id", uuid.New().String())
 
 		ctrl.Delete(c)
 
@@ -408,7 +408,7 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		c.Params = gin.Params{
 			{Key: "productId", Value: productID},
 		}
-		c.Set("user_id_validated", uuid.New().String())
+		c.Set("user_id", uuid.New().String())
 
 		ctrl.Delete(c)
 
@@ -434,7 +434,7 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		c.Params = gin.Params{
 			{Key: "productId", Value: productID},
 		}
-		c.Set("user_id_validated", uuid.New().String())
+		c.Set("user_id", uuid.New().String())
 
 		ctrl.Delete(c)
 
@@ -460,7 +460,7 @@ func TestWishlistHandler_Delete(t *testing.T) {
 		c.Params = gin.Params{
 			{Key: "productId", Value: productID},
 		}
-		c.Set("user_id_validated", uuid.New().String())
+		c.Set("user_id", uuid.New().String())
 
 		ctrl.Delete(c)
 

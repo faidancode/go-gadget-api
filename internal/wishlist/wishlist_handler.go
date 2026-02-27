@@ -17,8 +17,8 @@ func NewHandler(svc Service) *Handler {
 }
 
 // POST /wishlist
-func (ctrl *Handler) Create(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Create(c *gin.Context) {
+	userID := c.GetString("user_id")
 	if userID == "" {
 		response.Error(
 			c,
@@ -43,7 +43,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), userID, req.ProductID)
+	res, err := h.service.Create(c.Request.Context(), userID, req.ProductID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -54,8 +54,8 @@ func (ctrl *Handler) Create(c *gin.Context) {
 }
 
 // GET /wishlist
-func (ctrl *Handler) List(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) List(c *gin.Context) {
+	userID := c.GetString("user_id")
 	if userID == "" {
 		response.Error(
 			c,
@@ -67,7 +67,7 @@ func (ctrl *Handler) List(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.List(c.Request.Context(), userID)
+	res, err := h.service.List(c.Request.Context(), userID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 
@@ -79,8 +79,8 @@ func (ctrl *Handler) List(c *gin.Context) {
 }
 
 // DELETE /wishlist
-func (ctrl *Handler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Delete(c *gin.Context) {
+	userID := c.GetString("user_id")
 	if userID == "" {
 		response.Error(
 			c,
@@ -104,7 +104,7 @@ func (ctrl *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	err := ctrl.service.Delete(c.Request.Context(), userID, productID)
+	err := h.service.Delete(c.Request.Context(), userID, productID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)

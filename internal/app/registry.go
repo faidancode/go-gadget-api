@@ -20,9 +20,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
-func registerModules(router *gin.Engine, db *sql.DB, rdb *redis.Client, cloudinaryService cloudinary.Service) {
+func registerModules(
+	router *gin.Engine,
+	db *sql.DB,
+	rdb *redis.Client,
+	cloudinaryService cloudinary.Service,
+	logger *zap.Logger,
+) {
 	queries := dbgen.New(db)
 
 	// --- Repositories ---
@@ -80,7 +87,7 @@ func registerModules(router *gin.Engine, db *sql.DB, rdb *redis.Client, cloudina
 		review.RegisterRoutes(api, reviewHandler)
 		cart.RegisterRoutes(api, cartHandler)
 		address.RegisterRoutes(api, addressHandler)
-		order.RegisterRoutes(api, orderHandler, rdb)
+		order.RegisterRoutes(api, orderHandler, rdb, logger)
 		customer.RegisterRoutes(api, customerHandler)
 		wishlist.RegisterRoutes(api, wishlistHandler)
 	}

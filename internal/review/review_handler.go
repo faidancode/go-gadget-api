@@ -17,7 +17,7 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{service: svc}
 }
 
-func (ctrl *Handler) Create(c *gin.Context) {
+func (h *Handler) Create(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	productSlug := c.Param("slug")
 
@@ -32,7 +32,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 	// Parsing userID ke string dilakukan langsung, validasi eksistensi ada di service/middleware
 	uid, _ := userID.(string)
 
-	res, err := ctrl.service.Create(c.Request.Context(), uid, productSlug, req)
+	res, err := h.service.Create(c.Request.Context(), uid, productSlug, req)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -42,12 +42,12 @@ func (ctrl *Handler) Create(c *gin.Context) {
 	response.Success(c, http.StatusCreated, res, nil)
 }
 
-func (ctrl *Handler) GetReviewsByProductSlug(c *gin.Context) {
+func (h *Handler) GetReviewsByProductSlug(c *gin.Context) {
 	productSlug := c.Param("slug")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	res, err := ctrl.service.GetByProductSlug(c.Request.Context(), productSlug, page, limit)
+	res, err := h.service.GetByProductSlug(c.Request.Context(), productSlug, page, limit)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -62,8 +62,8 @@ func (ctrl *Handler) GetReviewsByProductSlug(c *gin.Context) {
 	}, nil)
 }
 
-func (ctrl *Handler) GetReviewsByUserID(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) GetReviewsByUserID(c *gin.Context) {
+	userID := c.GetString("user_id")
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
@@ -76,7 +76,7 @@ func (ctrl *Handler) GetReviewsByUserID(c *gin.Context) {
 	}
 
 	// 3. Business logic validation di service
-	res, err := ctrl.service.GetByUserID(c.Request.Context(), userID, page, limit)
+	res, err := h.service.GetByUserID(c.Request.Context(), userID, page, limit)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -91,7 +91,7 @@ func (ctrl *Handler) GetReviewsByUserID(c *gin.Context) {
 	}, nil)
 }
 
-func (ctrl *Handler) UpdateReview(c *gin.Context) {
+func (h *Handler) UpdateReview(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	reviewID := c.Param("id")
 
@@ -104,7 +104,7 @@ func (ctrl *Handler) UpdateReview(c *gin.Context) {
 	}
 
 	uid, _ := userID.(string)
-	res, err := ctrl.service.Update(c.Request.Context(), reviewID, uid, req)
+	res, err := h.service.Update(c.Request.Context(), reviewID, uid, req)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -114,12 +114,12 @@ func (ctrl *Handler) UpdateReview(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Handler) DeleteReview(c *gin.Context) {
+func (h *Handler) DeleteReview(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	reviewID := c.Param("id")
 
 	uid, _ := userID.(string)
-	err := ctrl.service.Delete(c.Request.Context(), reviewID, uid)
+	err := h.service.Delete(c.Request.Context(), reviewID, uid)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)

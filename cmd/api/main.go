@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"time"
 
@@ -11,16 +10,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 func main() {
 	_ = godotenv.Load()
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+	zap.ReplaceGlobals(logger)
 	apperror.Init()
 	r := gin.Default()
 
 	// build dependency + routes
-	if err := app.BuildApp(r); err != nil {
-		log.Fatal(err)
+	if err := app.BuildApp(r, logger); err != nil {
+		logger.Fatal("build app failed", zap.Error(err))
 	}
 
 	auditLogger := bootstrap.NewStdoutAuditLogger()

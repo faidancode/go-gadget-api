@@ -15,9 +15,9 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
-func (ctrl *Handler) UpdateProfile(c *gin.Context) {
-	// Menggunakan user_id_validated dari middleware
-	customerID := c.GetString("user_id_validated")
+func (h *Handler) UpdateProfile(c *gin.Context) {
+	// Menggunakan user_id dari middleware
+	customerID := c.GetString("user_id")
 	if customerID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -29,7 +29,7 @@ func (ctrl *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.UpdateProfile(
+	res, err := h.service.UpdateProfile(
 		c.Request.Context(),
 		customerID,
 		req,

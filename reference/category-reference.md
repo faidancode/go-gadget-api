@@ -114,7 +114,7 @@ func (ctrl *Controller) GetAll(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	data, total, err := ctrl.service.GetAll(c.Request.Context(), page, limit)
+	data, total, err := h.service.GetAll(c.Request.Context(), page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FETCH_ERROR", "Gagal mengambil kategori", err.Error())
 		return
@@ -134,7 +134,7 @@ func (ctrl *Controller) GetAll(c *gin.Context) {
 }
 
 func (ctrl *Controller) GetByID(c *gin.Context) {
-	res, err := ctrl.service.GetByID(c.Request.Context(), c.Param("id"))
+	res, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
 			c,
@@ -162,7 +162,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), req)
+	res, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
 		response.Error(
 			c,
@@ -190,7 +190,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Update(c.Request.Context(), c.Param("id"), req)
+	res, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
 		response.Error(
 			c,
@@ -206,7 +206,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 }
 
 func (ctrl *Controller) Delete(c *gin.Context) {
-	if err := ctrl.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
+	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
 		response.Error(
 			c,
 			http.StatusInternalServerError,
@@ -221,7 +221,7 @@ func (ctrl *Controller) Delete(c *gin.Context) {
 }
 
 func (ctrl *Controller) Restore(c *gin.Context) {
-	res, err := ctrl.service.Restore(c.Request.Context(), c.Param("id"))
+	res, err := h.service.Restore(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
 			c,

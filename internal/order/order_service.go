@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 //go:generate mockgen -source=order_service.go -destination=../mocks/order/order_service_mock.go -package=mock
@@ -38,6 +39,7 @@ type service struct {
 	repo       Repository
 	outboxRepo outbox.Repository
 	cartSvc    cart.Service
+	logger     *zap.Logger
 }
 
 type Deps struct {
@@ -45,9 +47,11 @@ type Deps struct {
 	Repo       Repository
 	OutboxRepo outbox.Repository
 	CartSvc    cart.Service
+	Logger     *zap.Logger
 }
 
 func NewService(deps Deps) Service {
+	// 1. Validasi Dependencies
 	if deps.DB == nil {
 		panic("db cannot be nil")
 	}
@@ -55,32 +59,37 @@ func NewService(deps Deps) Service {
 		panic("order repository cannot be nil")
 	}
 	if deps.OutboxRepo == nil {
-		panic("outbox repository cannot be nil") // ← Check ini
+		panic("outbox repository cannot be nil")
 	}
 	if deps.CartSvc == nil {
 		panic("cart service cannot be nil")
 	}
+	if deps.Logger == nil {
+		deps.Logger = zap.NewNop()
+	}
+
+	// 2. Inisialisasi Service
 	return &service{
 		db:         deps.DB,
 		repo:       deps.Repo,
 		outboxRepo: deps.OutboxRepo,
 		cartSvc:    deps.CartSvc,
+		logger:     deps.Logger, // Pastikan ini dipetakan
 	}
 }
 
-// CUSTOMER: Checkout
 func (s *service) Checkout(
 	ctx context.Context,
 	userID string,
 	req CheckoutRequest,
 ) (OrderResponse, error) {
+	// Logger dengan context awal
+	logger := s.logger.With(zap.String("user_id", userID))
 
-	// ===============================
 	// 1. Validasi & Ambil Cart
-	// ===============================
 	cartData, err := s.cartSvc.Detail(ctx, userID)
 	if err != nil {
-		log.Println("DEBUG: cartSvc.Detail error:", err)
+		logger.Error("failed to fetch cart detail", zap.Error(err))
 		return OrderResponse{}, err
 	}
 	if len(cartData.Items) == 0 {
@@ -89,13 +98,11 @@ func (s *service) Checkout(
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		log.Println("DEBUG: invalid userID:", userID)
+		logger.Warn("invalid user id format", zap.Error(err))
 		return OrderResponse{}, autherrors.ErrInvalidUserID
 	}
 
-	// ===============================
 	// 2. Hitung Harga
-	// ===============================
 	var subtotal float64
 	for _, item := range cartData.Items {
 		subtotal += float64(item.Price) * float64(item.Qty)
@@ -104,34 +111,22 @@ func (s *service) Checkout(
 	shippingPrice := 0.0
 	total := subtotal + shippingPrice
 
-	// ===============================
 	// 3. Address Handling
-	// ===============================
 	var addressID uuid.NullUUID
 	if req.AddressID != "" {
 		parsedID, err := uuid.Parse(req.AddressID)
 		if err != nil {
 			return OrderResponse{}, autherrors.ErrInvalidUserID
 		}
-		addressID = uuid.NullUUID{
-			UUID:  parsedID,
-			Valid: true,
-		}
+		addressID = uuid.NullUUID{UUID: parsedID, Valid: true}
 	}
 
-	addressSnapshot, err := json.Marshal(map[string]string{
-		"address_id": req.AddressID,
-	})
-	if err != nil {
-		return OrderResponse{}, ErrOrderFailed
-	}
+	addressSnapshot, _ := json.Marshal(map[string]string{"address_id": req.AddressID})
 
-	// ===============================
 	// 4. Begin Transaction
-	// ===============================
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		log.Println("DEBUG: BeginTx error:", err)
+		logger.Error("failed to begin transaction", zap.Error(err))
 		return OrderResponse{}, ErrOrderFailed
 	}
 
@@ -139,20 +134,17 @@ func (s *service) Checkout(
 	defer func() {
 		if !committed {
 			_ = tx.Rollback()
-			log.Println("DEBUG: transaction rolled back")
+			logger.Warn("transaction rolled back")
 		}
 	}()
 
 	qtx := s.repo.WithTx(tx)
 
-	// ===============================
 	// 5. Create Order
-	// ===============================
-	orderNumber := fmt.Sprintf(
-		"ORD-%d-%s",
-		time.Now().Unix(),
-		strings.ToUpper(uuid.New().String()[:4]),
-	)
+	orderNumber := fmt.Sprintf("ORD-%d-%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
+
+	// Update logger dengan order_number untuk tracing langkah selanjutnya
+	logger = logger.With(zap.String("order_number", orderNumber))
 
 	order, err := qtx.CreateOrder(ctx, dbgen.CreateOrderParams{
 		OrderNumber:     orderNumber,
@@ -166,76 +158,58 @@ func (s *service) Checkout(
 		Note:            helper.StringToNull(&req.Note),
 	})
 	if err != nil {
-		log.Println("DEBUG: CreateOrder error:", err)
+		logger.Error("failed to create order record", zap.Error(err))
 		return OrderResponse{}, err
 	}
 
-	// ===============================
 	// 6. Create Order Items
-	// ===============================
 	for _, item := range cartData.Items {
-		productID, err := uuid.Parse(item.ProductID)
-		if err != nil {
-			return OrderResponse{}, autherrors.ErrInvalidUserID
-		}
-
+		productID, _ := uuid.Parse(item.ProductID)
 		err = qtx.CreateOrderItem(ctx, dbgen.CreateOrderItemParams{
 			OrderID:      order.ID,
 			ProductID:    productID,
-			NameSnapshot: item.ProductName, // pakai data cart, bukan placeholder
+			NameSnapshot: item.ProductName,
 			UnitPrice:    fmt.Sprintf("%.2f", float64(item.Price)),
 			Quantity:     item.Qty,
-			TotalPrice: fmt.Sprintf(
-				"%.2f",
-				float64(item.Price)*float64(item.Qty),
-			),
+			TotalPrice:   fmt.Sprintf("%.2f", float64(item.Price)*float64(item.Qty)),
 		})
 		if err != nil {
-			log.Println("DEBUG: CreateOrderItem error:", err)
+			logger.Error("failed to create order item", zap.String("product_id", item.ProductID), zap.Error(err))
 			return OrderResponse{}, err
 		}
 	}
 
-	// ===============================
 	// 7. Outbox Event
-	// ===============================
 	if s.outboxRepo == nil {
-		log.Println("DEBUG: outboxRepo is nil")
+		logger.DPanic("outboxRepo is missing in service") // DPanic akan panic di dev, error di prod
 		return OrderResponse{}, ErrOrderFailed
 	}
 
-	payload, err := json.Marshal(map[string]string{
+	payload, _ := json.Marshal(map[string]string{
 		"user_id":  userID,
 		"order_id": order.ID.String(),
 	})
-	if err != nil {
-		return OrderResponse{}, ErrOrderFailed
-	}
 
-	err = s.outboxRepo.
-		WithTx(tx).
-		CreateOutboxEvent(ctx, dbgen.CreateOutboxEventParams{
-			ID:            uuid.New(),
-			AggregateType: "ORDER",
-			AggregateID:   order.ID,
-			EventType:     "DELETE_CART",
-			Payload:       payload,
-		})
+	err = s.outboxRepo.WithTx(tx).CreateOutboxEvent(ctx, dbgen.CreateOutboxEventParams{
+		ID:            uuid.New(),
+		AggregateType: "ORDER",
+		AggregateID:   order.ID,
+		EventType:     "DELETE_CART",
+		Payload:       payload,
+	})
 	if err != nil {
-		log.Println("DEBUG: CreateOutboxEvent error:", err)
+		logger.Error("failed to create outbox event", zap.Error(err))
 		return OrderResponse{}, err
 	}
 
-	// ===============================
 	// 8. Commit
-	// ===============================
 	if err := tx.Commit(); err != nil {
-		log.Println("DEBUG: Commit error:", err)
+		logger.Error("failed to commit transaction", zap.Error(err))
 		return OrderResponse{}, ErrOrderFailed
 	}
 	committed = true
 
-	log.Println("DEBUG: Checkout success:", order.ID)
+	logger.Info("checkout success", zap.String("order_id", order.ID.String()))
 
 	return s.mapOrderToResponse(order, nil), nil
 }

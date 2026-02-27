@@ -141,7 +141,7 @@ func (ctrl *Controller) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), req)
+	res, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
 		response.Error(
 			c,
@@ -171,7 +171,7 @@ func (ctrl *Controller) Update(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Update(c.Request.Context(), id, req)
+	res, err := h.service.Update(c.Request.Context(), id, req)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "product not found" || err.Error() == "category not found" {

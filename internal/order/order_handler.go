@@ -2,7 +2,6 @@ package order
 
 import (
 	"encoding/json"
-	"fmt"
 	"go-gadget-api/internal/pkg/apperror"
 	"go-gadget-api/internal/pkg/response"
 	"log"
@@ -12,73 +11,85 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 type Handler struct {
 	service Service
 	rdb     *redis.Client
+	logger  *zap.Logger
 }
 
-func NewHandler(svc Service, rdb *redis.Client) *Handler {
-	return &Handler{service: svc, rdb: rdb}
+func NewHandler(svc Service, rdb *redis.Client, logger ...*zap.Logger) *Handler {
+	l := zap.L().Named("order.handler")
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0].Named("order.handler")
+	}
+	return &Handler{service: svc, rdb: rdb, logger: l}
 }
 
 // ==================== CUSTOMER ENDPOINTS ====================
 
 // Checkout creates a new order from user's cart
 // POST /orders
-func (ctrl *Handler) Checkout(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
-	fmt.Printf("[CHECKOUT HANDLER] userID: '%s'\n", userID) // ← Debug
+func (h *Handler) Checkout(c *gin.Context) {
+	// Mengambil userID dari context (disetel oleh AuthMiddleware)
+	userID := c.GetString("user_id_validated") // Gunakan key yang konsisten dengan middleware Anda
+
+	h.logger.Debug("http checkout request",
+		zap.String("user_id", userID),
+	)
 
 	if userID == "" {
-		fmt.Println("[CHECKOUT HANDLER] ERROR: userID is empty!") // ← Debug
+		h.logger.Warn("http checkout unauthorized: empty userID")
 		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated", nil)
 		return
 	}
 
+	// Idempotency Lock Key
 	lockKey, _ := c.Get("idempotency_lock_key")
-
-	// Pastikan lock dihapus di akhir request
 	defer func() {
 		if lockKey != nil {
-			ctrl.rdb.Del(c.Request.Context(), lockKey.(string))
+			h.rdb.Del(c.Request.Context(), lockKey.(string))
 		}
 	}()
 
 	var req CheckoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Printf("[CHECKOUT HANDLER] Bind error: %v\n", err) // ← Debug
-		appErr := apperror.Wrap(
-			err,
-			apperror.CodeInvalidInput,
-			"Invalid request body",
-			http.StatusBadRequest,
-		)
-		httpErr := apperror.ToHTTP(appErr)
-		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, err.Error())
+		h.logger.Warn("http checkout validation failed", zap.Error(err))
+		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
 		return
 	}
 
-	fmt.Printf("[CHECKOUT HANDLER] Calling service.Checkout with userID: '%s'\n", userID) // ← Debug
-	res, err := ctrl.service.Checkout(c.Request.Context(), userID, req)
+	// Memanggil Service
+	res, err := h.service.Checkout(c.Request.Context(), userID, req)
 	if err != nil {
-		fmt.Printf("[CHECKOUT HANDLER] Service error: %v\n", err) // ← Debug
+		h.logger.Error("http checkout service error",
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
+		// Menggunakan helper writeServiceError jika ada di struct handler Anda
+		// Jika tidak, Anda bisa menggunakan apperror.ToHTTP(err) secara manual
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 
+	// Simpan hasil ke cache Idempotency jika sukses
 	if cacheKey, exists := c.Get("idempotency_cache_key"); exists {
 		jsonData, _ := json.Marshal(res)
-		ctrl.rdb.Set(c.Request.Context(), cacheKey.(string), jsonData, 24*time.Hour)
+		h.rdb.Set(c.Request.Context(), cacheKey.(string), jsonData, 24*time.Hour)
+
+		h.logger.Debug("idempotency response cached",
+			zap.String("cache_key", cacheKey.(string)),
+		)
 	}
 
 	response.Success(c, http.StatusCreated, res, nil)
 }
 
-func (ctrl *Handler) List(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) List(c *gin.Context) {
+	userID := c.GetString("user_id")
 	status := c.Query("status")
 	// Jika Anda ingin defaultnya kosong atau "ALL" agar di SQL nanti jadi NULL
 	if status == "ALL" {
@@ -87,7 +98,7 @@ func (ctrl *Handler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	orders, total, err := ctrl.service.List(c.Request.Context(), userID, status, page, limit)
+	orders, total, err := h.service.List(c.Request.Context(), userID, status, page, limit)
 	if err != nil {
 		log.Printf("[Handler.List] Error: %v", err) // Log error service
 		httpErr := apperror.ToHTTP(err)
@@ -109,7 +120,7 @@ func (ctrl *Handler) List(c *gin.Context) {
 	}, nil)
 }
 
-func (ctrl *Handler) Detail(c *gin.Context) {
+func (h *Handler) Detail(c *gin.Context) {
 	orderID := c.Param("id")
 	if orderID == "" {
 		httpErr := apperror.ToHTTP(ErrInvalidOrderID)
@@ -117,7 +128,7 @@ func (ctrl *Handler) Detail(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Detail(c.Request.Context(), orderID)
+	res, err := h.service.Detail(c.Request.Context(), orderID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
@@ -127,7 +138,7 @@ func (ctrl *Handler) Detail(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Handler) Cancel(c *gin.Context) {
+func (h *Handler) Cancel(c *gin.Context) {
 	orderID := c.Param("id")
 	if orderID == "" {
 		httpErr := apperror.ToHTTP(ErrInvalidOrderID)
@@ -135,7 +146,7 @@ func (ctrl *Handler) Cancel(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.service.Cancel(c.Request.Context(), orderID); err != nil {
+	if err := h.service.Cancel(c.Request.Context(), orderID); err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
@@ -148,7 +159,7 @@ func (ctrl *Handler) Cancel(c *gin.Context) {
 
 // ==================== ADMIN ENDPOINTS ====================
 
-func (ctrl *Handler) ListAdmin(c *gin.Context) {
+func (h *Handler) ListAdmin(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
 
@@ -162,7 +173,7 @@ func (ctrl *Handler) ListAdmin(c *gin.Context) {
 		limit = 20
 	}
 
-	orders, total, err := ctrl.service.ListAdmin(
+	orders, total, err := h.service.ListAdmin(
 		c.Request.Context(),
 		status,
 		search,
@@ -226,7 +237,7 @@ func (c *Handler) Complete(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	// Ambil UserID dari middleware Auth
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 	if userID == "" {
 		response.Error(
 			ctx,

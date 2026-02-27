@@ -18,7 +18,7 @@ func NewHandler(s *Service) *Handler {
 	return &Handler{service: s}
 }
 
-func (ctrl *Handler) Login(c *gin.Context) {
+func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// Response Error Seragam
@@ -30,7 +30,7 @@ func (ctrl *Handler) Login(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	clientType := platform.ResolveClientType(clientHeader, userAgent)
 
-	token, refreshToken, userResp, err := ctrl.service.Login(c.Request.Context(), req.Email, req.Password)
+	token, refreshToken, userResp, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		// Response Error Seragam
 		response.Error(c, http.StatusUnauthorized, "AUTH_FAILED", "Email atau password salah", nil)
@@ -71,7 +71,7 @@ func (ctrl *Handler) Login(c *gin.Context) {
 	response.Success(c, http.StatusOK, responseData, nil)
 }
 
-func (ctrl *Handler) Me(c *gin.Context) {
+func (h *Handler) Me(c *gin.Context) {
 	// asumsi middleware sudah set userID di context
 	log.Printf("auth context: %+v\n", c.Keys)
 
@@ -81,7 +81,7 @@ func (ctrl *Handler) Me(c *gin.Context) {
 		return
 	}
 
-	userResp, err := ctrl.service.GetMe(
+	userResp, err := h.service.GetMe(
 		c.Request.Context(),
 		userID.(string),
 	)
@@ -95,7 +95,7 @@ func (ctrl *Handler) Me(c *gin.Context) {
 
 // auth/auth_Handler.go
 
-func (ctrl *Handler) Logout(c *gin.Context) {
+func (h *Handler) Logout(c *gin.Context) {
 	// Ambil isProd dari config
 	isProd := os.Getenv("APP_ENV") == "production" // atau dari config Anda
 
@@ -124,14 +124,14 @@ func (ctrl *Handler) Logout(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Logout success.", nil)
 }
 
-func (ctrl *Handler) Register(c *gin.Context) {
+func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
 		return
 	}
 
-	res, err := ctrl.service.Register(c.Request.Context(), req)
+	res, err := h.service.Register(c.Request.Context(), req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "REGISTER_FAILED", err.Error(), nil)
 		return
@@ -140,7 +140,7 @@ func (ctrl *Handler) Register(c *gin.Context) {
 	response.Success(c, http.StatusCreated, res, nil)
 }
 
-func (ctrl *Handler) RefreshToken(c *gin.Context) {
+func (h *Handler) RefreshToken(c *gin.Context) {
 	// 1. Deteksi Client
 	clientHeader := c.GetHeader("X-Client-Type")
 	userAgent := c.GetHeader("User-Agent")
@@ -170,7 +170,7 @@ func (ctrl *Handler) RefreshToken(c *gin.Context) {
 
 	// 3. Panggil Service untuk Verify & Issue New Tokens
 	// Mengembalikan accessToken, newRefreshToken, userDetail, error
-	newAccess, newRefresh, userResp, err := ctrl.service.RefreshToken(c.Request.Context(), refreshToken)
+	newAccess, newRefresh, userResp, err := h.service.RefreshToken(c.Request.Context(), refreshToken)
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", err.Error(), nil)
 		return

@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
 )
 
 func TestOrderService_Checkout(t *testing.T) {
@@ -34,11 +35,14 @@ func TestOrderService_Checkout(t *testing.T) {
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
 
+	logger := zap.NewNop()
+
 	svc := order.NewService(order.Deps{
 		DB:         db,
 		Repo:       orderRepo,
 		OutboxRepo: outboxRepo,
 		CartSvc:    cartSvc,
+		Logger:     logger, // <--- WAJIB DITAMBAHKAN
 	})
 
 	ctx := context.Background()

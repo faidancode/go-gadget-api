@@ -121,7 +121,7 @@ func (ctrl *Controller) Login(c *gin.Context) {
 		return
 	}
 
-	token, userResp, err := ctrl.service.Login(c.Request.Context(), req.Email, req.Password)
+	token, userResp, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		// Response Error Seragam
 		response.Error(c, http.StatusUnauthorized, "AUTH_FAILED", "Email atau password salah", nil)

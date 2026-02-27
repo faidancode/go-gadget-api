@@ -122,10 +122,10 @@ func NewHandler(s Service) *Handler {
 }
 
 // GET /addresses
-func (ctrl *Handler) List(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) List(c *gin.Context) {
+	userID := c.GetString("user_id")
 
-	res, err := ctrl.service.List(c.Request.Context(), userID)
+	res, err := h.service.List(c.Request.Context(), userID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FAILED", err.Error(), nil)
 		return
@@ -135,8 +135,8 @@ func (ctrl *Handler) List(c *gin.Context) {
 }
 
 // POST /addresses
-func (ctrl *Handler) Create(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Create(c *gin.Context) {
+	userID := c.GetString("user_id")
 
 	var req CreateAddressRequest
 	req.UserID = userID
@@ -145,7 +145,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), req)
+	res, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
 		log.Println("ERROR CREATE ADDRESS REQ:", req)
 		log.Println("ERROR CREATE ADDRESS:", err)
@@ -157,8 +157,8 @@ func (ctrl *Handler) Create(c *gin.Context) {
 }
 
 // PUT /addresses/:id
-func (ctrl *Handler) Update(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Update(c *gin.Context) {
+	userID := c.GetString("user_id")
 	id := c.Param("id")
 
 	var req UpdateAddressRequest
@@ -167,7 +167,7 @@ func (ctrl *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Update(c.Request.Context(), id, userID, req)
+	res, err := h.service.Update(c.Request.Context(), id, userID, req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
 		return

@@ -5,12 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
-func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client) {
+func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client, logger *zap.Logger) {
 	// Group utama Order (User Side)
 	orders := r.Group("/orders")
 	orders.Use(middleware.AuthMiddleware())
+	orders.Use(middleware.ContextLogger(logger))
 
 	// Global limit untuk user agar tidak melakukan crawling data order mereka sendiri secara berlebihan
 	// 5 req/sec dengan burst 10 (cukup longgar untuk browsing list)

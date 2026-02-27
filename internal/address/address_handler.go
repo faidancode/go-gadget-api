@@ -19,10 +19,10 @@ func NewHandler(s Service) *Handler {
 }
 
 // GET /addresses
-func (ctrl *Handler) List(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) List(c *gin.Context) {
+	userID := c.GetString("user_id")
 
-	res, err := ctrl.service.List(c.Request.Context(), userID)
+	res, err := h.service.List(c.Request.Context(), userID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FAILED", err.Error(), nil)
 		return
@@ -32,11 +32,11 @@ func (ctrl *Handler) List(c *gin.Context) {
 }
 
 // GET /addresses/:id
-func (ctrl *Handler) Detail(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Detail(c *gin.Context) {
+	userID := c.GetString("user_id")
 	id := c.Param("id")
 
-	res, err := ctrl.service.GetByID(c.Request.Context(), id, userID)
+	res, err := h.service.GetByID(c.Request.Context(), id, userID)
 	if err != nil {
 		// Log error secara internal untuk debugging
 		log.Printf("GetByID error: %v", err)
@@ -48,8 +48,8 @@ func (ctrl *Handler) Detail(c *gin.Context) {
 }
 
 // POST /addresses
-func (ctrl *Handler) Create(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Create(c *gin.Context) {
+	userID := c.GetString("user_id")
 
 	var req CreateAddressRequest
 	req.UserID = userID
@@ -58,7 +58,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Create(c.Request.Context(), req)
+	res, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FAILED", err.Error(), nil)
 		return
@@ -68,8 +68,8 @@ func (ctrl *Handler) Create(c *gin.Context) {
 }
 
 // PUT /addresses/:id
-func (ctrl *Handler) Update(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Update(c *gin.Context) {
+	userID := c.GetString("user_id")
 	id := c.Param("id")
 
 	var req UpdateAddressRequest
@@ -87,7 +87,7 @@ func (ctrl *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.Update(c.Request.Context(), id, userID, req)
+	res, err := h.service.Update(c.Request.Context(), id, userID, req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
 		return
@@ -97,11 +97,11 @@ func (ctrl *Handler) Update(c *gin.Context) {
 }
 
 // DELETE /addresses/:id
-func (ctrl *Handler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+func (h *Handler) Delete(c *gin.Context) {
+	userID := c.GetString("user_id")
 	id := c.Param("id")
 
-	if err := ctrl.service.Delete(c.Request.Context(), id, userID); err != nil {
+	if err := h.service.Delete(c.Request.Context(), id, userID); err != nil {
 		response.Error(c, http.StatusInternalServerError, "FAILED", err.Error(), nil)
 		return
 	}
@@ -110,11 +110,11 @@ func (ctrl *Handler) Delete(c *gin.Context) {
 }
 
 // GET /admin/addresses
-func (ctrl *Handler) ListAdmin(c *gin.Context) {
+func (h *Handler) ListAdmin(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
-	data, total, err := ctrl.service.ListAdmin(
+	data, total, err := h.service.ListAdmin(
 		c.Request.Context(),
 		page,
 		limit,

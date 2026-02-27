@@ -20,11 +20,11 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
-func (ctrl *Handler) ListPublic(c *gin.Context) {
+func (h *Handler) ListPublic(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	data, total, err := ctrl.service.ListPublic(c.Request.Context(), page, limit)
+	data, total, err := h.service.ListPublic(c.Request.Context(), page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FETCH_ERROR", "Gagal mengambil kategori", err.Error())
 		return
@@ -43,7 +43,7 @@ func (ctrl *Handler) ListPublic(c *gin.Context) {
 	})
 }
 
-func (ctrl *Handler) ListAdmin(c *gin.Context) {
+func (h *Handler) ListAdmin(c *gin.Context) {
 	var req ListCategoryRequest
 
 	// Bind query parameters ke struct (page, limit, search, sort_col, sort_dir)
@@ -60,7 +60,7 @@ func (ctrl *Handler) ListAdmin(c *gin.Context) {
 	}
 
 	// Memanggil service dengan struct req
-	data, total, err := ctrl.service.ListAdmin(c.Request.Context(), req)
+	data, total, err := h.service.ListAdmin(c.Request.Context(), req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "FETCH_ERROR", "Gagal mengambil daftar kategori admin", err.Error())
 		return
@@ -80,7 +80,7 @@ func (ctrl *Handler) ListAdmin(c *gin.Context) {
 	})
 }
 
-func (ctrl *Handler) GetByID(c *gin.Context) {
+func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
 	// ✅ Validasi UUID di Handler
@@ -95,7 +95,7 @@ func (ctrl *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	res, err := ctrl.service.GetByID(c.Request.Context(), id)
+	res, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
 		response.Error(
 			c,
@@ -111,7 +111,7 @@ func (ctrl *Handler) GetByID(c *gin.Context) {
 }
 
 // 3. CREATE BRAND
-func (ctrl *Handler) Create(c *gin.Context) {
+func (h *Handler) Create(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// 1. Parse multipart form (max 10 MB)
@@ -175,7 +175,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 	}
 
 	// 5. Call service
-	result, err := ctrl.service.Create(ctx, req, file, filename)
+	result, err := h.service.Create(ctx, req, file, filename)
 	if err != nil {
 		response.Error(
 			c,
@@ -196,7 +196,7 @@ func (ctrl *Handler) Create(c *gin.Context) {
 	)
 }
 
-func (ctrl *Handler) Update(c *gin.Context) {
+func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 	if _, err := uuid.Parse(id); err != nil {
 		response.Error(
@@ -249,7 +249,7 @@ func (ctrl *Handler) Update(c *gin.Context) {
 
 	// 4. Call service
 	// Pastikan Service.Update sudah diupdate signature-nya untuk menerima (ctx, id, req, file, filename)
-	res, err := ctrl.service.Update(c.Request.Context(), c.Param("id"), req, file, filename)
+	res, err := h.service.Update(c.Request.Context(), c.Param("id"), req, file, filename)
 	if err != nil {
 		response.Error(
 			c,
@@ -264,7 +264,7 @@ func (ctrl *Handler) Update(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
-func (ctrl *Handler) Delete(c *gin.Context) {
+func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	// 1. Validasi UUID lebih awal
@@ -280,7 +280,7 @@ func (ctrl *Handler) Delete(c *gin.Context) {
 	}
 
 	// 2. Panggil service
-	if err := ctrl.service.Delete(c.Request.Context(), id); err != nil {
+	if err := h.service.Delete(c.Request.Context(), id); err != nil {
 		response.Error(
 			c,
 			http.StatusInternalServerError,
@@ -294,8 +294,8 @@ func (ctrl *Handler) Delete(c *gin.Context) {
 	response.Success(c, http.StatusOK, nil, nil)
 }
 
-func (ctrl *Handler) Restore(c *gin.Context) {
-	res, err := ctrl.service.Restore(c.Request.Context(), c.Param("id"))
+func (h *Handler) Restore(c *gin.Context) {
+	res, err := h.service.Restore(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.Error(
 			c,
