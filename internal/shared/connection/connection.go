@@ -50,6 +50,7 @@ func ConnectRedisWithRetry(addr string, maxRetries int) (*redis.Client, error) {
 
 	return nil, fmt.Errorf("failed to connect redis")
 }
+
 func ConnectKafkaWithRetry(broker string, maxRetries int) (*kafka.Writer, error) {
 	for i := 1; i <= maxRetries; i++ {
 		writer := &kafka.Writer{
