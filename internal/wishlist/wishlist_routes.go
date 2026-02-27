@@ -4,11 +4,13 @@ import (
 	"go-gadget-api/internal/middleware"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
-func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
+func RegisterRoutes(r *gin.RouterGroup, handler *Handler, logger *zap.Logger) {
 	wishlists := r.Group("wishlists")
 	wishlists.Use(middleware.AuthMiddleware())
+	wishlists.Use(middleware.ContextLogger(logger))
 	{
 		// 1. Get Wishlist List (Normal)
 		// User melihat daftar barang impian mereka.

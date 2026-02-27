@@ -95,6 +95,6 @@ func registerModules(
 		address.RegisterRoutes(api, addressHandler)
 		order.RegisterRoutes(api, orderHandler, rdb, logger)
 		customer.RegisterRoutes(api, customerHandler)
-		wishlist.RegisterRoutes(api, wishlistHandler)
+		wishlist.RegisterRoutes(api, wishlistHandler, logger)
 	}
 }
