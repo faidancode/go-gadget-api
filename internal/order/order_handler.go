@@ -32,7 +32,7 @@ func getUserIDFromContext(c *gin.Context) string {
 	if uid := c.GetString("user_id"); uid != "" {
 		return uid
 	}
-	return c.GetString("user_id")
+	return c.GetString("user_id_validated")
 }
 
 // ==================== CUSTOMER ENDPOINTS ====================

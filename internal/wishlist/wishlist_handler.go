@@ -26,10 +26,16 @@ func NewHandler(svc Service, logger ...*zap.Logger) *Handler {
 	}
 }
 
+func getUserIDFromContext(c *gin.Context) string {
+	if uid := c.GetString("user_id"); uid != "" {
+		return uid
+	}
+	return c.GetString("user_id_validated")
+}
+
 // POST /wishlist
 func (h *Handler) Create(c *gin.Context) {
-	// Konsisten dengan key middleware sebelumnya: user_id_validated
-	userID := c.GetString("user_id_validated")
+	userID := getUserIDFromContext(c)
 
 	h.logger.Debug("http wishlist create request", zap.String("user_id", userID))
 
@@ -69,7 +75,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 // GET /wishlist
 func (h *Handler) List(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+	userID := getUserIDFromContext(c)
 
 	h.logger.Debug("http wishlist list request", zap.String("user_id", userID))
 
@@ -92,7 +98,7 @@ func (h *Handler) List(c *gin.Context) {
 
 // DELETE /wishlist/items/:productId
 func (h *Handler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id_validated")
+	userID := getUserIDFromContext(c)
 	productID := c.Param("productId")
 
 	h.logger.Debug("http wishlist delete request",

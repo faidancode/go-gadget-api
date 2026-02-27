@@ -52,7 +52,10 @@ func RateLimitByIP(r rate.Limit, b int) gin.HandlerFunc {
 func RateLimitByUser(r rate.Limit, b int) gin.HandlerFunc {
 	limiter := NewIPRateLimiter(r, b)
 	return func(c *gin.Context) {
-		userID := c.GetString("user_id_validated")
+		userID := c.GetString("user_id")
+		if userID == "" {
+			userID = c.GetString("user_id_validated")
+		}
 		if userID == "" {
 			c.Next() // Jika belum login, skip ke middleware berikutnya (atau bisa ditolak)
 			return

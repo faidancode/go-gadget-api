@@ -96,11 +96,12 @@ func TestCartHandler_Create(t *testing.T) {
 		ctrl := newTestHandler(svc)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/carts", nil)
 
 		// 1. Set context sesuai dengan yang diharapkan oleh ExtractUserID/Handler
 		// Sesuai file extract_user.go Anda:
-		c.Set("user_id", userID)           // Diperlukan jika Handler pakai c.Get("user_id")
-		c.Set("user_id_validated", userID) // Diperlukan jika Handler pakai c.Get("user_id_validated")
+		c.Set("user_id", userID) // Diperlukan jika Handler pakai c.Get("user_id")
+		c.Set("user_id", userID) // Diperlukan jika Handler pakai c.Get("user_id")
 
 		// 2. Jika Handler menggunakan c.Param("userId")
 		c.Params = gin.Params{{Key: "userId", Value: userID}}
@@ -236,7 +237,7 @@ func TestCartHandler_Delete(t *testing.T) {
 	})
 	r.DELETE("/cart", func(c *gin.Context) {
 		c.Set("user_id", "user-mock")
-		ctrl.Delete(c)
+		ctrl.DeleteItem(c)
 	})
 
 	t.Run("success_delete_item", func(t *testing.T) {

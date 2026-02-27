@@ -1,47 +1,67 @@
 package cart
 
 import (
-	"go-gadget-api/internal/pkg/response"
-	"log"
 	"net/http"
 
+	"go-gadget-api/internal/pkg/response"
+	"go-gadget-api/internal/shared/contextutil"
+
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type Handler struct {
 	service Service
+	logger  *zap.Logger
 }
 
-func NewHandler(s Service) *Handler {
-	return &Handler{service: s}
+func NewHandler(svc Service, logger ...*zap.Logger) *Handler {
+	l := zap.L().Named("cart.handler")
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0].Named("cart.handler")
+	}
+	return &Handler{
+		service: svc,
+		logger:  l,
+	}
 }
 
-func (c *Handler) Create(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
-	if err := c.service.Create(ctx, userID); err != nil {
+func getUserIDFromContext(ctx *gin.Context) string {
+	if uid := ctx.GetString("user_id"); uid != "" {
+		return uid
+	}
+	return ctx.GetString("user_id_validated")
+}
+
+func (h *Handler) Create(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
+
+	if err := h.service.Create(ctx.Request.Context(), userID); err != nil {
+		logger.Error("http cart create failed", zap.Error(err))
 		response.Error(ctx, http.StatusInternalServerError, "CREATE_ERROR", "Gagal membuat cart", err.Error())
 		return
 	}
 	response.Success(ctx, http.StatusCreated, nil, nil)
 }
 
-func (c *Handler) AddItem(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
+func (h *Handler) AddItem(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
 	productID := ctx.Param("productId")
 
 	var req AddItemRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		log.Printf("Failed to parse AddItemRequest: %v", err)
-
+		logger.Warn("http cart add item validation failed", zap.Error(err))
 		response.Error(ctx, http.StatusBadRequest, "BAD_REQUEST", "Input tidak valid", err.Error())
 		return
 	}
-	log.Printf("AddItemRequest received: %+v", req)
 
-	// Pastikan productID dari param sinkron dengan req.ProductID jika ada
 	req.ProductID = productID
+	logger.Debug("adding item to cart", zap.String("product_id", productID))
 
-	if err := c.service.AddItem(ctx, userID, req); err != nil {
+	if err := h.service.AddItem(ctx.Request.Context(), userID, req); err != nil {
+		logger.Error("http cart add item service failed", zap.Error(err))
 		response.Error(ctx, http.StatusInternalServerError, "ADD_ITEM_ERROR", "Gagal menambah item ke cart", err.Error())
 		return
 	}
@@ -49,11 +69,13 @@ func (c *Handler) AddItem(ctx *gin.Context) {
 	response.Success(ctx, http.StatusCreated, nil, nil)
 }
 
-func (c *Handler) Count(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
+func (h *Handler) Count(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
 
-	count, err := c.service.Count(ctx, userID)
+	count, err := h.service.Count(ctx.Request.Context(), userID)
 	if err != nil {
+		logger.Error("http cart count service failed", zap.Error(err))
 		response.Error(ctx, http.StatusInternalServerError, "COUNT_ERROR", "Gagal hitung cart", err.Error())
 		return
 	}
@@ -61,10 +83,13 @@ func (c *Handler) Count(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, CartCountResponse{Count: count}, nil)
 }
 
-func (c *Handler) Detail(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
-	res, err := c.service.Detail(ctx, userID)
+func (h *Handler) Detail(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
+
+	res, err := h.service.Detail(ctx.Request.Context(), userID)
 	if err != nil {
+		logger.Error("http cart detail service failed", zap.Error(err))
 		response.Error(ctx, http.StatusInternalServerError, "DETAIL_ERROR", "Gagal mengambil detail cart", err.Error())
 		return
 	}
@@ -72,99 +97,74 @@ func (c *Handler) Detail(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, res, nil)
 }
 
-func (c *Handler) UpdateQty(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
+func (h *Handler) UpdateQty(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
+	productID := ctx.Param("productId")
 
 	var req UpdateQtyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(
-			ctx,
-			http.StatusBadRequest,
-			"BAD_REQUEST",
-			"Input tidak valid",
-			err.Error(),
-		)
+		logger.Warn("http cart update qty validation failed", zap.Error(err))
+		response.Error(ctx, http.StatusBadRequest, "BAD_REQUEST", "Input tidak valid", err.Error())
 		return
 	}
 
-	if err := c.service.UpdateQty(
-		ctx,
-		userID,
-		ctx.Param("productId"),
-		req,
-	); err != nil {
-		response.Error(
-			ctx,
-			http.StatusInternalServerError,
-			"UPDATE_ERROR",
-			"Gagal update quantity",
-			err.Error(),
-		)
+	if err := h.service.UpdateQty(ctx.Request.Context(), userID, productID, req); err != nil {
+		logger.Error("http cart update qty service failed", zap.String("product_id", productID), zap.Error(err))
+		response.Error(ctx, http.StatusInternalServerError, "UPDATE_ERROR", "Gagal update quantity", err.Error())
 		return
 	}
 
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Handler) Increment(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
+func (h *Handler) Increment(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
+	productID := ctx.Param("productId")
 
-	if err := c.service.Increment(ctx, userID, ctx.Param("productId")); err != nil {
+	if err := h.service.Increment(ctx.Request.Context(), userID, productID); err != nil {
+		logger.Error("http cart increment failed", zap.String("product_id", productID), zap.Error(err))
 		response.Error(ctx, http.StatusInternalServerError, "INCREMENT_ERROR", "Gagal menambah item", err.Error())
 		return
 	}
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Handler) Decrement(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
+func (h *Handler) Decrement(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
+	productID := ctx.Param("productId")
 
-	if err := c.service.Decrement(ctx, userID, ctx.Param("productId")); err != nil {
+	if err := h.service.Decrement(ctx.Request.Context(), userID, productID); err != nil {
+		logger.Error("http cart decrement failed", zap.String("product_id", productID), zap.Error(err))
 		response.Error(ctx, http.StatusInternalServerError, "DECREMENT_ERROR", "Gagal mengurangi item", err.Error())
 		return
 	}
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Handler) DeleteItem(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
+func (h *Handler) DeleteItem(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
 	productID := ctx.Param("productId")
 
-	err := c.service.DeleteItem(ctx, userID, productID)
-	if err != nil {
-		response.Error(
-			ctx,
-			http.StatusInternalServerError,
-			"DELETE_ITEM_ERROR",
-			"Gagal menghapus item",
-			err.Error(),
-		)
+	if err := h.service.DeleteItem(ctx.Request.Context(), userID, productID); err != nil {
+		logger.Error("http cart delete item failed", zap.String("product_id", productID), zap.Error(err))
+		response.Error(ctx, http.StatusInternalServerError, "DELETE_ITEM_ERROR", "Gagal menghapus item", err.Error())
 		return
 	}
 
 	response.Success(ctx, http.StatusOK, nil, nil)
 }
 
-func (c *Handler) Delete(ctx *gin.Context) {
-	if err := c.service.Delete(ctx, ctx.GetString("user_id")); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "DELETE_ERROR", "Gagal hapus cart", err.Error())
-		return
-	}
-	response.Success(ctx, http.StatusOK, nil, nil)
-}
+func (h *Handler) ClearCart(ctx *gin.Context) {
+	logger := contextutil.GetLogger(ctx.Request.Context(), h.logger)
+	userID := getUserIDFromContext(ctx)
 
-func (c *Handler) ClearCart(ctx *gin.Context) {
-	userID := ctx.GetString("user_id")
-
-	err := c.service.ClearCart(ctx, userID)
-	if err != nil {
-		response.Error(
-			ctx,
-			http.StatusInternalServerError,
-			"CLEAR_CART_ERROR",
-			"Gagal menghapus cart",
-			err.Error(),
-		)
+	if err := h.service.ClearCart(ctx.Request.Context(), userID); err != nil {
+		logger.Error("http cart clear failed", zap.Error(err))
+		response.Error(ctx, http.StatusInternalServerError, "CLEAR_CART_ERROR", "Gagal menghapus cart", err.Error())
 		return
 	}
 

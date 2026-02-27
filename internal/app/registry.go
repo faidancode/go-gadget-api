@@ -91,7 +91,7 @@ func registerModules(
 		category.RegisterRoutes(api, categoryHandler)
 		product.RegisterRoutes(api, productHandler)
 		review.RegisterRoutes(api, reviewHandler)
-		cart.RegisterRoutes(api, cartHandler)
+		cart.RegisterRoutes(api, cartHandler, logger)
 		address.RegisterRoutes(api, addressHandler)
 		order.RegisterRoutes(api, orderHandler, rdb, logger)
 		customer.RegisterRoutes(api, customerHandler)

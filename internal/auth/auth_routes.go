@@ -63,7 +63,7 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 		)
 
 		// 4. Logout & Me (Authenticated - per User)
-		// Menggunakan middleware AuthMiddleware dulu untuk mendapatkan user_id_validated
+		// Menggunakan middleware AuthMiddleware dulu untuk mendapatkan user_id
 		authenticated := auth.Group("/")
 		authenticated.Use(middleware.AuthMiddleware())
 		{

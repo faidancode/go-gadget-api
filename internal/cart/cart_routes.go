@@ -4,11 +4,14 @@ import (
 	"go-gadget-api/internal/middleware"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
-func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
+func RegisterRoutes(r *gin.RouterGroup, handler *Handler, logger *zap.Logger) {
 	carts := r.Group("/carts")
 	carts.Use(middleware.AuthMiddleware())
+	carts.Use(middleware.ContextLogger(logger))
+
 	{
 		// 1. Ambil Data Cart (Detail & Count)
 		// Biasanya dipanggil setiap kali pindah halaman atau update state di FE.
@@ -20,7 +23,7 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 		// Operasi ini cukup berat dan jarang dilakukan berturut-turut.
 		// Dibatasi: 1 req/sec.
 		carts.POST("", middleware.RateLimitByUser(1, 2), handler.Create)
-		carts.DELETE("", middleware.RateLimitByUser(1, 2), handler.Delete)
+		carts.DELETE("", middleware.RateLimitByUser(1, 2), handler.DeleteItem)
 		carts.DELETE("/clear", middleware.RateLimitByUser(1, 2), handler.ClearCart)
 
 		// 3. Item Management (Sub-Group)
