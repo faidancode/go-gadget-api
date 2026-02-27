@@ -17,7 +17,7 @@ func NewHandler(s Service) *Handler {
 }
 
 func (c *Handler) Create(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 	if err := c.service.Create(ctx, userID); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "CREATE_ERROR", "Gagal membuat cart", err.Error())
 		return
@@ -26,7 +26,7 @@ func (c *Handler) Create(ctx *gin.Context) {
 }
 
 func (c *Handler) AddItem(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 	productID := ctx.Param("productId")
 
 	var req AddItemRequest
@@ -50,7 +50,7 @@ func (c *Handler) AddItem(ctx *gin.Context) {
 }
 
 func (c *Handler) Count(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 
 	count, err := c.service.Count(ctx, userID)
 	if err != nil {
@@ -62,7 +62,7 @@ func (c *Handler) Count(ctx *gin.Context) {
 }
 
 func (c *Handler) Detail(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 	res, err := c.service.Detail(ctx, userID)
 	if err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "DETAIL_ERROR", "Gagal mengambil detail cart", err.Error())
@@ -73,7 +73,7 @@ func (c *Handler) Detail(ctx *gin.Context) {
 }
 
 func (c *Handler) UpdateQty(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 
 	var req UpdateQtyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -107,7 +107,7 @@ func (c *Handler) UpdateQty(ctx *gin.Context) {
 }
 
 func (c *Handler) Increment(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 
 	if err := c.service.Increment(ctx, userID, ctx.Param("productId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "INCREMENT_ERROR", "Gagal menambah item", err.Error())
@@ -117,7 +117,7 @@ func (c *Handler) Increment(ctx *gin.Context) {
 }
 
 func (c *Handler) Decrement(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 
 	if err := c.service.Decrement(ctx, userID, ctx.Param("productId")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "DECREMENT_ERROR", "Gagal mengurangi item", err.Error())
@@ -127,7 +127,7 @@ func (c *Handler) Decrement(ctx *gin.Context) {
 }
 
 func (c *Handler) DeleteItem(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 	productID := ctx.Param("productId")
 
 	err := c.service.DeleteItem(ctx, userID, productID)
@@ -146,7 +146,7 @@ func (c *Handler) DeleteItem(ctx *gin.Context) {
 }
 
 func (c *Handler) Delete(ctx *gin.Context) {
-	if err := c.service.Delete(ctx, ctx.GetString("user_id_validated")); err != nil {
+	if err := c.service.Delete(ctx, ctx.GetString("user_id")); err != nil {
 		response.Error(ctx, http.StatusInternalServerError, "DELETE_ERROR", "Gagal hapus cart", err.Error())
 		return
 	}
@@ -154,7 +154,7 @@ func (c *Handler) Delete(ctx *gin.Context) {
 }
 
 func (c *Handler) ClearCart(ctx *gin.Context) {
-	userID := ctx.GetString("user_id_validated")
+	userID := ctx.GetString("user_id")
 
 	err := c.service.ClearCart(ctx, userID)
 	if err != nil {

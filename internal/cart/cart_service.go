@@ -163,6 +163,9 @@ func (s *service) Count(ctx context.Context, userID string) (int64, error) {
 
 	cartID, err := s.getCartOnly(ctx, uid)
 	if err != nil {
+		if err == carterrors.ErrCartNotFound {
+			return 0, nil
+		}
 		return 0, err
 	}
 

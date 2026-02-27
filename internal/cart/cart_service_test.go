@@ -167,8 +167,9 @@ func TestCartService_Count(t *testing.T) {
 			GetByUserID(ctx, userID).
 			Return(dbgen.Cart{}, sql.ErrNoRows)
 
-		_, err := svc.Count(ctx, userID.String())
-		assert.Error(t, err)
+		count, err := svc.Count(ctx, userID.String())
+		assert.NoError(t, err)
+		assert.Equal(t, int64(0), count)
 	})
 }
 
