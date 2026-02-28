@@ -349,7 +349,8 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 const listOrdersAdmin = `-- name: ListOrdersAdmin :many
 SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, count(*) OVER() AS total_count
 FROM orders o
-WHERE ($3::text IS NULL OR o.status = $3::text)
+WHERE o.deleted_at IS NULL
+  AND ($3::text IS NULL OR o.status = $3::text)
   AND ($4::text IS NULL OR o.order_number ILIKE '%' || $4::text || '%')
 ORDER BY o.placed_at DESC
 LIMIT $1 OFFSET $2

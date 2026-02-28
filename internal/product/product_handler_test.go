@@ -158,9 +158,14 @@ func createMultipartForm(fields map[string]string, fileField, filename string, c
 
 func TestCreateProduct(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
+		brandID := uuid.NewString()
+		categoryID := uuid.NewString()
+
 		svc := &fakeProductService{
 			CreateFn: func(ctx context.Context, req product.CreateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
 				assert.Equal(t, "Product", req.Name)
+				assert.Equal(t, brandID, req.BrandID)
+				assert.Equal(t, categoryID, req.CategoryID)
 				return product.ProductAdminResponse{ID: uuid.NewString()}, nil
 			},
 		}
@@ -170,7 +175,8 @@ func TestCreateProduct(t *testing.T) {
 
 		body, ct, _ := createMultipartForm(
 			map[string]string{
-				"category_id": uuid.NewString(),
+				"brand_id":    brandID,
+				"category_id": categoryID,
 				"name":        "Product",
 				"price":       "10000",
 				"stock":       "5",
@@ -190,6 +196,9 @@ func TestCreateProduct(t *testing.T) {
 	})
 
 	t.Run("service_error", func(t *testing.T) {
+		brandID := uuid.NewString()
+		categoryID := uuid.NewString()
+
 		svc := &fakeProductService{
 			CreateFn: func(ctx context.Context, req product.CreateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
 				return product.ProductAdminResponse{}, errors.New("db error")
@@ -201,7 +210,8 @@ func TestCreateProduct(t *testing.T) {
 
 		body, ct, _ := createMultipartForm(
 			map[string]string{
-				"category_id": uuid.NewString(),
+				"brand_id":    brandID,
+				"category_id": categoryID,
 				"name":        "Product",
 				"price":       "10000",
 				"stock":       "5",
@@ -218,6 +228,122 @@ func TestCreateProduct(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+//
+// ==================== LIST PUBLIC ====================
+//
+
+func TestGetPublicListProducts(t *testing.T) {
+	t.Run("success - accepts brandSlug", func(t *testing.T) {
+		svc := &fakeProductService{
+			ListPublicFn: func(ctx context.Context, req product.ListPublicRequest) ([]product.ProductPublicResponse, int64, error) {
+				assert.Equal(t, 1, req.Page)
+				assert.Equal(t, 10, req.Limit)
+				assert.Equal(t, "apple", req.BrandSlug)
+				return []product.ProductPublicResponse{{ID: uuid.NewString(), Name: "iPhone 15"}}, 1, nil
+			},
+		}
+
+		r := setupTestRouter()
+		r.GET("/products", newTestHandler(svc, &fakeReviewService{}).GetPublicList)
+
+		req := httptest.NewRequest(http.MethodGet, "/products?page=1&limit=10&brandSlug=apple", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("success - supports legacy brand_slug", func(t *testing.T) {
+		svc := &fakeProductService{
+			ListPublicFn: func(ctx context.Context, req product.ListPublicRequest) ([]product.ProductPublicResponse, int64, error) {
+				assert.Equal(t, "samsung", req.BrandSlug)
+				return []product.ProductPublicResponse{}, 0, nil
+			},
+		}
+
+		r := setupTestRouter()
+		r.GET("/products", newTestHandler(svc, &fakeReviewService{}).GetPublicList)
+
+		req := httptest.NewRequest(http.MethodGet, "/products?brand_slug=samsung", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+}
+
+//
+// ==================== UPDATE ====================
+//
+
+func TestUpdateProduct(t *testing.T) {
+	id := uuid.NewString()
+	brandID := uuid.NewString()
+
+	t.Run("success", func(t *testing.T) {
+		svc := &fakeProductService{
+			UpdateFn: func(ctx context.Context, pid string, req product.UpdateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
+				assert.Equal(t, id, pid)
+				assert.Equal(t, brandID, req.BrandID)
+				assert.Equal(t, "Updated Product", req.Name)
+				return product.ProductAdminResponse{ID: pid, Name: req.Name}, nil
+			},
+		}
+
+		r := setupTestRouter()
+		r.PATCH("/admin/products/:id", newTestHandler(svc, &fakeReviewService{}).Update)
+
+		body, ct, _ := createMultipartForm(
+			map[string]string{
+				"brand_id": brandID,
+				"name":     "Updated Product",
+			},
+			"",
+			"",
+			nil,
+		)
+
+		req := httptest.NewRequest(http.MethodPatch, "/admin/products/"+id, body)
+		req.Header.Set("Content-Type", ct)
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("service_error", func(t *testing.T) {
+		svc := &fakeProductService{
+			UpdateFn: func(ctx context.Context, pid string, req product.UpdateProductRequest, file multipart.File, filename string) (product.ProductAdminResponse, error) {
+				return product.ProductAdminResponse{}, producterrors.ErrProductNotFound
+			},
+		}
+
+		r := setupTestRouter()
+		r.PATCH("/admin/products/:id", newTestHandler(svc, &fakeReviewService{}).Update)
+
+		body, ct, _ := createMultipartForm(
+			map[string]string{
+				"brand_id": brandID,
+				"name":     "Updated Product",
+			},
+			"",
+			"",
+			nil,
+		)
+
+		req := httptest.NewRequest(http.MethodPatch, "/admin/products/"+id, body)
+		req.Header.Set("Content-Type", ct)
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 }
 

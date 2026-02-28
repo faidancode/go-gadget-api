@@ -25,7 +25,7 @@ func ExtractUserID() gin.HandlerFunc {
 		}
 
 		// Set ulang dengan tipe yang sudah pasti string
-		ctx.Set("user_id_validated", userIDStr)
+		ctx.Set("user_id", userIDStr)
 		ctx.Next()
 	}
 }

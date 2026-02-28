@@ -189,6 +189,7 @@ const listCategoriesPublic = `-- name: ListCategoriesPublic :many
 SELECT id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at, count(*) OVER() AS total_count
 FROM categories
 WHERE deleted_at IS NULL
+  AND is_active = true
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `

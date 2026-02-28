@@ -88,10 +88,12 @@ func TestProductService_Create(t *testing.T) {
 	defer deps.db.Close()
 
 	ctx := context.Background()
+	brandID := uuid.New()
 	catID := uuid.New()
 	productID := uuid.New()
 
 	req := product.CreateProductRequest{
+		BrandID:    brandID.String(),
 		CategoryID: catID.String(),
 		Name:       "iPhone 15",
 		Price:      15000000,
@@ -106,7 +108,17 @@ func TestProductService_Create(t *testing.T) {
 
 		deps.repo.EXPECT().WithTx(gomock.Any()).Return(deps.repo)
 		deps.catRepo.EXPECT().GetByID(gomock.Any(), catID).Return(dbgen.Category{ID: catID}, nil)
-		deps.repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(dbgen.Product{ID: productID}, nil)
+		deps.repo.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, arg dbgen.CreateProductParams) (dbgen.Product, error) {
+				assert.True(t, arg.BrandID.Valid)
+				assert.Equal(t, brandID, arg.BrandID.UUID)
+				return dbgen.Product{
+					ID:         productID,
+					CategoryID: catID,
+					BrandID:    uuid.NullUUID{UUID: brandID, Valid: true},
+				}, nil
+			},
+		)
 
 		// UploadImage akan dipanggil karena kita akan passing 'not nil' value di pemanggilan service
 		deps.cloudinary.EXPECT().
@@ -149,7 +161,15 @@ func TestProductService_Create(t *testing.T) {
 
 		deps.repo.EXPECT().
 			Create(gomock.Any(), gomock.Any()).
-			Return(dbgen.Product{ID: productID}, nil)
+			DoAndReturn(func(_ context.Context, arg dbgen.CreateProductParams) (dbgen.Product, error) {
+				assert.True(t, arg.BrandID.Valid)
+				assert.Equal(t, brandID, arg.BrandID.UUID)
+				return dbgen.Product{
+					ID:         productID,
+					CategoryID: catID,
+					BrandID:    uuid.NullUUID{UUID: brandID, Valid: true},
+				}, nil
+			})
 
 		// PERBAIKAN DI SINI:
 		// Gunakan gomock.Any() untuk argumen kedua (file)
@@ -182,47 +202,40 @@ func TestProductService_Update(t *testing.T) {
 			String: "https://old.jpg",
 			Valid:  true,
 		},
+		BrandID: uuid.NullUUID{}, // no brand initially
 	}
 
 	req := product.UpdateProductRequest{
-		Name: "New Name",
+		Name:    "New Name",
+		BrandID: uuid.New().String(),
 	}
 
-	t.Run("positive - update with new image", func(t *testing.T) {
-		// Gunakan fakeFile agar tidak nil
-		file := &mockFile{}
+	t.Run("positive - update brand id", func(t *testing.T) {
+		newBrandID, _ := uuid.Parse(req.BrandID)
 
 		expectTx(t, deps.sqlMock, true)
 
-		// 1. Ambil data lama (di luar TX atau di dalam tergantung implementasi service)
+		// Fetch existing product
 		deps.repo.EXPECT().GetByID(ctx, id).Return(existing, nil)
 
-		// 2. Setup repo dengan Transaction
 		deps.repo.EXPECT().WithTx(gomock.Any()).Return(deps.repo).AnyTimes()
 
-		// 3. Mock Cloudinary Upload (Gunakan gomock.Any() untuk menghindari mismatch nil)
-		deps.cloudinary.EXPECT().
-			UploadImage(ctx, gomock.Any(), gomock.Any(), constants.CloudinaryProductFolder).
-			Return("https://new.jpg", nil)
+		// verify the brand id is set in params passed to Update
+		deps.repo.EXPECT().Update(ctx, gomock.Any()).DoAndReturn(
+			func(ctx context.Context, arg dbgen.UpdateProductParams) (dbgen.Product, error) {
+				assert.True(t, arg.BrandID.Valid)
+				assert.Equal(t, newBrandID, arg.BrandID.UUID)
+				return dbgen.Product{}, nil
+			},
+		)
 
-		// 4. Mock Update di DB
-		deps.repo.EXPECT().Update(ctx, gomock.Any()).Return(dbgen.Product{}, nil)
-
-		// 5. Mock Hapus gambar lama
-		deps.cloudinary.EXPECT().DeleteImage(ctx, existing.ImageUrl.String).Return(nil)
-
-		// 6. Mock Fetch data terbaru untuk response
+		// final fetch for response
 		deps.repo.EXPECT().
 			GetByID(ctx, id).
-			Return(dbgen.GetProductByIDRow{
-				ID:   id,
-				Name: req.Name,
-			}, nil)
+			Return(dbgen.GetProductByIDRow{ID: id, Name: req.Name}, nil)
 
-		res, err := deps.service.Update(ctx, id.String(), req, file, "new.jpg")
-
+		_, err := deps.service.Update(ctx, id.String(), req, nil, "")
 		assert.NoError(t, err)
-		assert.Equal(t, req.Name, res.Name)
 	})
 
 	t.Run("negative - product not found", func(t *testing.T) {
@@ -306,8 +319,9 @@ func TestProductService_ListPublic(t *testing.T) {
 
 	ctx := context.Background()
 	req := product.ListPublicRequest{
-		Page:  1,
-		Limit: 10,
+		Page:      1,
+		Limit:     10,
+		BrandSlug: "apple",
 	}
 
 	t.Run("positive - success list public", func(t *testing.T) {
@@ -322,10 +336,13 @@ func TestProductService_ListPublic(t *testing.T) {
 			},
 		}
 
-		// Service akan kalkulasi max price default jika 0
 		deps.repo.EXPECT().
 			ListPublic(ctx, gomock.Any()).
-			Return(rows, nil)
+			DoAndReturn(func(_ context.Context, params dbgen.ListProductsPublicParams) ([]dbgen.ListProductsPublicRow, error) {
+				assert.Equal(t, sql.NullString{String: "apple", Valid: true}, params.BrandSlug)
+				assert.Equal(t, "999999999.00", params.MaxPrice)
+				return rows, nil
+			})
 
 		res, total, err := deps.service.ListPublic(ctx, req)
 

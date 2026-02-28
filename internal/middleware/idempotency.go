@@ -15,7 +15,7 @@ import (
 func Idempotency(rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		idempKey := c.GetHeader("Idempotency-Key")
-		userID := c.GetString("user_id_validated")
+		userID := c.GetString("user_id")
 		fmt.Printf("[IDEMPOTENCY MIDDLEWARE] idempKey: '%s', userID: '%s'\n", idempKey, userID) // ← Debug
 
 		if idempKey == "" || c.Request.Method != http.MethodPost {

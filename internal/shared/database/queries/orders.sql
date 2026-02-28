@@ -50,7 +50,8 @@ LIMIT $1 OFFSET $2;
 -- name: ListOrdersAdmin :many
 SELECT o.*, count(*) OVER() AS total_count
 FROM orders o
-WHERE (sqlc.narg('status')::text IS NULL OR o.status = sqlc.narg('status')::text)
+WHERE o.deleted_at IS NULL
+  AND (sqlc.narg('status')::text IS NULL OR o.status = sqlc.narg('status')::text)
   AND (sqlc.narg('search')::text IS NULL OR o.order_number ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY o.placed_at DESC
 LIMIT $1 OFFSET $2;

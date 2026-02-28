@@ -59,7 +59,7 @@ func TestCustomerHandler_UpdateProfile(t *testing.T) {
 
 		// context user
 		c.Set("user_id", userID)
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		handler.UpdateProfile(c)
 
@@ -80,7 +80,7 @@ func TestCustomerHandler_UpdateProfile(t *testing.T) {
 
 		c.Request = req
 		c.Set("user_id", userID)
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		handler.UpdateProfile(c)
 
@@ -107,7 +107,7 @@ func TestCustomerHandler_UpdateProfile(t *testing.T) {
 
 		c.Request = req
 		c.Set("user_id", userID)
-		c.Set("user_id_validated", userID)
+		c.Set("user_id", userID)
 
 		handler.UpdateProfile(c)
 		// ===== DEBUG LOG =====

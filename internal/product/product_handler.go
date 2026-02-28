@@ -45,10 +45,16 @@ func (h *Handler) GetPublicList(c *gin.Context) {
 		return
 	}
 
+	brandSlug := q.BrandSlug
+	if brandSlug == "" {
+		brandSlug = c.Query("brand_slug")
+	}
+
 	req := ListPublicRequest{
 		Page:        q.Page,
 		Limit:       q.Limit,
 		Search:      q.Search,
+		BrandSlug:   brandSlug,
 		CategoryIDs: q.CategoryIDs,
 		MinPrice:    q.MinPrice,
 		MaxPrice:    q.MaxPrice,
@@ -114,8 +120,19 @@ func (h *Handler) Create(c *gin.Context) {
 	var stock int32
 	fmt.Sscanf(c.PostForm("stock"), "%d", &stock)
 
+	brandID := c.PostForm("brandId")
+	if brandID == "" {
+		brandID = c.PostForm("brand_id")
+	}
+
+	categoryID := c.PostForm("categoryId")
+	if categoryID == "" {
+		categoryID = c.PostForm("category_id")
+	}
+
 	req := CreateProductRequest{
-		CategoryID:  c.PostForm("categoryId"),
+		BrandID:     brandID,
+		CategoryID:  categoryID,
 		Name:        c.PostForm("name"),
 		Description: c.PostForm("description"),
 		SKU:         c.PostForm("sku"),
@@ -221,8 +238,18 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 
 	// 2. Parse form fields (all optional for update)
+	brandID := c.PostForm("brandId")
+	if brandID == "" {
+		brandID = c.PostForm("brand_id")
+	}
+	categoryID := c.PostForm("categoryId")
+	if categoryID == "" {
+		categoryID = c.PostForm("category_id")
+	}
+
 	req := UpdateProductRequest{
-		CategoryID:  c.PostForm("category_id"),
+		BrandID:     brandID,
+		CategoryID:  categoryID,
 		Name:        c.PostForm("name"),
 		Description: c.PostForm("description"),
 		SKU:         c.PostForm("sku"),
@@ -245,7 +272,11 @@ func (h *Handler) Update(c *gin.Context) {
 		}
 	}
 
-	if isActiveStr := c.PostForm("is_active"); isActiveStr != "" {
+	isActiveStr := c.PostForm("isActive")
+	if isActiveStr == "" {
+		isActiveStr = c.PostForm("is_active")
+	}
+	if isActiveStr != "" {
 		isActive := isActiveStr == "true"
 		req.IsActive = &isActive
 	}

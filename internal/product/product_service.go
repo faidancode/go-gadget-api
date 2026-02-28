@@ -75,8 +75,8 @@ func NewService(db *sql.DB, repo Repository, categoryRepo category.Repository, r
 
 func (s *service) ListPublic(ctx context.Context, req ListPublicRequest) ([]ProductPublicResponse, int64, error) {
 	// 1. Log awal request untuk melacak input dari user
-	log.Printf("[ListPublic] Incoming request: Page=%d, Limit=%d, Search='%s', Categories=%v, Price Range=%.2f-%.2f",
-		req.Page, req.Limit, req.Search, req.CategoryIDs, req.MinPrice, req.MaxPrice)
+	log.Printf("[ListPublic] Incoming request: Page=%d, Limit=%d, Search='%s', BrandSlug='%s', Categories=%v, Price Range=%.2f-%.2f",
+		req.Page, req.Limit, req.Search, req.BrandSlug, req.CategoryIDs, req.MinPrice, req.MaxPrice)
 
 	offset := (req.Page - 1) * req.Limit
 
@@ -105,6 +105,7 @@ func (s *service) ListPublic(ctx context.Context, req ListPublicRequest) ([]Prod
 		Limit:       int32(req.Limit),
 		Offset:      int32(offset),
 		Search:      helper.StringToNull(&req.Search),
+		BrandSlug:   helper.StringToNull(&req.BrandSlug),
 		MinPrice:    fmt.Sprintf("%.2f", req.MinPrice),
 		MaxPrice:    fmt.Sprintf("%.2f", req.MaxPrice),
 		SortBy:      req.SortBy,
@@ -227,6 +228,11 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 	}
 
 	// 2. Parsing & Validasi Business Logic (Fail Fast)
+	brandID, err := uuid.Parse(req.BrandID)
+	if err != nil {
+		return ProductAdminResponse{}, producterrors.ErrInvalidProductID
+	}
+
 	catID, err := uuid.Parse(req.CategoryID)
 	if err != nil {
 		return ProductAdminResponse{}, producterrors.ErrInvalidCategoryID
@@ -252,6 +258,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 
 	// 5. Create Product (Tanpa Image dulu)
 	product, err := qtx.Create(ctx, dbgen.CreateProductParams{
+		BrandID:     uuid.NullUUID{UUID: brandID, Valid: true},
 		CategoryID:  catID,
 		Name:        req.Name,
 		Slug:        slug,
@@ -279,6 +286,7 @@ func (s *service) Create(ctx context.Context, req CreateProductRequest, file mul
 		// 7. Update Product dengan Image URL
 		_, err = qtx.Update(ctx, dbgen.UpdateProductParams{
 			ID:          product.ID,
+			BrandID:     product.BrandID,
 			CategoryID:  product.CategoryID,
 			Name:        product.Name,
 			Description: product.Description,
@@ -357,6 +365,7 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 		Sku:         existingProduct.Sku,
 		ImageUrl:    existingProduct.ImageUrl,
 		CategoryID:  existingProduct.CategoryID,
+		BrandID:     existingProduct.BrandID,
 		IsActive:    existingProduct.IsActive,
 	}
 
@@ -368,6 +377,12 @@ func (s *service) Update(ctx context.Context, idStr string, req UpdateProductReq
 		catID, err := uuid.Parse(req.CategoryID)
 		if err == nil {
 			params.CategoryID = catID
+		}
+	}
+	if req.BrandID != "" { // <<<< new block
+		bID, err := uuid.Parse(req.BrandID)
+		if err == nil {
+			params.BrandID = uuid.NullUUID{UUID: bID, Valid: true}
 		}
 	}
 	if req.Price > 0 {
@@ -499,6 +514,7 @@ func (s *service) mapToPublicResponse(rows []dbgen.ListProductsPublicRow) ([]Pro
 			Name:         row.Name,
 			Slug:         row.Slug,
 			Price:        priceFloat,
+			ImageURL:     row.ImageUrl.String,
 		})
 	}
 	return res, total, nil
@@ -514,9 +530,12 @@ func (s *service) mapToAdminResponse(rows []dbgen.ListProductsAdminRow) ([]Produ
 		priceFloat, _ := strconv.ParseFloat(row.Price, 64)
 		res = append(res, ProductAdminResponse{
 			ID:           row.ID.String(),
+			CategoryID:   row.CategoryID.String(),
 			CategoryName: row.CategoryName,
+			BrandID:      row.BrandID.UUID.String(),
 			Name:         row.Name,
 			Slug:         row.Slug,
+			ImageURL:     row.ImageUrl.String,
 			Price:        priceFloat,
 			Stock:        row.Stock,
 			SKU:          row.Sku.String,

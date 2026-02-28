@@ -5,6 +5,7 @@ SELECT
   count(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
+LEFT JOIN brands b ON p.brand_id = b.id
 WHERE 
   p.deleted_at IS NULL
   AND p.is_active = true
@@ -20,6 +21,11 @@ WHERE
     OR p.name ILIKE '%' || sqlc.narg('search')::text || '%'
   )
 
+  AND (
+    sqlc.narg('brand_slug')::text IS NULL
+    OR b.slug = sqlc.narg('brand_slug')::text
+  )
+
   -- Pastikan casting aman
   AND p.price >= sqlc.arg('min_price')::numeric
   AND p.price <= sqlc.arg('max_price')::numeric
@@ -32,21 +38,38 @@ ORDER BY
   p.created_at DESC
 LIMIT $1 OFFSET $2;
 
+
 -- name: ListProductsAdmin :many
 SELECT
     p.*,
+    c.id AS category_id,
     c.name AS category_name,
+    b.id AS brand_id,
+    b.name AS brand_name,
     COUNT(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
+LEFT JOIN brands b ON p.brand_id = b.id
 WHERE
-    (sqlc.narg('category_id')::uuid IS NULL OR p.category_id = sqlc.narg('category_id')::uuid)
+    p.deleted_at IS NULL
+    AND (sqlc.narg('brand_id')::uuid IS NULL OR p.brand_id = sqlc.narg('brand_id')::uuid)
+    AND (sqlc.narg('category_id')::uuid IS NULL OR p.category_id = sqlc.narg('category_id')::uuid)
     AND (
         sqlc.narg('search')::text IS NULL
         OR p.name ILIKE '%' || sqlc.narg('search')::text || '%'
         OR p.sku  ILIKE '%' || sqlc.narg('search')::text || '%'
     )
 ORDER BY
+    -- brand_name
+    CASE
+        WHEN sqlc.arg('sort_col') = 'brand_name' AND sqlc.arg('sort_dir') = 'asc'
+            THEN b.name
+    END ASC,
+    CASE
+        WHEN sqlc.arg('sort_col') = 'brand_name' AND sqlc.arg('sort_dir') = 'desc'
+            THEN b.name
+    END DESC,
+
     -- name
     CASE
         WHEN sqlc.arg('sort_col') = 'name' AND sqlc.arg('sort_dir') = 'asc'
@@ -107,21 +130,22 @@ JOIN categories c ON p.category_id = c.id
 WHERE p.slug = $1 AND p.deleted_at IS NULL LIMIT 1;
 
 -- name: CreateProduct :one
-INSERT INTO products (category_id, name, slug, description, price, stock, sku, image_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO products (brand_id, category_id, name, slug, description, price, stock, sku, image_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: UpdateProduct :one
 UPDATE products
 SET 
-    category_id = $2,
-    name = $3,
-    description = $4,
-    price = $5,
-    stock = $6,
-    sku = $7,
-    image_url = $8,
-    is_active = $9,
+    brand_id = $2,
+    category_id = $3,
+    name = $4,
+    description = $5,
+    price = $6,
+    stock = $7,
+    sku = $8,
+    image_url = $9,
+    is_active = $10,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;

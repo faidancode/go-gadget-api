@@ -2,6 +2,7 @@
 SELECT *, count(*) OVER() AS total_count
 FROM brands
 WHERE deleted_at IS NULL
+  AND is_active = true
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 

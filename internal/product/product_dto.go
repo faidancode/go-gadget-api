@@ -11,6 +11,7 @@ type ListPublicRequest struct {
 	Page        int
 	Limit       int
 	Search      string
+	BrandSlug   string
 	CategoryIDs []string
 	MinPrice    float64
 	MaxPrice    float64
@@ -21,6 +22,7 @@ type ListPublicQuery struct {
 	Page        int      `form:"page,default=1"`
 	Limit       int      `form:"limit,default=10"`
 	Search      string   `form:"search"`
+	BrandSlug   string   `form:"brandSlug"`
 	CategoryIDs []string `form:"category_ids"`
 	MinPrice    float64  `form:"min_price"`
 	MaxPrice    float64  `form:"max_price"`
@@ -46,6 +48,7 @@ type ListAdminQuery struct {
 }
 
 type CreateProductRequest struct {
+	BrandID     string  `json:"brandId" validate:"required"`
 	CategoryID  string  `json:"categoryId" validate:"required"`
 	Name        string  `json:"name" validate:"required"`
 	Description string  `json:"description"`
@@ -56,6 +59,7 @@ type CreateProductRequest struct {
 }
 
 type UpdateProductRequest struct {
+	BrandID     string  `json:"brandId"`
 	CategoryID  string  `json:"categoryId"`
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
@@ -116,7 +120,9 @@ type ReviewSummary struct {
 // ProductAdminResponse untuk dashboard admin
 type ProductAdminResponse struct {
 	ID           string    `json:"id"`
+	CategoryID   string    `json:"categoryId"`
 	CategoryName string    `json:"categoryName"`
+	BrandID      string    `json:"brandId"`
 	Name         string    `json:"name"`
 	Slug         string    `json:"slug"`
 	Price        float64   `json:"price"`

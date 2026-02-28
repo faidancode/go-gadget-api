@@ -15,12 +15,13 @@ import (
 )
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (category_id, name, slug, description, price, stock, sku, image_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price
+INSERT INTO products (brand_id, category_id, name, slug, description, price, stock, sku, image_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price, brand_id
 `
 
 type CreateProductParams struct {
+	BrandID     uuid.NullUUID  `json:"brand_id"`
 	CategoryID  uuid.UUID      `json:"category_id"`
 	Name        string         `json:"name"`
 	Slug        string         `json:"slug"`
@@ -33,6 +34,7 @@ type CreateProductParams struct {
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
 	row := q.queryRow(ctx, q.createProductStmt, createProduct,
+		arg.BrandID,
 		arg.CategoryID,
 		arg.Name,
 		arg.Slug,
@@ -58,6 +60,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.DiscountPrice,
+		&i.BrandID,
 	)
 	return i, err
 }
@@ -93,7 +96,7 @@ func (q *Queries) GetIDsBySlugs(ctx context.Context, dollar_1 []string) ([]uuid.
 }
 
 const getProductByID = `-- name: GetProductByID :one
-SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, c.name as category_name 
+SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, p.brand_id, c.name as category_name 
 FROM products p
 JOIN categories c ON p.category_id = c.id
 WHERE p.id = $1 AND p.deleted_at IS NULL LIMIT 1
@@ -114,6 +117,7 @@ type GetProductByIDRow struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     sql.NullTime   `json:"deleted_at"`
 	DiscountPrice sql.NullString `json:"discount_price"`
+	BrandID       uuid.NullUUID  `json:"brand_id"`
 	CategoryName  string         `json:"category_name"`
 }
 
@@ -135,13 +139,14 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.DiscountPrice,
+		&i.BrandID,
 		&i.CategoryName,
 	)
 	return i, err
 }
 
 const getProductBySlug = `-- name: GetProductBySlug :one
-SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, c.name as category_name 
+SELECT p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, p.brand_id, c.name as category_name 
 FROM products p
 JOIN categories c ON p.category_id = c.id
 WHERE p.slug = $1 AND p.deleted_at IS NULL LIMIT 1
@@ -162,6 +167,7 @@ type GetProductBySlugRow struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     sql.NullTime   `json:"deleted_at"`
 	DiscountPrice sql.NullString `json:"discount_price"`
+	BrandID       uuid.NullUUID  `json:"brand_id"`
 	CategoryName  string         `json:"category_name"`
 }
 
@@ -183,6 +189,7 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.DiscountPrice,
+		&i.BrandID,
 		&i.CategoryName,
 	)
 	return i, err
@@ -190,46 +197,62 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 
 const listProductsAdmin = `-- name: ListProductsAdmin :many
 SELECT
-    p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price,
+    p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, p.brand_id,
+    c.id AS category_id,
     c.name AS category_name,
+    b.id AS brand_id,
+    b.name AS brand_name,
     COUNT(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
+LEFT JOIN brands b ON p.brand_id = b.id
 WHERE
-    ($3::uuid IS NULL OR p.category_id = $3::uuid)
+    p.deleted_at IS NULL
+    AND ($3::uuid IS NULL OR p.brand_id = $3::uuid)
+    AND ($4::uuid IS NULL OR p.category_id = $4::uuid)
     AND (
-        $4::text IS NULL
-        OR p.name ILIKE '%' || $4::text || '%'
-        OR p.sku  ILIKE '%' || $4::text || '%'
+        $5::text IS NULL
+        OR p.name ILIKE '%' || $5::text || '%'
+        OR p.sku  ILIKE '%' || $5::text || '%'
     )
 ORDER BY
+    -- brand_name
+    CASE
+        WHEN $6 = 'brand_name' AND $7 = 'asc'
+            THEN b.name
+    END ASC,
+    CASE
+        WHEN $6 = 'brand_name' AND $7 = 'desc'
+            THEN b.name
+    END DESC,
+
     -- name
     CASE
-        WHEN $5 = 'name' AND $6 = 'asc'
+        WHEN $6 = 'name' AND $7 = 'asc'
             THEN p.name
     END ASC,
     CASE
-        WHEN $5 = 'name' AND $6 = 'desc'
+        WHEN $6 = 'name' AND $7 = 'desc'
             THEN p.name
     END DESC,
 
     -- stock
     CASE
-        WHEN $5 = 'stock' AND $6 = 'asc'
+        WHEN $6 = 'stock' AND $7 = 'asc'
             THEN p.stock
     END ASC,
     CASE
-        WHEN $5 = 'stock' AND $6 = 'desc'
+        WHEN $6 = 'stock' AND $7 = 'desc'
             THEN p.stock
     END DESC,
 
     -- price
     CASE
-        WHEN $5 = 'price' AND $6 = 'asc'
+        WHEN $6 = 'price' AND $7 = 'asc'
             THEN p.price
     END ASC,
     CASE
-        WHEN $5 = 'price' AND $6 = 'desc'
+        WHEN $6 = 'price' AND $7 = 'desc'
             THEN p.price
     END DESC,
 
@@ -241,6 +264,7 @@ LIMIT $1 OFFSET $2
 type ListProductsAdminParams struct {
 	Limit      int32          `json:"limit"`
 	Offset     int32          `json:"offset"`
+	BrandID    uuid.NullUUID  `json:"brand_id"`
 	CategoryID uuid.NullUUID  `json:"category_id"`
 	Search     sql.NullString `json:"search"`
 	SortCol    interface{}    `json:"sort_col"`
@@ -262,7 +286,11 @@ type ListProductsAdminRow struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     sql.NullTime   `json:"deleted_at"`
 	DiscountPrice sql.NullString `json:"discount_price"`
+	BrandID       uuid.NullUUID  `json:"brand_id"`
+	CategoryID_2  uuid.UUID      `json:"category_id_2"`
 	CategoryName  string         `json:"category_name"`
+	BrandID_2     uuid.NullUUID  `json:"brand_id_2"`
+	BrandName     sql.NullString `json:"brand_name"`
 	TotalCount    int64          `json:"total_count"`
 }
 
@@ -270,6 +298,7 @@ func (q *Queries) ListProductsAdmin(ctx context.Context, arg ListProductsAdminPa
 	rows, err := q.query(ctx, q.listProductsAdminStmt, listProductsAdmin,
 		arg.Limit,
 		arg.Offset,
+		arg.BrandID,
 		arg.CategoryID,
 		arg.Search,
 		arg.SortCol,
@@ -297,7 +326,11 @@ func (q *Queries) ListProductsAdmin(ctx context.Context, arg ListProductsAdminPa
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.DiscountPrice,
+			&i.BrandID,
+			&i.CategoryID_2,
 			&i.CategoryName,
+			&i.BrandID_2,
+			&i.BrandName,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -351,11 +384,12 @@ func (q *Queries) ListProductsForInternal(ctx context.Context) ([]ListProductsFo
 
 const listProductsPublic = `-- name: ListProductsPublic :many
 SELECT 
-  p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, 
+  p.id, p.category_id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active, p.created_at, p.updated_at, p.deleted_at, p.discount_price, p.brand_id, 
   c.name AS category_name,
   count(*) OVER() AS total_count
 FROM products p
 JOIN categories c ON p.category_id = c.id
+LEFT JOIN brands b ON p.brand_id = b.id
 WHERE 
   p.deleted_at IS NULL
   AND p.is_active = true
@@ -371,15 +405,20 @@ WHERE
     OR p.name ILIKE '%' || $4::text || '%'
   )
 
+  AND (
+    $5::text IS NULL
+    OR b.slug = $5::text
+  )
+
   -- Pastikan casting aman
-  AND p.price >= $5::numeric
-  AND p.price <= $6::numeric
+  AND p.price >= $6::numeric
+  AND p.price <= $7::numeric
 
 ORDER BY 
-  CASE WHEN LOWER($7::text) = 'newest' THEN p.created_at END DESC,
-  CASE WHEN LOWER($7::text) = 'oldest' THEN p.created_at END ASC,
-  CASE WHEN LOWER($7::text) = 'price_high' THEN p.price END DESC,
-  CASE WHEN LOWER($7::text) = 'price_low' THEN p.price END ASC,
+  CASE WHEN LOWER($8::text) = 'newest' THEN p.created_at END DESC,
+  CASE WHEN LOWER($8::text) = 'oldest' THEN p.created_at END ASC,
+  CASE WHEN LOWER($8::text) = 'price_high' THEN p.price END DESC,
+  CASE WHEN LOWER($8::text) = 'price_low' THEN p.price END ASC,
   p.created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -389,6 +428,7 @@ type ListProductsPublicParams struct {
 	Offset      int32          `json:"offset"`
 	CategoryIds []uuid.UUID    `json:"category_ids"`
 	Search      sql.NullString `json:"search"`
+	BrandSlug   sql.NullString `json:"brand_slug"`
 	MinPrice    string         `json:"min_price"`
 	MaxPrice    string         `json:"max_price"`
 	SortBy      string         `json:"sort_by"`
@@ -409,6 +449,7 @@ type ListProductsPublicRow struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     sql.NullTime   `json:"deleted_at"`
 	DiscountPrice sql.NullString `json:"discount_price"`
+	BrandID       uuid.NullUUID  `json:"brand_id"`
 	CategoryName  string         `json:"category_name"`
 	TotalCount    int64          `json:"total_count"`
 }
@@ -419,6 +460,7 @@ func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublic
 		arg.Offset,
 		pq.Array(arg.CategoryIds),
 		arg.Search,
+		arg.BrandSlug,
 		arg.MinPrice,
 		arg.MaxPrice,
 		arg.SortBy,
@@ -445,6 +487,7 @@ func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublic
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.DiscountPrice,
+			&i.BrandID,
 			&i.CategoryName,
 			&i.TotalCount,
 		); err != nil {
@@ -462,7 +505,7 @@ func (q *Queries) ListProductsPublic(ctx context.Context, arg ListProductsPublic
 }
 
 const restoreProduct = `-- name: RestoreProduct :one
-UPDATE products SET deleted_at = NULL WHERE id = $1 RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price
+UPDATE products SET deleted_at = NULL WHERE id = $1 RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price, brand_id
 `
 
 func (q *Queries) RestoreProduct(ctx context.Context, id uuid.UUID) (Product, error) {
@@ -483,6 +526,7 @@ func (q *Queries) RestoreProduct(ctx context.Context, id uuid.UUID) (Product, er
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.DiscountPrice,
+		&i.BrandID,
 	)
 	return i, err
 }
@@ -499,21 +543,23 @@ func (q *Queries) SoftDeleteProduct(ctx context.Context, id uuid.UUID) error {
 const updateProduct = `-- name: UpdateProduct :one
 UPDATE products
 SET 
-    category_id = $2,
-    name = $3,
-    description = $4,
-    price = $5,
-    stock = $6,
-    sku = $7,
-    image_url = $8,
-    is_active = $9,
+    brand_id = $2,
+    category_id = $3,
+    name = $4,
+    description = $5,
+    price = $6,
+    stock = $7,
+    sku = $8,
+    image_url = $9,
+    is_active = $10,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price
+RETURNING id, category_id, name, slug, description, price, stock, sku, image_url, is_active, created_at, updated_at, deleted_at, discount_price, brand_id
 `
 
 type UpdateProductParams struct {
 	ID          uuid.UUID      `json:"id"`
+	BrandID     uuid.NullUUID  `json:"brand_id"`
 	CategoryID  uuid.UUID      `json:"category_id"`
 	Name        string         `json:"name"`
 	Description sql.NullString `json:"description"`
@@ -527,6 +573,7 @@ type UpdateProductParams struct {
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
 	row := q.queryRow(ctx, q.updateProductStmt, updateProduct,
 		arg.ID,
+		arg.BrandID,
 		arg.CategoryID,
 		arg.Name,
 		arg.Description,
@@ -552,6 +599,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.DiscountPrice,
+		&i.BrandID,
 	)
 	return i, err
 }

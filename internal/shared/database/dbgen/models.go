@@ -155,6 +155,7 @@ type Product struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     sql.NullTime   `json:"deleted_at"`
 	DiscountPrice sql.NullString `json:"discount_price"`
+	BrandID       uuid.NullUUID  `json:"brand_id"`
 }
 
 type Review struct {
