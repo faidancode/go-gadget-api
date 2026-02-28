@@ -110,6 +110,24 @@ func (h *Handler) GetByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, res, nil)
 }
 
+func (h *Handler) GetBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+
+	res, err := h.service.GetBySlug(c.Request.Context(), slug)
+	if err != nil {
+		response.Error(
+			c,
+			http.StatusNotFound,
+			"NOT_FOUND",
+			"Category not found",
+			nil,
+		)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res, nil)
+}
+
 // 3. CREATE BRAND
 func (h *Handler) Create(c *gin.Context) {
 	ctx := c.Request.Context()

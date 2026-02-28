@@ -28,6 +28,7 @@ type Service interface {
 	ListPublic(ctx context.Context, page, limit int) ([]BrandPublicResponse, int64, error)
 	ListAdmin(ctx context.Context, req ListBrandRequest) ([]BrandAdminResponse, int64, error)
 	GetByID(ctx context.Context, id string) (BrandAdminResponse, error)
+	GetBySlug(ctx context.Context, slug string) (BrandPublicResponse, error)
 	Update(ctx context.Context, id string, req UpdateBrandRequest, file multipart.File, filename string) (BrandAdminResponse, error)
 	Delete(ctx context.Context, id string) error
 	Restore(ctx context.Context, id string) (BrandAdminResponse, error)
@@ -132,6 +133,15 @@ func (s *service) GetByID(ctx context.Context, idStr string) (BrandAdminResponse
 		return BrandAdminResponse{}, branderrors.ErrBrandNotFound
 	}
 	return mapToResponse(brand), err
+}
+
+func (s *service) GetBySlug(ctx context.Context, slug string) (BrandPublicResponse, error) {
+
+	brand, err := s.repo.GetBySlug(ctx, slug)
+	if err != nil {
+		return BrandPublicResponse{}, branderrors.ErrBrandNotFound
+	}
+	return mapToPublicResponse(brand), err
 }
 
 func (s *service) Create(ctx context.Context, req CreateBrandRequest, file multipart.File, filename string) (BrandAdminResponse, error) {
@@ -314,6 +324,15 @@ func mapToResponse(brand dbgen.Brand) BrandAdminResponse {
 		ImageUrl:  brand.ImageUrl.String,
 		Slug:      brand.Slug,
 		CreatedAt: brand.CreatedAt,
+	}
+}
+
+func mapToPublicResponse(brand dbgen.Brand) BrandPublicResponse {
+	return BrandPublicResponse{
+		ID:       brand.ID.String(),
+		Name:     brand.Name,
+		ImageUrl: brand.ImageUrl.String,
+		Slug:     brand.Slug,
 	}
 }
 

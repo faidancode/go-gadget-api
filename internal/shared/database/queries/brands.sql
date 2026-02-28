@@ -42,6 +42,9 @@ LIMIT $1 OFFSET $2;
 -- name: GetBrandByID :one
 SELECT * FROM brands WHERE id = $1 AND deleted_at IS NULL LIMIT 1;
 
+-- name: GetBrandBySlug :one
+SELECT * FROM brands WHERE slug = $1 AND deleted_at IS NULL LIMIT 1;
+
 -- name: CreateBrand :one
 INSERT INTO brands (name, slug, description, image_url)
 VALUES ($1, $2, $3, $4)

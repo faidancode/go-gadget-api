@@ -105,6 +105,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getBrandByIDStmt, err = db.PrepareContext(ctx, getBrandByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBrandByID: %w", err)
 	}
+	if q.getBrandBySlugStmt, err = db.PrepareContext(ctx, getBrandBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBrandBySlug: %w", err)
+	}
 	if q.getCartByUserIDStmt, err = db.PrepareContext(ctx, getCartByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartByUserID: %w", err)
 	}
@@ -402,6 +405,11 @@ func (q *Queries) Close() error {
 	if q.getBrandByIDStmt != nil {
 		if cerr := q.getBrandByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBrandByIDStmt: %w", cerr)
+		}
+	}
+	if q.getBrandBySlugStmt != nil {
+		if cerr := q.getBrandBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBrandBySlugStmt: %w", cerr)
 		}
 	}
 	if q.getCartByUserIDStmt != nil {
@@ -735,6 +743,7 @@ type Queries struct {
 	getAddressByIDStmt              *sql.Stmt
 	getAverageRatingByProductIDStmt *sql.Stmt
 	getBrandByIDStmt                *sql.Stmt
+	getBrandBySlugStmt              *sql.Stmt
 	getCartByUserIDStmt             *sql.Stmt
 	getCartDetailStmt               *sql.Stmt
 	getCartItemByCartAndProductStmt *sql.Stmt
@@ -821,6 +830,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAddressByIDStmt:              q.getAddressByIDStmt,
 		getAverageRatingByProductIDStmt: q.getAverageRatingByProductIDStmt,
 		getBrandByIDStmt:                q.getBrandByIDStmt,
+		getBrandBySlugStmt:              q.getBrandBySlugStmt,
 		getCartByUserIDStmt:             q.getCartByUserIDStmt,
 		getCartDetailStmt:               q.getCartDetailStmt,
 		getCartItemByCartAndProductStmt: q.getCartItemByCartAndProductStmt,

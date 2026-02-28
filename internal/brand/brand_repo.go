@@ -15,6 +15,7 @@ type Repository interface {
 	ListPublic(ctx context.Context, limit, offset int32) ([]dbgen.ListBrandsPublicRow, error)
 	ListAdmin(ctx context.Context, arg dbgen.ListBrandsAdminParams) ([]dbgen.ListBrandsAdminRow, error)
 	GetByID(ctx context.Context, id uuid.UUID) (dbgen.Brand, error)
+	GetBySlug(ctx context.Context, slug string) (dbgen.Brand, error)
 	Update(ctx context.Context, arg dbgen.UpdateBrandParams) (dbgen.Brand, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Restore(ctx context.Context, id uuid.UUID) (dbgen.Brand, error)
@@ -42,6 +43,10 @@ func (r *repository) ListAdmin(ctx context.Context, arg dbgen.ListBrandsAdminPar
 
 func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.Brand, error) {
 	return r.queries.GetBrandByID(ctx, id)
+}
+
+func (r *repository) GetBySlug(ctx context.Context, slug string) (dbgen.Brand, error) {
+	return r.queries.GetBrandBySlug(ctx, slug)
 }
 
 func (r *repository) Update(ctx context.Context, arg dbgen.UpdateBrandParams) (dbgen.Brand, error) {

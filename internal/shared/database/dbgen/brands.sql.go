@@ -69,6 +69,27 @@ func (q *Queries) GetBrandByID(ctx context.Context, id uuid.UUID) (Brand, error)
 	return i, err
 }
 
+const getBrandBySlug = `-- name: GetBrandBySlug :one
+SELECT id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at FROM brands WHERE slug = $1 AND deleted_at IS NULL LIMIT 1
+`
+
+func (q *Queries) GetBrandBySlug(ctx context.Context, slug string) (Brand, error) {
+	row := q.queryRow(ctx, q.getBrandBySlugStmt, getBrandBySlug, slug)
+	var i Brand
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.ImageUrl,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const listBrandsAdmin = `-- name: ListBrandsAdmin :many
 SELECT 
     id, name, slug, description, image_url, is_active, created_at, updated_at, deleted_at, 

@@ -25,6 +25,7 @@ type fakeBrandService struct {
 	ListPublicFn func(ctx context.Context, page, limit int) ([]brand.BrandPublicResponse, int64, error)
 	ListAdminFn  func(ctx context.Context, req brand.ListBrandRequest) ([]brand.BrandAdminResponse, int64, error)
 	GetByIDFn    func(ctx context.Context, id string) (brand.BrandAdminResponse, error)
+	GetBySlugFn  func(ctx context.Context, slug string) (brand.BrandPublicResponse, error)
 	UpdateFn     func(ctx context.Context, id string, req brand.UpdateBrandRequest, file multipart.File, filename string) (brand.BrandAdminResponse, error)
 	DeleteFn     func(ctx context.Context, id string) error
 	RestoreFn    func(ctx context.Context, id string) (brand.BrandAdminResponse, error)
@@ -41,6 +42,9 @@ func (f *fakeBrandService) ListAdmin(ctx context.Context, req brand.ListBrandReq
 }
 func (f *fakeBrandService) GetByID(ctx context.Context, id string) (brand.BrandAdminResponse, error) {
 	return f.GetByIDFn(ctx, id)
+}
+func (f *fakeBrandService) GetBySlug(ctx context.Context, slug string) (brand.BrandPublicResponse, error) {
+	return f.GetBySlugFn(ctx, slug)
 }
 func (f *fakeBrandService) Update(ctx context.Context, id string, req brand.UpdateBrandRequest, file multipart.File, filename string) (brand.BrandAdminResponse, error) {
 	return f.UpdateFn(ctx, id, req, file, filename)
@@ -84,7 +88,7 @@ func createMultipartForm(fields map[string]string, fileField, filename string, c
 	return body, ct, nil
 }
 
-func TestCreateBrand(t *testing.T) {
+func TestBrandHandler_CreateBrand(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := &fakeBrandService{
 			CreateFn: func(ctx context.Context, req brand.CreateBrandRequest, file multipart.File, filename string) (brand.BrandAdminResponse, error) {
@@ -163,7 +167,7 @@ func TestCreateBrand(t *testing.T) {
 
 }
 
-func TestUpdateBrand(t *testing.T) {
+func TestBrandHandler_UpdateBrand(t *testing.T) {
 	id := uuid.NewString()
 
 	t.Run("success", func(t *testing.T) {
@@ -213,7 +217,7 @@ func TestUpdateBrand(t *testing.T) {
 	})
 }
 
-func TestListPublicBrands(t *testing.T) {
+func TestBrandHandler_ListPublicBrands(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := &fakeBrandService{
 			ListPublicFn: func(ctx context.Context, page, limit int) ([]brand.BrandPublicResponse, int64, error) {
@@ -334,7 +338,7 @@ func TestBrandHandler_ListAdmin(t *testing.T) {
 	})
 }
 
-func TestGetBrandByID(t *testing.T) {
+func TestBrandHandler_GetBrandByID(t *testing.T) {
 	id := uuid.NewString()
 
 	t.Run("success", func(t *testing.T) {
@@ -371,7 +375,44 @@ func TestGetBrandByID(t *testing.T) {
 	})
 }
 
-func TestDeleteBrand(t *testing.T) {
+func TestBrandHandler_GetBrandBySlug(t *testing.T) {
+	slug := "apple"
+
+	t.Run("success", func(t *testing.T) {
+		svc := &fakeBrandService{
+			GetBySlugFn: func(ctx context.Context, bid string) (brand.BrandPublicResponse, error) {
+				assert.Equal(t, slug, bid)
+				return brand.BrandPublicResponse{Slug: "apple", Name: "Apple"}, nil
+			},
+		}
+
+		r := setupTestRouter()
+		ctrl := brand.NewHandler(svc)
+		r.GET("/brands/:slug", ctrl.GetBySlug)
+
+		req := httptest.NewRequest(http.MethodGet, "/brands/"+slug, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("negative - invalid uuid", func(t *testing.T) {
+		svc := &fakeBrandService{}
+
+		r := setupTestRouter()
+		ctrl := brand.NewHandler(svc)
+		r.GET("/brands/:id", ctrl.GetByID)
+
+		req := httptest.NewRequest(http.MethodGet, "/brands/invalid-uuid", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+func TestBrandHandler_DeleteBrand(t *testing.T) {
 	id := uuid.NewString()
 	t.Run("success", func(t *testing.T) {
 		svc := &fakeBrandService{

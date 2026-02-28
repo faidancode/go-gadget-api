@@ -20,9 +20,9 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 		// 2. Get Detail Brand & Products
 		// Sering digunakan untuk halaman katalog per brand.
 		// Limit 5 rps, burst 10 per IP karena query produk lebih berat.
-		brands.GET("/:id",
+		brands.GET("/:slug",
 			middleware.RateLimitByIP(5, 10),
-			handler.GetByID,
+			handler.GetBySlug,
 		)
 	}
 
@@ -37,6 +37,11 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 		adminBrands.GET("",
 			middleware.RateLimitByUser(10, 20),
 			handler.ListAdmin,
+		)
+
+		adminBrands.GET("/:id",
+			middleware.RateLimitByIP(5, 10),
+			handler.GetByID,
 		)
 
 		// Write Operations (Ketat)
