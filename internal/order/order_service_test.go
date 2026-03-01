@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"go-gadget-api/internal/cart"
+	"go-gadget-api/internal/midtrans"
 	cartMock "go-gadget-api/internal/mock/cart"
+	midtransMock "go-gadget-api/internal/mock/midtrans"
 	orderMock "go-gadget-api/internal/mock/order"
 	outboxMock "go-gadget-api/internal/mock/outbox"
 	"go-gadget-api/internal/order"
@@ -34,15 +36,17 @@ func TestOrderService_Checkout(t *testing.T) {
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
+	midtransSvc := midtransMock.NewMockService(ctrl)
 
 	logger := zap.NewNop()
 
 	svc := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartSvc,
-		Logger:     logger, // <--- WAJIB DITAMBAHKAN
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartSvc,
+		MidtransSvc: midtransSvc,
+		Logger:      logger,
 	})
 
 	ctx := context.Background()
@@ -60,10 +64,18 @@ func TestOrderService_Checkout(t *testing.T) {
 			Detail(gomock.Any(), userID.String()).
 			Return(cart.CartDetailResponse{
 				Items: []cart.CartItemDetailResponse{
-					{ProductID: productID.String(), Qty: 2, Price: 5000},
+					{ProductID: productID.String(), Qty: 2, Price: 5000, ProductName: "Product 1"},
 				},
 			}, nil).
 			Times(1)
+
+		orderRepo.EXPECT().GetUserByID(gomock.Any(), userID).Return(dbgen.GetUserByIDRow{
+			ID: userID, Name: "Customer", Email: "customer@example.com",
+		}, nil).Times(1)
+
+		midtransSvc.EXPECT().CreateTransactionToken(gomock.Any()).Return(&midtrans.CreateTransactionResponse{
+			Token: "token-123", RedirectURL: "url-123",
+		}, nil).Times(1)
 
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
 		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo).Times(1)
@@ -108,12 +120,20 @@ func TestOrderService_Checkout(t *testing.T) {
 			Detail(gomock.Any(), userID.String()).
 			Return(cart.CartDetailResponse{
 				Items: []cart.CartItemDetailResponse{
-					{ProductID: uuid.NewString(), Qty: 2, Price: 10000},
-					{ProductID: uuid.NewString(), Qty: 1, Price: 25000},
-					{ProductID: uuid.NewString(), Qty: 3, Price: 5000},
+					{ProductID: uuid.NewString(), Qty: 2, Price: 10000, ProductName: "Product 1"},
+					{ProductID: uuid.NewString(), Qty: 1, Price: 25000, ProductName: "Product 2"},
+					{ProductID: uuid.NewString(), Qty: 3, Price: 5000, ProductName: "Product 3"},
 				},
 			}, nil).
 			Times(1)
+
+		orderRepo.EXPECT().GetUserByID(gomock.Any(), userID).Return(dbgen.GetUserByIDRow{
+			ID: userID, Name: "Customer", Email: "customer@example.com",
+		}, nil).Times(1)
+
+		midtransSvc.EXPECT().CreateTransactionToken(gomock.Any()).Return(&midtrans.CreateTransactionResponse{
+			Token: "token-123", RedirectURL: "url-123",
+		}, nil).Times(1)
 
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
 		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo).Times(1)
@@ -180,9 +200,17 @@ func TestOrderService_Checkout(t *testing.T) {
 			Detail(gomock.Any(), userID.String()).
 			Return(cart.CartDetailResponse{
 				Items: []cart.CartItemDetailResponse{
-					{ProductID: uuid.NewString(), Qty: 1, Price: 1000},
+					{ProductID: uuid.NewString(), Qty: 1, Price: 1000, ProductName: "Product 1"},
 				},
 			}, nil).Times(1)
+
+		orderRepo.EXPECT().GetUserByID(gomock.Any(), userID).Return(dbgen.GetUserByIDRow{
+			ID: userID, Name: "Customer", Email: "customer@example.com",
+		}, nil).Times(1)
+
+		midtransSvc.EXPECT().CreateTransactionToken(gomock.Any()).Return(&midtrans.CreateTransactionResponse{
+			Token: "token-1", RedirectURL: "url-1",
+		}, nil).Times(1)
 
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
 
@@ -210,9 +238,17 @@ func TestOrderService_Checkout(t *testing.T) {
 			Detail(gomock.Any(), userID.String()).
 			Return(cart.CartDetailResponse{
 				Items: []cart.CartItemDetailResponse{
-					{ProductID: uuid.NewString(), Qty: 1, Price: 1000},
+					{ProductID: uuid.NewString(), Qty: 1, Price: 1000, ProductName: "Product 1"},
 				},
 			}, nil).Times(1)
+
+		orderRepo.EXPECT().GetUserByID(gomock.Any(), userID).Return(dbgen.GetUserByIDRow{
+			ID: userID, Name: "Customer", Email: "customer@example.com",
+		}, nil).Times(1)
+
+		midtransSvc.EXPECT().CreateTransactionToken(gomock.Any()).Return(&midtrans.CreateTransactionResponse{
+			Token: "token-fail", RedirectURL: "url-fail",
+		}, nil).Times(1)
 
 		// Setup Repo dengan WithTx
 		orderRepo.EXPECT().WithTx(gomock.Any()).Return(orderRepo).Times(1)
@@ -258,12 +294,21 @@ func TestOrderService_Checkout(t *testing.T) {
 			Return(cart.CartDetailResponse{
 				Items: []cart.CartItemDetailResponse{
 					{
-						ProductID: productID.String(),
-						Qty:       1,
-						Price:     1000,
+						ProductID:   productID.String(),
+						Qty:         1,
+						Price:       1000,
+						ProductName: "Product 1",
 					},
 				},
 			}, nil)
+
+		orderRepo.EXPECT().GetUserByID(gomock.Any(), userID).Return(dbgen.GetUserByIDRow{
+			ID: userID, Name: "Customer", Email: "customer@example.com",
+		}, nil).Times(1)
+
+		midtransSvc.EXPECT().CreateTransactionToken(gomock.Any()).Return(&midtrans.CreateTransactionResponse{
+			Token: "token-commit-fail", RedirectURL: "url-commit-fail",
+		}, nil).Times(1)
 
 		// -------------------------------------------------
 		// Arrange - Mock Repository (Transactional)

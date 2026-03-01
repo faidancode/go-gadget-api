@@ -82,9 +82,19 @@ func (h *Handler) Checkout(c *gin.Context) {
 		return
 	}
 
+	// 9. Prepare Response to match Frontend Expectation {order, payment}
+	paymentData := gin.H{
+		"snapToken":       res.SnapToken,
+		"snapRedirectUrl": res.SnapRedirectUrl,
+	}
+	finalRes := gin.H{
+		"order":   res,
+		"payment": paymentData,
+	}
+
 	// Simpan hasil ke cache Idempotency jika sukses
 	if cacheKey, exists := c.Get("idempotency_cache_key"); exists {
-		jsonData, _ := json.Marshal(res)
+		jsonData, _ := json.Marshal(finalRes)
 		h.rdb.Set(c.Request.Context(), cacheKey.(string), jsonData, 24*time.Hour)
 
 		h.logger.Debug("idempotency response cached",
@@ -92,7 +102,7 @@ func (h *Handler) Checkout(c *gin.Context) {
 		)
 	}
 
-	response.Success(c, http.StatusCreated, res, nil)
+	response.Success(c, http.StatusCreated, finalRes, nil)
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -237,6 +247,73 @@ func (c *Handler) UpdateStatusByAdmin(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, res)
+}
+
+// PATCH /api/v1/admin/orders/:id/payment-status
+func (h *Handler) UpdatePaymentStatusByAdmin(c *gin.Context) {
+	orderID := c.Param("id")
+	if orderID == "" {
+		httpErr := apperror.ToHTTP(ErrInvalidOrderID)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
+		return
+	}
+
+	var req UpdatePaymentStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
+		return
+	}
+
+	res, err := h.service.UpdatePaymentStatus(c.Request.Context(), orderID, UpdatePaymentStatusInput{
+		PaymentStatus: req.PaymentStatus,
+		PaymentMethod: req.PaymentMethod,
+		PaidAt:        req.PaidAt,
+		CancelledAt:   req.CancelledAt,
+		Note:          req.Note,
+	})
+	if err != nil {
+		httpErr := apperror.ToHTTP(err)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res, nil)
+}
+
+// POST /api/v1/midtrans/notification
+func (h *Handler) HandleMidtransNotification(c *gin.Context) {
+	var payload MidtransNotificationRequest
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
+		return
+	}
+
+	if err := h.service.HandleMidtransNotification(c.Request.Context(), payload); err != nil {
+		httpErr := apperror.ToHTTP(err)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, gin.H{"success": true}, nil)
+}
+
+// POST /api/v1/orders/:id/continue-payment
+func (h *Handler) ContinuePayment(c *gin.Context) {
+	id := c.Param("id")
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated", nil)
+		return
+	}
+
+	res, err := h.service.ContinuePayment(c.Request.Context(), id, userID)
+	if err != nil {
+		httpErr := apperror.ToHTTP(err)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res, nil)
 }
 
 // PATCH /api/v1/orders/:id/complete

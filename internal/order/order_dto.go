@@ -32,27 +32,58 @@ type UpdateStatusAdminRequest struct {
 	ReceiptNo *string `json:"receiptNo"`
 }
 
+type UpdatePaymentStatusRequest struct {
+	PaymentStatus string     `json:"paymentStatus" binding:"required"`
+	PaymentMethod string     `json:"paymentMethod"`
+	PaidAt        *time.Time `json:"paidAt"`
+	CancelledAt   *time.Time `json:"cancelledAt"`
+	Note          *string    `json:"note"`
+}
+
+type MidtransNotificationRequest struct {
+	OrderID           string `json:"order_id" binding:"required"`
+	StatusCode        string `json:"status_code" binding:"required"`
+	GrossAmount       string `json:"gross_amount" binding:"required"`
+	SignatureKey      string `json:"signature_key" binding:"required"`
+	TransactionStatus string `json:"transaction_status" binding:"required"`
+	TransactionTime   string `json:"transaction_time"`
+	PaymentType       string `json:"payment_type"`
+	FraudStatus       string `json:"fraud_status"`
+}
+
+type UpdatePaymentStatusInput struct {
+	PaymentStatus string
+	PaymentMethod string
+	PaidAt        *time.Time
+	CancelledAt   *time.Time
+	Note          *string
+}
+
 // ==================== RESPONSE STRUCTS ====================
 
 type CheckoutResponse struct {
-	ID          string    `json:"id"`
-	OrderNumber string    `json:"orderNumber"`
-	Status      string    `json:"status"`
-	TotalPrice  float64   `json:"totalPrice"`
-	PlacedAt    time.Time `json:"placedAt"`
+	ID              string    `json:"id"`
+	OrderNumber     string    `json:"orderNumber"`
+	Status          string    `json:"status"`
+	TotalPrice      float64   `json:"totalPrice"`
+	PlacedAt        time.Time `json:"placedAt"`
+	SnapToken       *string   `json:"snapToken,omitempty"`
+	SnapRedirectUrl *string   `json:"snapRedirectUrl,omitempty"`
 }
 
 type OrderResponse struct {
-	ID            string              `json:"id"`
-	OrderNumber   string              `json:"orderNumber"`
-	Status        string              `json:"status"`
-	ReceiptNo     *string             `json:"receiptNo,omitempty"` // Tambahkan di sini
-	PaymentStatus string              `json:"paymentStatus"`
-	SubtotalPrice float64             `json:"subtotalPrice"`
-	ShippingPrice float64             `json:"shippingPrice"`
-	TotalPrice    float64             `json:"totalPrice"`
-	PlacedAt      time.Time           `json:"placedAt"`
-	Items         []OrderItemResponse `json:"items,omitempty"`
+	ID              string              `json:"id"`
+	OrderNumber     string              `json:"orderNumber"`
+	Status          string              `json:"status"`
+	ReceiptNo       *string             `json:"receiptNo,omitempty"` // Tambahkan di sini
+	PaymentStatus   string              `json:"paymentStatus"`
+	SubtotalPrice   float64             `json:"subtotalPrice"`
+	ShippingPrice   float64             `json:"shippingPrice"`
+	TotalPrice      float64             `json:"totalPrice"`
+	PlacedAt        time.Time           `json:"placedAt"`
+	SnapToken       *string             `json:"snapToken,omitempty"`
+	SnapRedirectUrl *string             `json:"snapRedirectUrl,omitempty"`
+	Items           []OrderItemResponse `json:"items,omitempty"`
 }
 
 type OrderItemResponse struct {

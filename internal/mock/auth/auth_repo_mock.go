@@ -59,36 +59,6 @@ func (mr *MockRepositoryMockRecorder) Create(ctx, params any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockRepository)(nil).Create), ctx, params)
 }
 
-// GetByEmail mocks base method.
-func (m *MockRepository) GetByEmail(ctx context.Context, email string) (dbgen.GetUserByEmailRow, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByEmail", ctx, email)
-	ret0, _ := ret[0].(dbgen.GetUserByEmailRow)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByEmail indicates an expected call of GetByEmail.
-func (mr *MockRepositoryMockRecorder) GetByEmail(ctx, email any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByEmail", reflect.TypeOf((*MockRepository)(nil).GetByEmail), ctx, email)
-}
-
-// GetByID mocks base method.
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetUserByIDRow, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByID", ctx, id)
-	ret0, _ := ret[0].(dbgen.GetUserByIDRow)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByID indicates an expected call of GetByID.
-func (mr *MockRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
-}
-
 // DeleteEmailConfirmationTokenByPin mocks base method.
 func (m *MockRepository) DeleteEmailConfirmationTokenByPin(ctx context.Context, pin string) error {
 	m.ctrl.T.Helper()
@@ -143,6 +113,36 @@ func (m *MockRepository) DeletePasswordResetTokenByToken(ctx context.Context, to
 func (mr *MockRepositoryMockRecorder) DeletePasswordResetTokenByToken(ctx, token any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePasswordResetTokenByToken", reflect.TypeOf((*MockRepository)(nil).DeletePasswordResetTokenByToken), ctx, token)
+}
+
+// GetByEmail mocks base method.
+func (m *MockRepository) GetByEmail(ctx context.Context, email string) (dbgen.GetUserByEmailRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByEmail", ctx, email)
+	ret0, _ := ret[0].(dbgen.GetUserByEmailRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByEmail indicates an expected call of GetByEmail.
+func (mr *MockRepositoryMockRecorder) GetByEmail(ctx, email any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByEmail", reflect.TypeOf((*MockRepository)(nil).GetByEmail), ctx, email)
+}
+
+// GetByID mocks base method.
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetUserByIDRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByID", ctx, id)
+	ret0, _ := ret[0].(dbgen.GetUserByIDRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByID indicates an expected call of GetByID.
+func (mr *MockRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
 }
 
 // GetEmailConfirmationTokenByToken mocks base method.

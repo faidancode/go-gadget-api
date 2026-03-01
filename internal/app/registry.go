@@ -11,6 +11,7 @@ import (
 	"go-gadget-api/internal/cloudinary"
 	"go-gadget-api/internal/customer"
 	"go-gadget-api/internal/email"
+	"go-gadget-api/internal/midtrans"
 	"go-gadget-api/internal/order"
 	"go-gadget-api/internal/outbox"
 	"go-gadget-api/internal/product"
@@ -59,11 +60,13 @@ func registerModules(
 	productService := product.NewService(db, productRepo, categoryRepo, reviewRepo, cloudinaryService)
 	cartService := cart.NewService(db, cartRepo)
 	addressService := address.NewService(db, addressRepo)
+	midtransService := midtrans.NewService()
 	orderService := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartService,
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartService,
+		MidtransSvc: midtransService,
 	})
 	customerService := customer.NewService(db, customerRepo)
 	wishlistService := wishlist.NewService(db, wishlistRepo)

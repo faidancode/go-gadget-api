@@ -9,6 +9,11 @@ import (
 )
 
 func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client, logger *zap.Logger) {
+	midtrans := r.Group("/midtrans")
+	{
+		midtrans.POST("/notification", handler.HandleMidtransNotification)
+	}
+
 	// Group utama Order (User Side)
 	orders := r.Group("/orders")
 	orders.Use(middleware.AuthMiddleware())
@@ -43,6 +48,10 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client, log
 			middleware.RateLimitByUser(0.5, 2),
 			handler.Complete,
 		)
+		orders.POST("/:id/continue-payment",
+			middleware.RateLimitByUser(0.5, 2),
+			handler.ContinuePayment,
+		)
 	}
 
 	// Admin Routes (Management)
@@ -61,6 +70,10 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client, log
 		adminOrders.PATCH("/:id/status",
 			middleware.RateLimitByUser(2, 5),
 			handler.UpdateStatusByAdmin,
+		)
+		adminOrders.PATCH("/:id/payment-status",
+			middleware.RateLimitByUser(2, 5),
+			handler.UpdatePaymentStatusByAdmin,
 		)
 	}
 }

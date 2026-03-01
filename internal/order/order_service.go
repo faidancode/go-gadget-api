@@ -2,16 +2,21 @@ package order
 
 import (
 	"context"
+	"crypto/sha512"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	autherrors "go-gadget-api/internal/auth/errors"
 	"go-gadget-api/internal/cart"
+	"go-gadget-api/internal/midtrans"
 	"go-gadget-api/internal/outbox"
 	"go-gadget-api/internal/shared/database/dbgen"
 	"go-gadget-api/internal/shared/database/helper"
 	"log"
+	"math"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -28,26 +33,44 @@ type Service interface {
 	Detail(ctx context.Context, orderID string) (OrderResponse, error)
 	Cancel(ctx context.Context, orderID string) error
 	Complete(ctx context.Context, orderID string, userID string, nextStatus string) (OrderResponse, error)
+	ContinuePayment(ctx context.Context, orderID string, userID string) (*midtrans.CreateTransactionResponse, error)
 
 	// Shared/Admin Actions
 	ListAdmin(ctx context.Context, status string, search string, page, limit int) ([]OrderResponse, int64, error)
 	UpdateStatusByAdmin(ctx context.Context, orderID string, nextStatus string, receiptNo *string) (OrderResponse, error)
+	UpdatePaymentStatus(ctx context.Context, orderID string, input UpdatePaymentStatusInput) (OrderResponse, error)
+	UpdatePaymentStatusByOrderNumber(ctx context.Context, orderNumber string, input UpdatePaymentStatusInput) (OrderResponse, error)
+	HandleMidtransNotification(ctx context.Context, payload MidtransNotificationRequest) error
 }
 
 type service struct {
-	db         *sql.DB
-	repo       Repository
-	outboxRepo outbox.Repository
-	cartSvc    cart.Service
-	logger     *zap.Logger
+	db          *sql.DB
+	repo        Repository
+	outboxRepo  outbox.Repository
+	cartSvc     cart.Service
+	midtransSvc midtrans.Service
+	logger      *zap.Logger
 }
 
 type Deps struct {
-	DB         *sql.DB
-	Repo       Repository
-	OutboxRepo outbox.Repository
-	CartSvc    cart.Service
-	Logger     *zap.Logger
+	DB          *sql.DB
+	Repo        Repository
+	OutboxRepo  outbox.Repository
+	CartSvc     cart.Service
+	MidtransSvc midtrans.Service
+	Logger      *zap.Logger
+}
+
+var paymentStatusTransitions = map[string]map[string]struct{}{
+	"UNPAID": {
+		"PAID":     {},
+		"REFUNDED": {},
+	},
+	"PAID": {
+		"UNPAID":   {},
+		"REFUNDED": {},
+	},
+	"REFUNDED": {},
 }
 
 func NewService(deps Deps) Service {
@@ -64,18 +87,102 @@ func NewService(deps Deps) Service {
 	if deps.CartSvc == nil {
 		panic("cart service cannot be nil")
 	}
+	if deps.MidtransSvc == nil {
+		panic("midtrans service cannot be nil")
+	}
 	if deps.Logger == nil {
 		deps.Logger = zap.NewNop()
 	}
 
 	// 2. Inisialisasi Service
 	return &service{
-		db:         deps.DB,
-		repo:       deps.Repo,
-		outboxRepo: deps.OutboxRepo,
-		cartSvc:    deps.CartSvc,
-		logger:     deps.Logger, // Pastikan ini dipetakan
+		db:          deps.DB,
+		repo:        deps.Repo,
+		outboxRepo:  deps.OutboxRepo,
+		cartSvc:     deps.CartSvc,
+		midtransSvc: deps.MidtransSvc,
+		logger:      deps.Logger, // Pastikan ini dipetakan
 	}
+}
+
+func (s *service) ContinuePayment(ctx context.Context, orderID string, userID string) (*midtrans.CreateTransactionResponse, error) {
+	parsedOrderID, err := uuid.Parse(orderID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid order id: %w", err)
+	}
+
+	parsedUserID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id: %w", err)
+	}
+
+	order, err := s.repo.GetByID(ctx, parsedOrderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	if order.UserID != parsedUserID {
+		return nil, fmt.Errorf("order does not belong to user")
+	}
+
+	if order.PaymentStatus != "UNPAID" {
+		return nil, fmt.Errorf("order payment cannot be retried unless it is still unpaid")
+	}
+
+	// Check if token already exists and not expired
+	if order.SnapToken.Valid && order.SnapTokenExpiredAt.Valid && order.SnapTokenExpiredAt.Time.After(time.Now()) {
+		return &midtrans.CreateTransactionResponse{
+			Token:       order.SnapToken.String,
+			RedirectURL: order.SnapRedirectUrl.String,
+		}, nil
+	}
+
+	// Create new token
+	items, err := s.repo.GetItems(ctx, parsedOrderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order items: %w", err)
+	}
+
+	midtransItems := make([]midtrans.ItemDetail, 0, len(items))
+	for _, item := range items {
+		price, _ := strconv.ParseFloat(item.UnitPrice, 64)
+		midtransItems = append(midtransItems, midtrans.ItemDetail{
+			ID:    item.ProductID.String(),
+			Price: int64(price),
+			Qty:   item.Quantity,
+			Name:  item.NameSnapshot,
+		})
+	}
+
+	totalPrice, _ := strconv.ParseFloat(order.TotalPrice, 64)
+	midtransReq := &midtrans.CreateTransactionRequest{
+		OrderID:     fmt.Sprintf("%s_%d", order.OrderNumber, time.Now().Unix()),
+		GrossAmount: int64(totalPrice),
+		Items:       midtransItems,
+		Customer:    &midtrans.CustomerDetails{}, // Empty for now, or load from profile if needed
+	}
+
+	midtransResp, err := s.midtransSvc.CreateTransactionToken(midtransReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create midtrans transaction: %w", err)
+	}
+
+	if midtransResp == nil {
+		return nil, fmt.Errorf("received nil response from midtrans")
+	}
+
+	// Update order with new token
+	_, err = s.repo.UpdateOrderSnapToken(ctx, dbgen.UpdateOrderSnapTokenParams{
+		ID:                 parsedOrderID,
+		SnapToken:          sql.NullString{String: midtransResp.Token, Valid: true},
+		SnapRedirectUrl:    sql.NullString{String: midtransResp.RedirectURL, Valid: true},
+		SnapTokenExpiredAt: sql.NullTime{Time: time.Now().Add(24 * time.Hour), Valid: true},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update order snap token: %w", err)
+	}
+
+	return midtransResp, nil
 }
 
 func (s *service) Checkout(
@@ -123,7 +230,50 @@ func (s *service) Checkout(
 
 	addressSnapshot, _ := json.Marshal(map[string]string{"address_id": req.AddressID})
 
-	// 4. Begin Transaction
+	// 4. Generate Order Number & Info Dasar
+	orderNumber := fmt.Sprintf("GGS-%d-%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
+	logger = logger.With(zap.String("order_number", orderNumber))
+
+	// fetch user info for midtrans
+	userData, err := s.repo.GetUserByID(ctx, uid)
+	if err != nil {
+		logger.Error("failed to fetch user info", zap.Error(err))
+		return OrderResponse{}, err
+	}
+
+	// 5. Midtrans Integration
+	var midtransItems []midtrans.ItemDetail
+	for _, item := range cartData.Items {
+		midtransItems = append(midtransItems, midtrans.ItemDetail{
+			ID:    item.ProductID,
+			Price: int64(item.Price),
+			Qty:   item.Qty,
+			Name:  item.ProductName,
+		})
+	}
+
+	midtransReq := &midtrans.CreateTransactionRequest{
+		OrderID:     orderNumber,
+		GrossAmount: int64(total),
+		Customer: &midtrans.CustomerDetails{
+			FirstName: userData.Name,
+			Email:     userData.Email,
+		},
+		Items: midtransItems,
+	}
+
+	midtransResp, err := s.midtransSvc.CreateTransactionToken(midtransReq)
+	if err != nil {
+		logger.Error("failed to create midtrans transaction", zap.Error(err))
+		return OrderResponse{}, err
+	}
+
+	if midtransResp == nil {
+		logger.Error("midtrans response is nil")
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	// 6. Begin Transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
@@ -140,12 +290,7 @@ func (s *service) Checkout(
 
 	qtx := s.repo.WithTx(tx)
 
-	// 5. Create Order
-	orderNumber := fmt.Sprintf("ORD-%d-%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
-
-	// Update logger dengan order_number untuk tracing langkah selanjutnya
-	logger = logger.With(zap.String("order_number", orderNumber))
-
+	// 7. Create Order
 	order, err := qtx.CreateOrder(ctx, dbgen.CreateOrderParams{
 		OrderNumber:     orderNumber,
 		UserID:          uid,
@@ -156,6 +301,8 @@ func (s *service) Checkout(
 		ShippingPrice:   fmt.Sprintf("%.2f", shippingPrice),
 		TotalPrice:      fmt.Sprintf("%.2f", total),
 		Note:            helper.StringToNull(&req.Note),
+		SnapToken:       sql.NullString{String: midtransResp.Token, Valid: midtransResp.Token != ""},
+		SnapRedirectUrl: sql.NullString{String: midtransResp.RedirectURL, Valid: midtransResp.RedirectURL != ""},
 	})
 	if err != nil {
 		logger.Error("failed to create order record", zap.Error(err))
@@ -508,6 +655,340 @@ func (s *service) UpdateStatusByAdmin(ctx context.Context, orderID string, nextS
 	return s.mapOrderToResponse(o, nil), nil
 }
 
+func (s *service) UpdatePaymentStatus(ctx context.Context, orderID string, input UpdatePaymentStatusInput) (OrderResponse, error) {
+	oid, err := uuid.Parse(orderID)
+	if err != nil {
+		return OrderResponse{}, ErrInvalidOrderID
+	}
+
+	return s.updatePaymentStatusWithFilter(ctx, input, "id = $1", oid)
+}
+
+func (s *service) UpdatePaymentStatusByOrderNumber(ctx context.Context, orderNumber string, input UpdatePaymentStatusInput) (OrderResponse, error) {
+	orderNumber = strings.TrimSpace(orderNumber)
+	if orderNumber == "" {
+		return OrderResponse{}, ErrInvalidOrderNumber
+	}
+
+	return s.updatePaymentStatusWithFilter(ctx, input, "order_number = $1", orderNumber)
+}
+
+func (s *service) HandleMidtransNotification(ctx context.Context, payload MidtransNotificationRequest) error {
+	if err := validateMidtransNotification(payload); err != nil {
+		return err
+	}
+
+	if err := verifyMidtransSignature(payload); err != nil {
+		return err
+	}
+
+	orderSummary, err := s.getOrderSummaryByOrderNumber(ctx, payload.OrderID)
+	if err != nil {
+		return err
+	}
+
+	if strings.EqualFold(payload.TransactionStatus, "expire") {
+		_, err = s.updatePaymentStatusWithFilter(
+			ctx,
+			UpdatePaymentStatusInput{
+				PaymentStatus: "REFUNDED",
+				CancelledAt:   timePtr(time.Now()),
+				Note:          stringPtr("expired by midtrans"),
+			},
+			"order_number = $1",
+			payload.OrderID,
+		)
+		return err
+	}
+
+	shouldMarkPaid := strings.EqualFold(payload.TransactionStatus, "settlement") ||
+		(strings.EqualFold(payload.TransactionStatus, "capture") && strings.EqualFold(payload.FraudStatus, "accept"))
+	if !shouldMarkPaid {
+		return nil
+	}
+
+	grossAmount, err := parseCurrencyToCents(payload.GrossAmount)
+	if err != nil {
+		return ErrInvalidGrossAmount
+	}
+
+	expectedGross, err := calculateExpectedGrossCents(orderSummary.SubtotalPrice, orderSummary.DiscountPrice, orderSummary.ShippingPrice)
+	if err != nil {
+		return err
+	}
+	if grossAmount != expectedGross {
+		return ErrGrossAmountMismatch
+	}
+
+	paidAt, err := parseMidtransTransactionTime(payload.TransactionTime)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.UpdatePaymentStatusByOrderNumber(ctx, payload.OrderID, UpdatePaymentStatusInput{
+		PaymentStatus: "PAID",
+		PaymentMethod: payload.PaymentType,
+		PaidAt:        &paidAt,
+	})
+	return err
+}
+
+// Removed manual structs as we now use dbgen types
+
+func (s *service) updatePaymentStatusWithFilter(ctx context.Context, input UpdatePaymentStatusInput, filter string, filterValue any) (OrderResponse, error) {
+	nextStatus := strings.ToUpper(strings.TrimSpace(input.PaymentStatus))
+	if nextStatus == "" {
+		return OrderResponse{}, ErrInvalidPaymentStatus
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return OrderResponse{}, ErrOrderFailed
+	}
+	defer tx.Rollback()
+
+	qtx := s.repo.WithTx(tx)
+
+	var row struct {
+		ID            uuid.UUID
+		Status        string
+		PaymentStatus string
+		PaidAt        sql.NullTime
+		CancelledAt   sql.NullTime
+	}
+
+	if filter == "id = $1" {
+		res, err := qtx.GetOrderPaymentForUpdateByID(ctx, filterValue.(uuid.UUID))
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return OrderResponse{}, ErrOrderNotFound
+			}
+			return OrderResponse{}, ErrOrderFailed
+		}
+		row.ID = res.ID
+		row.Status = res.Status
+		row.PaymentStatus = res.PaymentStatus
+		row.PaidAt = res.PaidAt
+		row.CancelledAt = res.CancelledAt
+	} else {
+		res, err := qtx.GetOrderPaymentForUpdateByOrderNumber(ctx, filterValue.(string))
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return OrderResponse{}, ErrOrderNotFound
+			}
+			return OrderResponse{}, ErrOrderFailed
+		}
+		row.ID = res.ID
+		row.Status = res.Status
+		row.PaymentStatus = res.PaymentStatus
+		row.PaidAt = res.PaidAt
+		row.CancelledAt = res.CancelledAt
+	}
+
+	currentStatus := strings.ToUpper(strings.TrimSpace(row.PaymentStatus))
+	if currentStatus == nextStatus {
+		if err := tx.Commit(); err != nil {
+			return OrderResponse{}, ErrOrderFailed
+		}
+		return s.Detail(ctx, row.ID.String())
+	}
+
+	allowedTransitions, exists := paymentStatusTransitions[currentStatus]
+	if !exists {
+		return OrderResponse{}, ErrInvalidPaymentStatus
+	}
+	if _, allowed := allowedTransitions[nextStatus]; !allowed {
+		return OrderResponse{}, ErrInvalidPaymentStatusTransition
+	}
+
+	now := time.Now()
+	paymentMethod := strings.TrimSpace(input.PaymentMethod)
+	var method sql.NullString
+	if paymentMethod != "" {
+		method = sql.NullString{String: paymentMethod, Valid: true}
+	}
+
+	paidAt := row.PaidAt
+	cancelledAt := row.CancelledAt
+	nextOrderStatus := row.Status
+
+	switch nextStatus {
+	case "PAID":
+		if input.PaidAt != nil {
+			paidAt = sql.NullTime{Time: *input.PaidAt, Valid: true}
+		} else if !paidAt.Valid {
+			paidAt = sql.NullTime{Time: now, Valid: true}
+		}
+		if row.Status == "PENDING" {
+			nextOrderStatus = "PAID"
+		}
+	case "REFUNDED":
+		if input.CancelledAt != nil {
+			cancelledAt = sql.NullTime{Time: *input.CancelledAt, Valid: true}
+		} else if !cancelledAt.Valid {
+			cancelledAt = sql.NullTime{Time: now, Valid: true}
+		}
+		if row.Status == "PENDING" || row.Status == "PAID" {
+			nextOrderStatus = "CANCELLED"
+		}
+	case "UNPAID":
+		paidAt = sql.NullTime{}
+		if row.Status == "PAID" {
+			nextOrderStatus = "PENDING"
+		}
+	default:
+		return OrderResponse{}, ErrInvalidPaymentStatus
+	}
+
+	note := sql.NullString{}
+	if input.Note != nil {
+		trimmedNote := strings.TrimSpace(*input.Note)
+		if trimmedNote != "" {
+			note = sql.NullString{String: trimmedNote, Valid: true}
+		}
+	}
+
+	var noteStr string
+	if note.Valid {
+		noteStr = note.String
+	}
+
+	var methodStr string
+	if method.Valid {
+		methodStr = method.String
+	}
+
+	_, err = qtx.UpdateOrderPaymentStatus(ctx, dbgen.UpdateOrderPaymentStatusParams{
+		ID:            row.ID,
+		PaymentStatus: nextStatus,
+		PaymentMethod: methodStr,
+		PaidAt:        paidAt,
+		CancelledAt:   cancelledAt,
+		Status:        nextOrderStatus,
+		Note:          noteStr,
+	})
+	if err != nil {
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	if err := tx.Commit(); err != nil {
+		return OrderResponse{}, ErrOrderFailed
+	}
+
+	return s.Detail(ctx, row.ID.String())
+}
+
+func (s *service) getOrderSummaryByOrderNumber(ctx context.Context, orderNumber string) (dbgen.GetOrderSummaryByOrderNumberRow, error) {
+	orderNumber = strings.TrimSpace(orderNumber)
+	if orderNumber == "" {
+		return dbgen.GetOrderSummaryByOrderNumberRow{}, ErrInvalidOrderNumber
+	}
+
+	res, err := s.repo.GetOrderSummaryByOrderNumber(ctx, orderNumber)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return dbgen.GetOrderSummaryByOrderNumberRow{}, ErrOrderNotFound
+		}
+		return dbgen.GetOrderSummaryByOrderNumberRow{}, ErrOrderFailed
+	}
+
+	return res, nil
+}
+
+func validateMidtransNotification(payload MidtransNotificationRequest) error {
+	if strings.TrimSpace(payload.OrderID) == "" ||
+		strings.TrimSpace(payload.StatusCode) == "" ||
+		strings.TrimSpace(payload.GrossAmount) == "" ||
+		strings.TrimSpace(payload.SignatureKey) == "" ||
+		strings.TrimSpace(payload.TransactionStatus) == "" {
+		return ErrInvalidMidtransPayload
+	}
+	return nil
+}
+
+func verifyMidtransSignature(payload MidtransNotificationRequest) error {
+	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
+	if serverKey == "" {
+		return ErrMidtransServerKeyNotConfigured
+	}
+
+	raw := payload.OrderID + payload.StatusCode + payload.GrossAmount + serverKey
+	hash := sha512.Sum512([]byte(raw))
+	expectedSignature := hex.EncodeToString(hash[:])
+	incomingSignature := strings.ToLower(strings.TrimSpace(payload.SignatureKey))
+	if expectedSignature != incomingSignature {
+		return ErrInvalidMidtransSignature
+	}
+
+	return nil
+}
+
+func parseCurrencyToCents(amount string) (int64, error) {
+	parsed, err := strconv.ParseFloat(strings.TrimSpace(amount), 64)
+	if err != nil {
+		return 0, err
+	}
+	return int64(math.Round(parsed * 100)), nil
+}
+
+func calculateExpectedGrossCents(subtotal, discount, shipping string) (int64, error) {
+	subtotalCents, err := parseCurrencyToCents(subtotal)
+	if err != nil {
+		return 0, ErrInvalidGrossAmount
+	}
+	discountCents, err := parseCurrencyToCents(discount)
+	if err != nil {
+		return 0, ErrInvalidGrossAmount
+	}
+	shippingCents, err := parseCurrencyToCents(shipping)
+	if err != nil {
+		return 0, ErrInvalidGrossAmount
+	}
+
+	total := subtotalCents - discountCents + shippingCents
+	if total < 0 {
+		return 0, nil
+	}
+	return total, nil
+}
+
+func parseMidtransTransactionTime(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Now(), nil
+	}
+
+	layouts := []string{
+		"2006-01-02 15:04:05",
+		time.RFC3339,
+		"2006-01-02T15:04:05-0700",
+	}
+
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	for _, layout := range layouts {
+		var parsed time.Time
+		var err error
+		if layout == "2006-01-02 15:04:05" {
+			parsed, err = time.ParseInLocation(layout, raw, loc)
+		} else {
+			parsed, err = time.Parse(layout, raw)
+		}
+		if err == nil {
+			return parsed, nil
+		}
+	}
+
+	return time.Time{}, ErrInvalidTransactionTime
+}
+
+func timePtr(v time.Time) *time.Time {
+	return &v
+}
+
+func stringPtr(v string) *string {
+	return &v
+}
+
 // // Implementasi Complete
 // func (s *service) Complete(ctx context.Context, orderID string, userID, nextStatus string) (OrderResponse, error) {
 // 	oid, err := uuid.Parse(orderID)
@@ -546,22 +1027,37 @@ func (s *service) UpdateStatusByAdmin(ctx context.Context, orderID string, nextS
 // Helper Mapper
 func (s *service) mapOrderToResponse(o dbgen.Order, items []dbgen.OrderItem) OrderResponse {
 	total, _ := strconv.ParseFloat(o.TotalPrice, 64)
+	subtotal, _ := strconv.ParseFloat(o.SubtotalPrice, 64)
+	shipping, _ := strconv.ParseFloat(o.ShippingPrice, 64)
+
 	res := OrderResponse{
-		ID:          o.ID.String(),
-		OrderNumber: o.OrderNumber,
-		Status:      o.Status,
-		TotalPrice:  total,
-		PlacedAt:    o.PlacedAt,
+		ID:            o.ID.String(),
+		OrderNumber:   o.OrderNumber,
+		Status:        o.Status,
+		PaymentStatus: o.PaymentStatus,
+		SubtotalPrice: subtotal,
+		ShippingPrice: shipping,
+		TotalPrice:    total,
+		PlacedAt:      o.PlacedAt,
+	}
+
+	if o.SnapToken.Valid {
+		res.SnapToken = &o.SnapToken.String
+	}
+	if o.SnapRedirectUrl.Valid {
+		res.SnapRedirectUrl = &o.SnapRedirectUrl.String
 	}
 
 	for _, item := range items {
 		uPrice, _ := strconv.ParseFloat(item.UnitPrice, 64)
+		sTotal, _ := strconv.ParseFloat(item.TotalPrice, 64)
 		res.Items = append(res.Items, OrderItemResponse{
 			ID:           item.ID.String(),
 			ProductID:    item.ProductID.String(),
 			NameSnapshot: item.NameSnapshot,
 			UnitPrice:    uPrice,
 			Quantity:     item.Quantity,
+			Subtotal:     sTotal,
 		})
 	}
 	return res

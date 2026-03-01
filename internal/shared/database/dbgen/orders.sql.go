@@ -17,21 +17,25 @@ import (
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
     order_number, user_id, status, address_id, address_snapshot, 
-    subtotal_price, shipping_price, total_price, note, placed_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id
+    subtotal_price, shipping_price, total_price, note, 
+    snap_token, snap_redirect_url, snap_token_expired_at, placed_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id, snap_token_expired_at
 `
 
 type CreateOrderParams struct {
-	OrderNumber     string          `json:"order_number"`
-	UserID          uuid.UUID       `json:"user_id"`
-	Status          string          `json:"status"`
-	AddressID       uuid.NullUUID   `json:"address_id"`
-	AddressSnapshot json.RawMessage `json:"address_snapshot"`
-	SubtotalPrice   string          `json:"subtotal_price"`
-	ShippingPrice   string          `json:"shipping_price"`
-	TotalPrice      string          `json:"total_price"`
-	Note            sql.NullString  `json:"note"`
+	OrderNumber        string          `json:"order_number"`
+	UserID             uuid.UUID       `json:"user_id"`
+	Status             string          `json:"status"`
+	AddressID          uuid.NullUUID   `json:"address_id"`
+	AddressSnapshot    json.RawMessage `json:"address_snapshot"`
+	SubtotalPrice      string          `json:"subtotal_price"`
+	ShippingPrice      string          `json:"shipping_price"`
+	TotalPrice         string          `json:"total_price"`
+	Note               sql.NullString  `json:"note"`
+	SnapToken          sql.NullString  `json:"snap_token"`
+	SnapRedirectUrl    sql.NullString  `json:"snap_redirect_url"`
+	SnapTokenExpiredAt sql.NullTime    `json:"snap_token_expired_at"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
@@ -45,6 +49,9 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		arg.ShippingPrice,
 		arg.TotalPrice,
 		arg.Note,
+		arg.SnapToken,
+		arg.SnapRedirectUrl,
+		arg.SnapTokenExpiredAt,
 	)
 	var i Order
 	err := row.Scan(
@@ -72,6 +79,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.AddressID,
+		&i.SnapTokenExpiredAt,
 	)
 	return i, err
 }
@@ -125,6 +133,7 @@ SELECT
     o.receipt_no,
     o.snap_token,
     o.snap_redirect_url,
+    o.snap_token_expired_at,
     (
         SELECT COALESCE(
             jsonb_agg(
@@ -149,27 +158,28 @@ LIMIT 1
 `
 
 type GetOrderByIDRow struct {
-	ID              uuid.UUID       `json:"id"`
-	OrderNumber     string          `json:"order_number"`
-	UserID          uuid.UUID       `json:"user_id"`
-	Status          string          `json:"status"`
-	PaymentMethod   sql.NullString  `json:"payment_method"`
-	PaymentStatus   string          `json:"payment_status"`
-	AddressSnapshot json.RawMessage `json:"address_snapshot"`
-	SubtotalPrice   string          `json:"subtotal_price"`
-	DiscountPrice   string          `json:"discount_price"`
-	ShippingPrice   string          `json:"shipping_price"`
-	TotalPrice      string          `json:"total_price"`
-	Note            sql.NullString  `json:"note"`
-	PlacedAt        time.Time       `json:"placed_at"`
-	PaidAt          sql.NullTime    `json:"paid_at"`
-	CancelledAt     sql.NullTime    `json:"cancelled_at"`
-	CancelReason    sql.NullString  `json:"cancel_reason"`
-	CompletedAt     sql.NullTime    `json:"completed_at"`
-	ReceiptNo       sql.NullString  `json:"receipt_no"`
-	SnapToken       sql.NullString  `json:"snap_token"`
-	SnapRedirectUrl sql.NullString  `json:"snap_redirect_url"`
-	ItemsJson       json.RawMessage `json:"items_json"`
+	ID                 uuid.UUID       `json:"id"`
+	OrderNumber        string          `json:"order_number"`
+	UserID             uuid.UUID       `json:"user_id"`
+	Status             string          `json:"status"`
+	PaymentMethod      sql.NullString  `json:"payment_method"`
+	PaymentStatus      string          `json:"payment_status"`
+	AddressSnapshot    json.RawMessage `json:"address_snapshot"`
+	SubtotalPrice      string          `json:"subtotal_price"`
+	DiscountPrice      string          `json:"discount_price"`
+	ShippingPrice      string          `json:"shipping_price"`
+	TotalPrice         string          `json:"total_price"`
+	Note               sql.NullString  `json:"note"`
+	PlacedAt           time.Time       `json:"placed_at"`
+	PaidAt             sql.NullTime    `json:"paid_at"`
+	CancelledAt        sql.NullTime    `json:"cancelled_at"`
+	CancelReason       sql.NullString  `json:"cancel_reason"`
+	CompletedAt        sql.NullTime    `json:"completed_at"`
+	ReceiptNo          sql.NullString  `json:"receipt_no"`
+	SnapToken          sql.NullString  `json:"snap_token"`
+	SnapRedirectUrl    sql.NullString  `json:"snap_redirect_url"`
+	SnapTokenExpiredAt sql.NullTime    `json:"snap_token_expired_at"`
+	ItemsJson          json.RawMessage `json:"items_json"`
 }
 
 func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (GetOrderByIDRow, error) {
@@ -196,6 +206,7 @@ func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (GetOrderByIDR
 		&i.ReceiptNo,
 		&i.SnapToken,
 		&i.SnapRedirectUrl,
+		&i.SnapTokenExpiredAt,
 		&i.ItemsJson,
 	)
 	return i, err
@@ -253,6 +264,126 @@ func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]GetOr
 		return nil, err
 	}
 	return items, nil
+}
+
+const getOrderPaymentForUpdateByID = `-- name: GetOrderPaymentForUpdateByID :one
+SELECT
+    id,
+    order_number,
+    status,
+    payment_status,
+    payment_method,
+    note,
+    paid_at,
+    cancelled_at
+FROM orders
+WHERE id = $1
+  AND deleted_at IS NULL
+FOR UPDATE
+`
+
+type GetOrderPaymentForUpdateByIDRow struct {
+	ID            uuid.UUID      `json:"id"`
+	OrderNumber   string         `json:"order_number"`
+	Status        string         `json:"status"`
+	PaymentStatus string         `json:"payment_status"`
+	PaymentMethod sql.NullString `json:"payment_method"`
+	Note          sql.NullString `json:"note"`
+	PaidAt        sql.NullTime   `json:"paid_at"`
+	CancelledAt   sql.NullTime   `json:"cancelled_at"`
+}
+
+func (q *Queries) GetOrderPaymentForUpdateByID(ctx context.Context, id uuid.UUID) (GetOrderPaymentForUpdateByIDRow, error) {
+	row := q.queryRow(ctx, q.getOrderPaymentForUpdateByIDStmt, getOrderPaymentForUpdateByID, id)
+	var i GetOrderPaymentForUpdateByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrderNumber,
+		&i.Status,
+		&i.PaymentStatus,
+		&i.PaymentMethod,
+		&i.Note,
+		&i.PaidAt,
+		&i.CancelledAt,
+	)
+	return i, err
+}
+
+const getOrderPaymentForUpdateByOrderNumber = `-- name: GetOrderPaymentForUpdateByOrderNumber :one
+SELECT
+    id,
+    order_number,
+    status,
+    payment_status,
+    payment_method,
+    note,
+    paid_at,
+    cancelled_at
+FROM orders
+WHERE order_number = $1
+  AND deleted_at IS NULL
+FOR UPDATE
+`
+
+type GetOrderPaymentForUpdateByOrderNumberRow struct {
+	ID            uuid.UUID      `json:"id"`
+	OrderNumber   string         `json:"order_number"`
+	Status        string         `json:"status"`
+	PaymentStatus string         `json:"payment_status"`
+	PaymentMethod sql.NullString `json:"payment_method"`
+	Note          sql.NullString `json:"note"`
+	PaidAt        sql.NullTime   `json:"paid_at"`
+	CancelledAt   sql.NullTime   `json:"cancelled_at"`
+}
+
+func (q *Queries) GetOrderPaymentForUpdateByOrderNumber(ctx context.Context, orderNumber string) (GetOrderPaymentForUpdateByOrderNumberRow, error) {
+	row := q.queryRow(ctx, q.getOrderPaymentForUpdateByOrderNumberStmt, getOrderPaymentForUpdateByOrderNumber, orderNumber)
+	var i GetOrderPaymentForUpdateByOrderNumberRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrderNumber,
+		&i.Status,
+		&i.PaymentStatus,
+		&i.PaymentMethod,
+		&i.Note,
+		&i.PaidAt,
+		&i.CancelledAt,
+	)
+	return i, err
+}
+
+const getOrderSummaryByOrderNumber = `-- name: GetOrderSummaryByOrderNumber :one
+SELECT
+    id,
+    order_number,
+    subtotal_price,
+    discount_price,
+    shipping_price
+FROM orders
+WHERE order_number = $1
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+type GetOrderSummaryByOrderNumberRow struct {
+	ID            uuid.UUID `json:"id"`
+	OrderNumber   string    `json:"order_number"`
+	SubtotalPrice string    `json:"subtotal_price"`
+	DiscountPrice string    `json:"discount_price"`
+	ShippingPrice string    `json:"shipping_price"`
+}
+
+func (q *Queries) GetOrderSummaryByOrderNumber(ctx context.Context, orderNumber string) (GetOrderSummaryByOrderNumberRow, error) {
+	row := q.queryRow(ctx, q.getOrderSummaryByOrderNumberStmt, getOrderSummaryByOrderNumber, orderNumber)
+	var i GetOrderSummaryByOrderNumberRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrderNumber,
+		&i.SubtotalPrice,
+		&i.DiscountPrice,
+		&i.ShippingPrice,
+	)
+	return i, err
 }
 
 const listOrders = `-- name: ListOrders :many
@@ -347,7 +478,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 }
 
 const listOrdersAdmin = `-- name: ListOrdersAdmin :many
-SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, count(*) OVER() AS total_count
+SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, o.snap_token_expired_at, count(*) OVER() AS total_count
 FROM orders o
 WHERE o.deleted_at IS NULL
   AND ($3::text IS NULL OR o.status = $3::text)
@@ -364,31 +495,32 @@ type ListOrdersAdminParams struct {
 }
 
 type ListOrdersAdminRow struct {
-	ID              uuid.UUID       `json:"id"`
-	OrderNumber     string          `json:"order_number"`
-	UserID          uuid.UUID       `json:"user_id"`
-	Status          string          `json:"status"`
-	PaymentMethod   sql.NullString  `json:"payment_method"`
-	PaymentStatus   string          `json:"payment_status"`
-	AddressSnapshot json.RawMessage `json:"address_snapshot"`
-	SubtotalPrice   string          `json:"subtotal_price"`
-	DiscountPrice   string          `json:"discount_price"`
-	ShippingPrice   string          `json:"shipping_price"`
-	TotalPrice      string          `json:"total_price"`
-	Note            sql.NullString  `json:"note"`
-	PlacedAt        time.Time       `json:"placed_at"`
-	PaidAt          sql.NullTime    `json:"paid_at"`
-	CancelledAt     sql.NullTime    `json:"cancelled_at"`
-	CancelReason    sql.NullString  `json:"cancel_reason"`
-	CompletedAt     sql.NullTime    `json:"completed_at"`
-	ReceiptNo       sql.NullString  `json:"receipt_no"`
-	SnapToken       sql.NullString  `json:"snap_token"`
-	SnapRedirectUrl sql.NullString  `json:"snap_redirect_url"`
-	CreatedAt       time.Time       `json:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at"`
-	DeletedAt       sql.NullTime    `json:"deleted_at"`
-	AddressID       uuid.NullUUID   `json:"address_id"`
-	TotalCount      int64           `json:"total_count"`
+	ID                 uuid.UUID       `json:"id"`
+	OrderNumber        string          `json:"order_number"`
+	UserID             uuid.UUID       `json:"user_id"`
+	Status             string          `json:"status"`
+	PaymentMethod      sql.NullString  `json:"payment_method"`
+	PaymentStatus      string          `json:"payment_status"`
+	AddressSnapshot    json.RawMessage `json:"address_snapshot"`
+	SubtotalPrice      string          `json:"subtotal_price"`
+	DiscountPrice      string          `json:"discount_price"`
+	ShippingPrice      string          `json:"shipping_price"`
+	TotalPrice         string          `json:"total_price"`
+	Note               sql.NullString  `json:"note"`
+	PlacedAt           time.Time       `json:"placed_at"`
+	PaidAt             sql.NullTime    `json:"paid_at"`
+	CancelledAt        sql.NullTime    `json:"cancelled_at"`
+	CancelReason       sql.NullString  `json:"cancel_reason"`
+	CompletedAt        sql.NullTime    `json:"completed_at"`
+	ReceiptNo          sql.NullString  `json:"receipt_no"`
+	SnapToken          sql.NullString  `json:"snap_token"`
+	SnapRedirectUrl    sql.NullString  `json:"snap_redirect_url"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+	DeletedAt          sql.NullTime    `json:"deleted_at"`
+	AddressID          uuid.NullUUID   `json:"address_id"`
+	SnapTokenExpiredAt sql.NullTime    `json:"snap_token_expired_at"`
+	TotalCount         int64           `json:"total_count"`
 }
 
 func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams) ([]ListOrdersAdminRow, error) {
@@ -430,6 +562,7 @@ func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.AddressID,
+			&i.SnapTokenExpiredAt,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -445,6 +578,127 @@ func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams
 	return items, nil
 }
 
+const updateOrderPaymentStatus = `-- name: UpdateOrderPaymentStatus :one
+UPDATE orders
+SET
+    payment_status = $2::text,
+    payment_method = CASE WHEN $3::text IS NULL THEN payment_method ELSE $3::text END,
+    paid_at = $4,
+    cancelled_at = $5,
+    status = $6::text,
+    note = CASE WHEN $7::text IS NULL THEN note ELSE $7::text END,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id, snap_token_expired_at
+`
+
+type UpdateOrderPaymentStatusParams struct {
+	ID            uuid.UUID    `json:"id"`
+	PaymentStatus string       `json:"payment_status"`
+	PaymentMethod string       `json:"payment_method"`
+	PaidAt        sql.NullTime `json:"paid_at"`
+	CancelledAt   sql.NullTime `json:"cancelled_at"`
+	Status        string       `json:"status"`
+	Note          string       `json:"note"`
+}
+
+func (q *Queries) UpdateOrderPaymentStatus(ctx context.Context, arg UpdateOrderPaymentStatusParams) (Order, error) {
+	row := q.queryRow(ctx, q.updateOrderPaymentStatusStmt, updateOrderPaymentStatus,
+		arg.ID,
+		arg.PaymentStatus,
+		arg.PaymentMethod,
+		arg.PaidAt,
+		arg.CancelledAt,
+		arg.Status,
+		arg.Note,
+	)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.OrderNumber,
+		&i.UserID,
+		&i.Status,
+		&i.PaymentMethod,
+		&i.PaymentStatus,
+		&i.AddressSnapshot,
+		&i.SubtotalPrice,
+		&i.DiscountPrice,
+		&i.ShippingPrice,
+		&i.TotalPrice,
+		&i.Note,
+		&i.PlacedAt,
+		&i.PaidAt,
+		&i.CancelledAt,
+		&i.CancelReason,
+		&i.CompletedAt,
+		&i.ReceiptNo,
+		&i.SnapToken,
+		&i.SnapRedirectUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.AddressID,
+		&i.SnapTokenExpiredAt,
+	)
+	return i, err
+}
+
+const updateOrderSnapToken = `-- name: UpdateOrderSnapToken :one
+UPDATE orders
+SET
+    snap_token = $2,
+    snap_redirect_url = $3,
+    snap_token_expired_at = $4,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id, snap_token_expired_at
+`
+
+type UpdateOrderSnapTokenParams struct {
+	ID                 uuid.UUID      `json:"id"`
+	SnapToken          sql.NullString `json:"snap_token"`
+	SnapRedirectUrl    sql.NullString `json:"snap_redirect_url"`
+	SnapTokenExpiredAt sql.NullTime   `json:"snap_token_expired_at"`
+}
+
+func (q *Queries) UpdateOrderSnapToken(ctx context.Context, arg UpdateOrderSnapTokenParams) (Order, error) {
+	row := q.queryRow(ctx, q.updateOrderSnapTokenStmt, updateOrderSnapToken,
+		arg.ID,
+		arg.SnapToken,
+		arg.SnapRedirectUrl,
+		arg.SnapTokenExpiredAt,
+	)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.OrderNumber,
+		&i.UserID,
+		&i.Status,
+		&i.PaymentMethod,
+		&i.PaymentStatus,
+		&i.AddressSnapshot,
+		&i.SubtotalPrice,
+		&i.DiscountPrice,
+		&i.ShippingPrice,
+		&i.TotalPrice,
+		&i.Note,
+		&i.PlacedAt,
+		&i.PaidAt,
+		&i.CancelledAt,
+		&i.CancelReason,
+		&i.CompletedAt,
+		&i.ReceiptNo,
+		&i.SnapToken,
+		&i.SnapRedirectUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.AddressID,
+		&i.SnapTokenExpiredAt,
+	)
+	return i, err
+}
+
 const updateOrderStatus = `-- name: UpdateOrderStatus :one
 UPDATE orders 
 SET status = $2::text, 
@@ -452,7 +706,7 @@ SET status = $2::text,
     completed_at = CASE WHEN $2::text = 'COMPLETED' THEN NOW() ELSE completed_at END,
     cancelled_at = CASE WHEN $2::text = 'CANCELLED' THEN NOW() ELSE cancelled_at END
 WHERE id = $1
-RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id
+RETURNING id, order_number, user_id, status, payment_method, payment_status, address_snapshot, subtotal_price, discount_price, shipping_price, total_price, note, placed_at, paid_at, cancelled_at, cancel_reason, completed_at, receipt_no, snap_token, snap_redirect_url, created_at, updated_at, deleted_at, address_id, snap_token_expired_at
 `
 
 type UpdateOrderStatusParams struct {
@@ -488,6 +742,7 @@ func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusPa
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.AddressID,
+		&i.SnapTokenExpiredAt,
 	)
 	return i, err
 }

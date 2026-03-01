@@ -41,21 +41,6 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
-// CheckItemExists mocks base method.
-func (m *MockService) CheckItemExists(ctx context.Context, userIDStr, productIDStr string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckItemExists", ctx, userIDStr, productIDStr)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CheckItemExists indicates an expected call of CheckItemExists.
-func (mr *MockServiceMockRecorder) CheckItemExists(ctx, userIDStr, productIDStr any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckItemExists", reflect.TypeOf((*MockService)(nil).CheckItemExists), ctx, userIDStr, productIDStr)
-}
-
 // Create mocks base method.
 func (m *MockService) Create(ctx context.Context, userID, productID string) (wishlist.AddItemResponse, error) {
 	m.ctrl.T.Helper()

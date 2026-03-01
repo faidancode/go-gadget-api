@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go-gadget-api/internal/midtrans"
 	"go-gadget-api/internal/order"
 	"net/http"
 	"net/http/httptest"
@@ -19,13 +20,17 @@ import (
 // ==================== FAKE SERVICE ====================
 
 type fakeOrderService struct {
-	checkoutFunc          func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error)
-	listFunc              func(ctx context.Context, userID string, status string, page, limit int) ([]order.OrderResponse, int64, error)
-	detailFunc            func(ctx context.Context, orderID string) (order.OrderResponse, error)
-	cancelFunc            func(ctx context.Context, orderID string) error
-	completeFunc          func(ctx context.Context, orderID string, userID string, nextStatus string) (order.OrderResponse, error)
-	listAdminFunc         func(ctx context.Context, status string, search string, page, limit int) ([]order.OrderResponse, int64, error)
-	updateStatusAdminFunc func(ctx context.Context, orderID string, status string, receiptNo *string) (order.OrderResponse, error)
+	checkoutFunc                         func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error)
+	listFunc                             func(ctx context.Context, userID string, status string, page, limit int) ([]order.OrderResponse, int64, error)
+	detailFunc                           func(ctx context.Context, orderID string) (order.OrderResponse, error)
+	cancelFunc                           func(ctx context.Context, orderID string) error
+	completeFunc                         func(ctx context.Context, orderID string, userID string, nextStatus string) (order.OrderResponse, error)
+	listAdminFunc                        func(ctx context.Context, status string, search string, page, limit int) ([]order.OrderResponse, int64, error)
+	updateStatusAdminFunc                func(ctx context.Context, orderID string, status string, receiptNo *string) (order.OrderResponse, error)
+	updatePaymentStatusFunc              func(ctx context.Context, orderID string, input order.UpdatePaymentStatusInput) (order.OrderResponse, error)
+	updatePaymentStatusByOrderNumberFunc func(ctx context.Context, orderNumber string, input order.UpdatePaymentStatusInput) (order.OrderResponse, error)
+	handleMidtransNotificationFunc       func(ctx context.Context, payload order.MidtransNotificationRequest) error
+	continuePaymentFunc                  func(ctx context.Context, orderID string, userID string) (*midtrans.CreateTransactionResponse, error)
 }
 
 func (f *fakeOrderService) Checkout(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error) {
@@ -70,6 +75,31 @@ func (f *fakeOrderService) UpdateStatusByAdmin(ctx context.Context, orderID stri
 	}
 	return order.OrderResponse{}, nil
 }
+func (f *fakeOrderService) UpdatePaymentStatus(ctx context.Context, orderID string, input order.UpdatePaymentStatusInput) (order.OrderResponse, error) {
+	if f.updatePaymentStatusFunc != nil {
+		return f.updatePaymentStatusFunc(ctx, orderID, input)
+	}
+	return order.OrderResponse{}, nil
+}
+func (f *fakeOrderService) UpdatePaymentStatusByOrderNumber(ctx context.Context, orderNumber string, input order.UpdatePaymentStatusInput) (order.OrderResponse, error) {
+	if f.updatePaymentStatusByOrderNumberFunc != nil {
+		return f.updatePaymentStatusByOrderNumberFunc(ctx, orderNumber, input)
+	}
+	return order.OrderResponse{}, nil
+}
+func (f *fakeOrderService) HandleMidtransNotification(ctx context.Context, payload order.MidtransNotificationRequest) error {
+	if f.handleMidtransNotificationFunc != nil {
+		return f.handleMidtransNotificationFunc(ctx, payload)
+	}
+	return nil
+}
+
+func (f *fakeOrderService) ContinuePayment(ctx context.Context, orderID string, userID string) (*midtrans.CreateTransactionResponse, error) {
+	if f.continuePaymentFunc != nil {
+		return f.continuePaymentFunc(ctx, orderID, userID)
+	}
+	return nil, nil
+}
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -79,7 +109,7 @@ func setupTestRouter() *gin.Engine {
 }
 
 func newTestHandler(svc order.Service, rdb *redis.Client) *order.Handler {
-	return order.NewHandler(svc, rdb)
+	return order.NewHandler(svc, rdb, nil)
 }
 
 func addAuthCookie(req *http.Request) {
@@ -363,4 +393,65 @@ func TestOrderHandler_UpdateStatusByAdmin(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
+}
+
+func TestOrderHandler_UpdatePaymentStatusByAdmin(t *testing.T) {
+	t.Run("success_update_payment_status", func(t *testing.T) {
+		orderID := uuid.New().String()
+		svc := &fakeOrderService{
+			updatePaymentStatusFunc: func(ctx context.Context, id string, input order.UpdatePaymentStatusInput) (order.OrderResponse, error) {
+				assert.Equal(t, orderID, id)
+				assert.Equal(t, "PAID", input.PaymentStatus)
+				assert.Equal(t, "bank_transfer", input.PaymentMethod)
+				return order.OrderResponse{ID: id, PaymentStatus: "PAID", Status: "PAID"}, nil
+			},
+		}
+
+		ctrl := newTestHandler(svc, nil)
+		r := setupTestRouter()
+		r.PATCH("/admin/orders/:id/payment-status", ctrl.UpdatePaymentStatusByAdmin)
+
+		body := `{"paymentStatus":"PAID","paymentMethod":"bank_transfer"}`
+		req := httptest.NewRequest(http.MethodPatch, "/admin/orders/"+orderID+"/payment-status", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "PAID")
+	})
+}
+
+func TestOrderHandler_HandleMidtransNotification(t *testing.T) {
+	t.Run("success_notification", func(t *testing.T) {
+		svc := &fakeOrderService{
+			handleMidtransNotificationFunc: func(ctx context.Context, payload order.MidtransNotificationRequest) error {
+				assert.Equal(t, "ORD-123", payload.OrderID)
+				assert.Equal(t, "settlement", payload.TransactionStatus)
+				return nil
+			},
+		}
+
+		ctrl := newTestHandler(svc, nil)
+		r := setupTestRouter()
+		r.POST("/midtrans/notification", ctrl.HandleMidtransNotification)
+
+		body := `{
+			"order_id":"ORD-123",
+			"status_code":"200",
+			"gross_amount":"10000.00",
+			"signature_key":"sig",
+			"transaction_status":"settlement",
+			"payment_type":"bank_transfer"
+		}`
+		req := httptest.NewRequest(http.MethodPost, "/midtrans/notification", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), `"success":true`)
+	})
 }

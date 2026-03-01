@@ -83,30 +83,31 @@ type EmailConfirmationToken struct {
 }
 
 type Order struct {
-	ID              uuid.UUID       `json:"id"`
-	OrderNumber     string          `json:"order_number"`
-	UserID          uuid.UUID       `json:"user_id"`
-	Status          string          `json:"status"`
-	PaymentMethod   sql.NullString  `json:"payment_method"`
-	PaymentStatus   string          `json:"payment_status"`
-	AddressSnapshot json.RawMessage `json:"address_snapshot"`
-	SubtotalPrice   string          `json:"subtotal_price"`
-	DiscountPrice   string          `json:"discount_price"`
-	ShippingPrice   string          `json:"shipping_price"`
-	TotalPrice      string          `json:"total_price"`
-	Note            sql.NullString  `json:"note"`
-	PlacedAt        time.Time       `json:"placed_at"`
-	PaidAt          sql.NullTime    `json:"paid_at"`
-	CancelledAt     sql.NullTime    `json:"cancelled_at"`
-	CancelReason    sql.NullString  `json:"cancel_reason"`
-	CompletedAt     sql.NullTime    `json:"completed_at"`
-	ReceiptNo       sql.NullString  `json:"receipt_no"`
-	SnapToken       sql.NullString  `json:"snap_token"`
-	SnapRedirectUrl sql.NullString  `json:"snap_redirect_url"`
-	CreatedAt       time.Time       `json:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at"`
-	DeletedAt       sql.NullTime    `json:"deleted_at"`
-	AddressID       uuid.NullUUID   `json:"address_id"`
+	ID                 uuid.UUID       `json:"id"`
+	OrderNumber        string          `json:"order_number"`
+	UserID             uuid.UUID       `json:"user_id"`
+	Status             string          `json:"status"`
+	PaymentMethod      sql.NullString  `json:"payment_method"`
+	PaymentStatus      string          `json:"payment_status"`
+	AddressSnapshot    json.RawMessage `json:"address_snapshot"`
+	SubtotalPrice      string          `json:"subtotal_price"`
+	DiscountPrice      string          `json:"discount_price"`
+	ShippingPrice      string          `json:"shipping_price"`
+	TotalPrice         string          `json:"total_price"`
+	Note               sql.NullString  `json:"note"`
+	PlacedAt           time.Time       `json:"placed_at"`
+	PaidAt             sql.NullTime    `json:"paid_at"`
+	CancelledAt        sql.NullTime    `json:"cancelled_at"`
+	CancelReason       sql.NullString  `json:"cancel_reason"`
+	CompletedAt        sql.NullTime    `json:"completed_at"`
+	ReceiptNo          sql.NullString  `json:"receipt_no"`
+	SnapToken          sql.NullString  `json:"snap_token"`
+	SnapRedirectUrl    sql.NullString  `json:"snap_redirect_url"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+	DeletedAt          sql.NullTime    `json:"deleted_at"`
+	AddressID          uuid.NullUUID   `json:"address_id"`
+	SnapTokenExpiredAt sql.NullTime    `json:"snap_token_expired_at"`
 }
 
 type OrderItem struct {

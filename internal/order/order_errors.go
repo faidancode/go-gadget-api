@@ -47,4 +47,58 @@ var (
 		"receipt number is required for shipping",
 		http.StatusBadRequest,
 	)
+
+	ErrInvalidPaymentStatus = apperror.New(
+		apperror.CodeInvalidInput,
+		"invalid payment status",
+		http.StatusBadRequest,
+	)
+
+	ErrInvalidPaymentStatusTransition = apperror.New(
+		apperror.CodeInvalidState,
+		"invalid payment status transition",
+		http.StatusBadRequest,
+	)
+
+	ErrInvalidMidtransPayload = apperror.New(
+		apperror.CodeInvalidInput,
+		"invalid midtrans payload",
+		http.StatusBadRequest,
+	)
+
+	ErrMidtransServerKeyNotConfigured = apperror.New(
+		apperror.CodeInternalError,
+		"midtrans server key is not configured",
+		http.StatusInternalServerError,
+	)
+
+	ErrInvalidMidtransSignature = apperror.New(
+		apperror.CodeUnauthorized,
+		"invalid midtrans signature",
+		http.StatusForbidden,
+	)
+
+	ErrInvalidGrossAmount = apperror.New(
+		apperror.CodeInvalidInput,
+		"invalid gross amount",
+		http.StatusBadRequest,
+	)
+
+	ErrGrossAmountMismatch = apperror.New(
+		apperror.CodeInvalidState,
+		"gross amount does not match order total",
+		http.StatusBadRequest,
+	)
+
+	ErrInvalidTransactionTime = apperror.New(
+		apperror.CodeInvalidInput,
+		"invalid transaction time",
+		http.StatusBadRequest,
+	)
+
+	ErrInvalidOrderNumber = apperror.New(
+		apperror.CodeInvalidInput,
+		"invalid order number",
+		http.StatusBadRequest,
+	)
 )

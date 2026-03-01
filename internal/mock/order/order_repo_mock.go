@@ -102,6 +102,66 @@ func (mr *MockRepositoryMockRecorder) GetItems(ctx, orderID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetItems", reflect.TypeOf((*MockRepository)(nil).GetItems), ctx, orderID)
 }
 
+// GetOrderPaymentForUpdateByID mocks base method.
+func (m *MockRepository) GetOrderPaymentForUpdateByID(ctx context.Context, id uuid.UUID) (dbgen.GetOrderPaymentForUpdateByIDRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrderPaymentForUpdateByID", ctx, id)
+	ret0, _ := ret[0].(dbgen.GetOrderPaymentForUpdateByIDRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrderPaymentForUpdateByID indicates an expected call of GetOrderPaymentForUpdateByID.
+func (mr *MockRepositoryMockRecorder) GetOrderPaymentForUpdateByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderPaymentForUpdateByID", reflect.TypeOf((*MockRepository)(nil).GetOrderPaymentForUpdateByID), ctx, id)
+}
+
+// GetOrderPaymentForUpdateByOrderNumber mocks base method.
+func (m *MockRepository) GetOrderPaymentForUpdateByOrderNumber(ctx context.Context, orderNumber string) (dbgen.GetOrderPaymentForUpdateByOrderNumberRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrderPaymentForUpdateByOrderNumber", ctx, orderNumber)
+	ret0, _ := ret[0].(dbgen.GetOrderPaymentForUpdateByOrderNumberRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrderPaymentForUpdateByOrderNumber indicates an expected call of GetOrderPaymentForUpdateByOrderNumber.
+func (mr *MockRepositoryMockRecorder) GetOrderPaymentForUpdateByOrderNumber(ctx, orderNumber any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderPaymentForUpdateByOrderNumber", reflect.TypeOf((*MockRepository)(nil).GetOrderPaymentForUpdateByOrderNumber), ctx, orderNumber)
+}
+
+// GetOrderSummaryByOrderNumber mocks base method.
+func (m *MockRepository) GetOrderSummaryByOrderNumber(ctx context.Context, orderNumber string) (dbgen.GetOrderSummaryByOrderNumberRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrderSummaryByOrderNumber", ctx, orderNumber)
+	ret0, _ := ret[0].(dbgen.GetOrderSummaryByOrderNumberRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrderSummaryByOrderNumber indicates an expected call of GetOrderSummaryByOrderNumber.
+func (mr *MockRepositoryMockRecorder) GetOrderSummaryByOrderNumber(ctx, orderNumber any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderSummaryByOrderNumber", reflect.TypeOf((*MockRepository)(nil).GetOrderSummaryByOrderNumber), ctx, orderNumber)
+}
+
+// GetUserByID mocks base method.
+func (m *MockRepository) GetUserByID(ctx context.Context, id uuid.UUID) (dbgen.GetUserByIDRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserByID", ctx, id)
+	ret0, _ := ret[0].(dbgen.GetUserByIDRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserByID indicates an expected call of GetUserByID.
+func (mr *MockRepositoryMockRecorder) GetUserByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByID", reflect.TypeOf((*MockRepository)(nil).GetUserByID), ctx, id)
+}
+
 // List mocks base method.
 func (m *MockRepository) List(ctx context.Context, arg dbgen.ListOrdersParams) ([]dbgen.ListOrdersRow, error) {
 	m.ctrl.T.Helper()
@@ -130,6 +190,36 @@ func (m *MockRepository) ListAdmin(ctx context.Context, arg dbgen.ListOrdersAdmi
 func (mr *MockRepositoryMockRecorder) ListAdmin(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAdmin", reflect.TypeOf((*MockRepository)(nil).ListAdmin), ctx, arg)
+}
+
+// UpdateOrderPaymentStatus mocks base method.
+func (m *MockRepository) UpdateOrderPaymentStatus(ctx context.Context, arg dbgen.UpdateOrderPaymentStatusParams) (dbgen.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOrderPaymentStatus", ctx, arg)
+	ret0, _ := ret[0].(dbgen.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOrderPaymentStatus indicates an expected call of UpdateOrderPaymentStatus.
+func (mr *MockRepositoryMockRecorder) UpdateOrderPaymentStatus(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrderPaymentStatus", reflect.TypeOf((*MockRepository)(nil).UpdateOrderPaymentStatus), ctx, arg)
+}
+
+// UpdateOrderSnapToken mocks base method.
+func (m *MockRepository) UpdateOrderSnapToken(ctx context.Context, arg dbgen.UpdateOrderSnapTokenParams) (dbgen.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOrderSnapToken", ctx, arg)
+	ret0, _ := ret[0].(dbgen.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOrderSnapToken indicates an expected call of UpdateOrderSnapToken.
+func (mr *MockRepositoryMockRecorder) UpdateOrderSnapToken(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrderSnapToken", reflect.TypeOf((*MockRepository)(nil).UpdateOrderSnapToken), ctx, arg)
 }
 
 // UpdateStatus mocks base method.
