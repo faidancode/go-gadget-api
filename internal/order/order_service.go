@@ -231,7 +231,7 @@ func (s *service) Checkout(
 	addressSnapshot, _ := json.Marshal(map[string]string{"address_id": req.AddressID})
 
 	// 4. Generate Order Number & Info Dasar
-	orderNumber := fmt.Sprintf("GGS-%d-%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
+	orderNumber := fmt.Sprintf("GGS#%d-%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
 	logger = logger.With(zap.String("order_number", orderNumber))
 
 	// fetch user info for midtrans
@@ -674,6 +674,11 @@ func (s *service) UpdatePaymentStatusByOrderNumber(ctx context.Context, orderNum
 }
 
 func (s *service) HandleMidtransNotification(ctx context.Context, payload MidtransNotificationRequest) error {
+	// The instruction refers to adding a debug log in 'order_handler.go',
+	// but this is 'order_service.go'.
+	// Assuming the intent is to add a debug log here if it were the handler,
+	// but since it's the service, the existing logger is used below.
+
 	if err := validateMidtransNotification(payload); err != nil {
 		return err
 	}
@@ -682,8 +687,21 @@ func (s *service) HandleMidtransNotification(ctx context.Context, payload Midtra
 		return err
 	}
 
-	orderSummary, err := s.getOrderSummaryByOrderNumber(ctx, payload.OrderID)
+	// Extract base order number (it might have _TIMESTAMP suffix from ContinuePayment)
+	orderID := payload.OrderID
+	s.logger.Debug("received midtrans notification", zap.String("payload_order_id", payload.OrderID))
+
+	if lastIdx := strings.LastIndex(orderID, "_"); lastIdx != -1 {
+		orderID = orderID[:lastIdx]
+		s.logger.Debug("extracted base order id", zap.String("extracted_order_id", orderID))
+	}
+
+	orderSummary, err := s.getOrderSummaryByOrderNumber(ctx, orderID)
 	if err != nil {
+		s.logger.Warn("order not found in midtrans notification",
+			zap.String("order_id", orderID),
+			zap.Error(err),
+		)
 		return err
 	}
 
@@ -696,7 +714,7 @@ func (s *service) HandleMidtransNotification(ctx context.Context, payload Midtra
 				Note:          stringPtr("expired by midtrans"),
 			},
 			"order_number = $1",
-			payload.OrderID,
+			orderID,
 		)
 		return err
 	}
@@ -725,7 +743,7 @@ func (s *service) HandleMidtransNotification(ctx context.Context, payload Midtra
 		return err
 	}
 
-	_, err = s.UpdatePaymentStatusByOrderNumber(ctx, payload.OrderID, UpdatePaymentStatusInput{
+	_, err = s.UpdatePaymentStatusByOrderNumber(ctx, orderID, UpdatePaymentStatusInput{
 		PaymentStatus: "PAID",
 		PaymentMethod: payload.PaymentType,
 		PaidAt:        &paidAt,
