@@ -137,6 +137,14 @@ func (s *service) ContinuePayment(ctx context.Context, orderID string, userID st
 		}, nil
 	}
 
+	// Check MIDTRANS_ACTIVE env
+	activeStr := os.Getenv("MIDTRANS_ACTIVE")
+	active, _ := strconv.ParseBool(activeStr)
+
+	if !active {
+		return nil, fmt.Errorf("payment integration is disabled")
+	}
+
 	// Create new token
 	items, err := s.repo.GetItems(ctx, parsedOrderID)
 	if err != nil {
@@ -220,15 +228,38 @@ func (s *service) Checkout(
 
 	// 3. Address Handling
 	var addressID uuid.NullUUID
+	var addressBody AddressSnapshot
 	if req.AddressID != "" {
 		parsedID, err := uuid.Parse(req.AddressID)
 		if err != nil {
 			return OrderResponse{}, autherrors.ErrInvalidUserID
 		}
 		addressID = uuid.NullUUID{UUID: parsedID, Valid: true}
+
+		// Fetch full address for snapshot
+		addr, err := s.repo.GetAddressByID(ctx, dbgen.GetAddressByIDParams{
+			ID:     parsedID,
+			UserID: uid,
+		})
+		if err != nil {
+			logger.Error("failed to fetch address for snapshot", zap.Error(err))
+			return OrderResponse{}, err
+		}
+
+		addressBody = AddressSnapshot{
+			Label:          addr.Label,
+			RecipientName:  addr.RecipientName,
+			RecipientPhone: addr.RecipientPhone,
+			Street:         addr.Street,
+			Subdistrict:    addr.Subdistrict.String,
+			District:       addr.District.String,
+			City:           addr.City.String,
+			Province:       addr.Province.String,
+			PostalCode:     addr.PostalCode.String,
+		}
 	}
 
-	addressSnapshot, _ := json.Marshal(map[string]string{"address_id": req.AddressID})
+	addressSnapshot, _ := json.Marshal(addressBody)
 
 	// 4. Generate Order Number & Info Dasar
 	orderNumber := fmt.Sprintf("GGS#%d-%s", time.Now().Unix(), strings.ToUpper(uuid.New().String()[:4]))
@@ -241,36 +272,45 @@ func (s *service) Checkout(
 		return OrderResponse{}, err
 	}
 
-	// 5. Midtrans Integration
-	var midtransItems []midtrans.ItemDetail
-	for _, item := range cartData.Items {
-		midtransItems = append(midtransItems, midtrans.ItemDetail{
-			ID:    item.ProductID,
-			Price: int64(item.Price),
-			Qty:   item.Qty,
-			Name:  item.ProductName,
-		})
-	}
+	// 5. Midtrans Integration (Conditional)
+	var midtransResp *midtrans.CreateTransactionResponse
+	activeStr := os.Getenv("MIDTRANS_ACTIVE")
+	activeMidtrans, _ := strconv.ParseBool(activeStr)
+	if activeMidtrans {
+		var midtransItems []midtrans.ItemDetail
+		for _, item := range cartData.Items {
+			midtransItems = append(midtransItems, midtrans.ItemDetail{
+				ID:    item.ProductID,
+				Price: int64(item.Price),
+				Qty:   item.Qty,
+				Name:  item.ProductName,
+			})
+		}
 
-	midtransReq := &midtrans.CreateTransactionRequest{
-		OrderID:     orderNumber,
-		GrossAmount: int64(total),
-		Customer: &midtrans.CustomerDetails{
-			FirstName: userData.Name,
-			Email:     userData.Email,
-		},
-		Items: midtransItems,
-	}
+		midtransReq := &midtrans.CreateTransactionRequest{
+			OrderID:     orderNumber,
+			GrossAmount: int64(total),
+			Customer: &midtrans.CustomerDetails{
+				FirstName: userData.Name,
+				Email:     userData.Email,
+			},
+			Items: midtransItems,
+		}
 
-	midtransResp, err := s.midtransSvc.CreateTransactionToken(midtransReq)
-	if err != nil {
-		logger.Error("failed to create midtrans transaction", zap.Error(err))
-		return OrderResponse{}, err
-	}
+		var err error
+		midtransResp, err = s.midtransSvc.CreateTransactionToken(midtransReq)
+		if err != nil {
+			logger.Error("failed to create midtrans transaction", zap.Error(err))
+			return OrderResponse{}, err
+		}
 
-	if midtransResp == nil {
-		logger.Error("midtrans response is nil")
-		return OrderResponse{}, ErrOrderFailed
+		if midtransResp == nil {
+			logger.Error("midtrans response is nil")
+			return OrderResponse{}, ErrOrderFailed
+		}
+	} else {
+		logger.Info("midtrans integration is disabled, skipping token generation")
+		midtransResp = &midtrans.CreateTransactionResponse{} // Empty response
 	}
 
 	// 6. Begin Transaction
@@ -398,6 +438,7 @@ func (s *service) List(ctx context.Context, userID string, status string, page, 
 		currentItems := make([]OrderItemResponse, 0)
 
 		if len(r.ItemsJson) > 0 {
+			fmt.Println("DEBUG JSON DARI DB:", string(r.ItemsJson))
 			// Unmarshal ke variabel lokal yang benar-benar baru
 			if err := json.Unmarshal(r.ItemsJson, &currentItems); err != nil {
 				log.Printf("[ListOrders] Error unmarshal: %v\n", err)
@@ -448,10 +489,11 @@ func (s *service) ListAdmin(ctx context.Context, status string, search string, p
 		for _, r := range rows {
 			total = r.TotalCount
 			// Melakukan type casting dari row result ke dbgen.Order
-			res = append(res, s.mapOrderToResponse(dbgen.Order{
+			res = append(res, s.mapAdminOrderToResponse(dbgen.ListOrdersAdminRow{
 				ID:          r.ID,
 				OrderNumber: r.OrderNumber,
 				UserID:      r.UserID,
+				UserName:    r.UserName,
 				Status:      r.Status,
 				TotalPrice:  r.TotalPrice,
 				PlacedAt:    r.PlacedAt,
@@ -488,7 +530,13 @@ func (s *service) Detail(ctx context.Context, orderID string) (OrderResponse, er
 		}
 	}
 
-	// 2. Mapping Manual (atau panggil fungsi helper mapOrderToResponse)
+	var customer CustomerResponse
+	if len(row.CustomerJson) > 0 {
+		if err := json.Unmarshal(row.CustomerJson, &customer); err != nil {
+			log.Printf("[Order.Detail] Error unmarshal customer: %v", err)
+		}
+	}
+
 	totalPrice, _ := strconv.ParseFloat(row.TotalPrice, 64)
 	shippingPrice, _ := strconv.ParseFloat(row.ShippingPrice, 64)
 	subtotalPrice, _ := strconv.ParseFloat(row.SubtotalPrice, 64)
@@ -502,11 +550,20 @@ func (s *service) Detail(ctx context.Context, orderID string) (OrderResponse, er
 		TotalPrice:    totalPrice,
 		ShippingPrice: shippingPrice,
 		PlacedAt:      row.PlacedAt,
-		Items:         items, // Langsung hasil unmarshal tadi
+		Customer:      customer,
+		Items:         items,
 	}
 
-	// 3. Handle AddressSnapshot jika diperlukan di Next.js
-	// res.Address = row.AddressSnapshot ...
+	// 3. Handle AddressSnapshot
+	if len(row.AddressSnapshot) > 0 {
+		var addr AddressSnapshot
+		if err := json.Unmarshal(row.AddressSnapshot, &addr); err == nil {
+			res.Address = &addr
+			if res.Customer.Phone == "" {
+				res.Customer.Phone = addr.RecipientPhone
+			}
+		}
+	}
 
 	return res, nil
 }
@@ -1043,7 +1100,7 @@ func stringPtr(v string) *string {
 // }
 
 // Helper Mapper
-func (s *service) mapOrderToResponse(o dbgen.Order, items []dbgen.OrderItem) OrderResponse {
+func (s *service) mapOrderToResponse(o dbgen.Order, items []dbgen.GetOrderItemsRow) OrderResponse {
 	total, _ := strconv.ParseFloat(o.TotalPrice, 64)
 	subtotal, _ := strconv.ParseFloat(o.SubtotalPrice, 64)
 	shipping, _ := strconv.ParseFloat(o.ShippingPrice, 64)
@@ -1066,16 +1123,59 @@ func (s *service) mapOrderToResponse(o dbgen.Order, items []dbgen.OrderItem) Ord
 		res.SnapRedirectUrl = &o.SnapRedirectUrl.String
 	}
 
+	// Handle AddressSnapshot
+	if len(o.AddressSnapshot) > 0 {
+		var addr AddressSnapshot
+		if err := json.Unmarshal(o.AddressSnapshot, &addr); err == nil {
+			res.Address = &addr
+			if res.Customer.Phone == "" {
+				res.Customer.Phone = addr.RecipientPhone
+			}
+		}
+	}
+
 	for _, item := range items {
 		uPrice, _ := strconv.ParseFloat(item.UnitPrice, 64)
 		sTotal, _ := strconv.ParseFloat(item.TotalPrice, 64)
 		res.Items = append(res.Items, OrderItemResponse{
-			ID:           item.ID.String(),
-			ProductID:    item.ProductID.String(),
-			NameSnapshot: item.NameSnapshot,
-			UnitPrice:    uPrice,
-			Quantity:     item.Quantity,
-			Subtotal:     sTotal,
+			ID:              item.ID.String(),
+			ProductID:       item.ProductID.String(),
+			ProductSlug:     item.Productslug.String,
+			ProductImageUrl: item.Productimageurl.String,
+			NameSnapshot:    item.NameSnapshot,
+			UnitPrice:       uPrice,
+			Quantity:        item.Quantity,
+			Subtotal:        sTotal,
+		})
+	}
+	return res
+}
+
+func (s *service) mapAdminOrderToResponse(o dbgen.ListOrdersAdminRow, items []dbgen.GetOrderItemsRow) OrderResponse {
+	total, _ := strconv.ParseFloat(o.TotalPrice, 64)
+
+	res := OrderResponse{
+		ID:          o.ID.String(),
+		OrderNumber: o.OrderNumber,
+		Status:      o.Status,
+		TotalPrice:  total,
+		PlacedAt:    o.PlacedAt,
+		UserID:      o.UserID.String(),
+		UserName:    o.UserName,
+	}
+
+	for _, item := range items {
+		uPrice, _ := strconv.ParseFloat(item.UnitPrice, 64)
+		sTotal, _ := strconv.ParseFloat(item.TotalPrice, 64)
+		res.Items = append(res.Items, OrderItemResponse{
+			ID:              item.ID.String(),
+			ProductID:       item.ProductID.String(),
+			ProductSlug:     item.Productslug.String,
+			ProductImageUrl: item.Productimageurl.String,
+			NameSnapshot:    item.NameSnapshot,
+			UnitPrice:       uPrice,
+			Quantity:        item.Quantity,
+			Subtotal:        sTotal,
 		})
 	}
 	return res

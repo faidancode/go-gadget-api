@@ -148,6 +148,16 @@ func (h *Handler) Detail(c *gin.Context) {
 	res, err := h.service.Detail(c.Request.Context(), orderID)
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
+
+		// Tambahkan logger untuk menangkap detail error jika status >= 500
+		if httpErr.Status >= 500 {
+			h.logger.Error("Detail Order Internal Error",
+				zap.String("order_id", orderID),
+				zap.Error(err), // Pesan error asli dari database/service
+				zap.Int("status", httpErr.Status),
+			)
+		}
+
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
@@ -190,29 +200,31 @@ func (h *Handler) ListAdmin(c *gin.Context) {
 		limit = 20
 	}
 
-	orders, total, err := h.service.ListAdmin(
+	data, total, err := h.service.ListAdmin(
 		c.Request.Context(),
 		status,
 		search,
 		page,
 		limit,
 	)
+
+	totalPages := 0
+	if limit > 0 {
+		totalPages = int((total + int64(limit) - 1) / int64(limit))
+	}
+
 	if err != nil {
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
 
-	response.Success(c, http.StatusOK, gin.H{
-		"orders": orders,
-		"pagination": gin.H{
-			"page":   page,
-			"limit":  limit,
-			"total":  total,
-			"status": status,
-			"search": search,
-		},
-	}, nil)
+	response.Success(c, http.StatusOK, data, &response.PaginationMeta{
+		Total:      total,
+		TotalPages: totalPages,
+		Page:       int(page),
+		Limit:      int(limit),
+	})
 }
 
 // UpdateStatus updates order status (admin only)
@@ -229,7 +241,7 @@ func (c *Handler) UpdateStatusByAdmin(ctx *gin.Context) {
 	res, err := c.service.UpdateStatusByAdmin(
 		ctx.Request.Context(),
 		id,
-		req.Status,
+		req.NextStatus,
 		req.ReceiptNo,
 	)
 	if err != nil {
@@ -246,7 +258,7 @@ func (c *Handler) UpdateStatusByAdmin(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, res)
+	response.Success(ctx, http.StatusOK, res, nil)
 }
 
 // PATCH /api/v1/admin/orders/:id/payment-status

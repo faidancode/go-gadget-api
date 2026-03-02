@@ -11,6 +11,7 @@ package mock
 
 import (
 	context "context"
+	midtrans "go-gadget-api/internal/midtrans"
 	order "go-gadget-api/internal/order"
 	reflect "reflect"
 
@@ -83,6 +84,21 @@ func (m *MockService) Complete(ctx context.Context, orderID, userID, nextStatus 
 func (mr *MockServiceMockRecorder) Complete(ctx, orderID, userID, nextStatus any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Complete", reflect.TypeOf((*MockService)(nil).Complete), ctx, orderID, userID, nextStatus)
+}
+
+// ContinuePayment mocks base method.
+func (m *MockService) ContinuePayment(ctx context.Context, orderID, userID string) (*midtrans.CreateTransactionResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContinuePayment", ctx, orderID, userID)
+	ret0, _ := ret[0].(*midtrans.CreateTransactionResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContinuePayment indicates an expected call of ContinuePayment.
+func (mr *MockServiceMockRecorder) ContinuePayment(ctx, orderID, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContinuePayment", reflect.TypeOf((*MockService)(nil).ContinuePayment), ctx, orderID, userID)
 }
 
 // Detail mocks base method.

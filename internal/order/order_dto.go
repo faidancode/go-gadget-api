@@ -24,12 +24,12 @@ type ListOrderAdminRequest struct {
 }
 
 type UpdateStatusRequest struct {
-	Status string `json:"status" binding:"required"`
+	NextStatus string `json:"nextStatus" binding:"required"`
 }
 
 type UpdateStatusAdminRequest struct {
-	Status    string  `json:"status" binding:"required"`
-	ReceiptNo *string `json:"receiptNo"`
+	NextStatus string  `json:"nextStatus" binding:"required"`
+	ReceiptNo  *string `json:"receiptNo"`
 }
 
 type UpdatePaymentStatusRequest struct {
@@ -74,6 +74,8 @@ type CheckoutResponse struct {
 type OrderResponse struct {
 	ID              string              `json:"id"`
 	OrderNumber     string              `json:"orderNumber"`
+	UserID          string              `json:"userId"`
+	UserName        string              `json:"userName"`
 	Status          string              `json:"status"`
 	ReceiptNo       *string             `json:"receiptNo,omitempty"` // Tambahkan di sini
 	PaymentStatus   string              `json:"paymentStatus"`
@@ -83,16 +85,20 @@ type OrderResponse struct {
 	PlacedAt        time.Time           `json:"placedAt"`
 	SnapToken       *string             `json:"snapToken,omitempty"`
 	SnapRedirectUrl *string             `json:"snapRedirectUrl,omitempty"`
+	Customer        CustomerResponse    `json:"customer"`
+	Address         *AddressSnapshot    `json:"address"`
 	Items           []OrderItemResponse `json:"items,omitempty"`
 }
 
 type OrderItemResponse struct {
-	ID           string  `json:"id"`
-	ProductID    string  `json:"productId"`
-	NameSnapshot string  `json:"nameSnapshot"`
-	UnitPrice    float64 `json:"unitPrice"`
-	Quantity     int32   `json:"quantity"`
-	Subtotal     float64 `json:"subtotal"` // unitPrice * quantity
+	ID              string  `json:"id"`
+	ProductID       string  `json:"productId"`
+	ProductImageUrl string  `json:"productImageUrl"`
+	ProductSlug     string  `json:"productSlug"`
+	NameSnapshot    string  `json:"nameSnapshot"`
+	UnitPrice       float64 `json:"unitPrice"`
+	Quantity        int32   `json:"quantity"`
+	Subtotal        float64 `json:"subtotal"` // unitPrice * quantity
 }
 
 type OrderDetailResponse struct {
@@ -130,4 +136,22 @@ type OrderAdminResponse struct {
 	Status      string    `json:"status"`
 	TotalPrice  float64   `json:"totalPrice"`
 	PlacedAt    time.Time `json:"placedAt"`
+}
+
+type CustomerResponse struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
+}
+
+type AddressSnapshot struct {
+	Label          string `json:"label"`
+	RecipientName  string `json:"recipientName"`
+	RecipientPhone string `json:"recipientPhone"`
+	Street         string `json:"street"`
+	Subdistrict    string `json:"subdistrict"`
+	District       string `json:"district"`
+	City           string `json:"city"`
+	Province       string `json:"province"`
+	PostalCode     string `json:"postalCode"`
 }

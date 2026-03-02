@@ -26,15 +26,18 @@ SELECT
                 jsonb_build_object(
                     'id', oi.id,
                     'productId', oi.product_id,
+                    'productSlug', p.slug,
+                    'productImageUrl', p.image_url,
                     'nameSnapshot', oi.name_snapshot,
-                    'unitPrice', oi.total_price,
+                    'unitPrice', oi.unit_price,
                     'quantity', oi.quantity,
-                    'subtotal', oi.total_price * oi.quantity
+                    'subtotal', oi.total_price
                 )
             ),
             '[]'::jsonb
         )
         FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id -- Join ke tabel produk
         WHERE oi.order_id = o.id
     )::jsonb AS items_json
 FROM orders o
@@ -49,12 +52,24 @@ LIMIT $1 OFFSET $2;
 
 
 -- name: ListOrdersAdmin :many
-SELECT o.*, count(*) OVER() AS total_count
+SELECT 
+    o.id, 
+    o.order_number, 
+    o.total_price, 
+    o.status, 
+    o.created_at, 
+    o.placed_at,
+    o.user_id,
+    o.subtotal_price,
+    o.shipping_price,
+    u.name AS user_name,
+    COUNT(*) OVER() AS total_count
 FROM orders o
+INNER JOIN users u ON o.user_id = u.id
 WHERE o.deleted_at IS NULL
   AND (sqlc.narg('status')::text IS NULL OR o.status = sqlc.narg('status')::text)
   AND (sqlc.narg('search')::text IS NULL OR o.order_number ILIKE '%' || sqlc.narg('search')::text || '%')
-ORDER BY o.placed_at DESC
+ORDER BY o.created_at DESC
 LIMIT $1 OFFSET $2;
 
 -- name: GetOrderByID :one
@@ -80,12 +95,19 @@ SELECT
     o.snap_token,
     o.snap_redirect_url,
     o.snap_token_expired_at,
+    -- Tambahkan objek customer di sini
+    jsonb_build_object(
+        'email', u.email,
+        'name', u.name
+    ) AS customer_json,
     (
         SELECT COALESCE(
             jsonb_agg(
                 jsonb_build_object(
                     'id', oi.id,
                     'productId', oi.product_id,
+                    'productSlug', p.slug,
+                    'productImageUrl', p.image_url,
                     'nameSnapshot', oi.name_snapshot,
                     'unitPrice', oi.unit_price,
                     'quantity', oi.quantity,
@@ -95,9 +117,12 @@ SELECT
             '[]'::jsonb
         )
         FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
         WHERE oi.order_id = o.id
     )::jsonb AS items_json
 FROM orders o
+-- Join ke tabel users
+INNER JOIN users u ON o.user_id = u.id
 WHERE o.id = $1 
   AND o.deleted_at IS NULL
 LIMIT 1;
@@ -146,15 +171,18 @@ FOR UPDATE;
 
 -- name: GetOrderItems :many
 SELECT 
-    id, 
-    order_id, 
-    product_id, 
-    name_snapshot, 
-    unit_price, 
-    quantity, 
-    total_price
-FROM order_items 
-WHERE order_id = $1;
+    oi.id, 
+    oi.order_id, 
+    oi.product_id, 
+    p.slug as productSlug,
+    p.image_url as productImageUrl,
+    oi.name_snapshot, 
+    oi.unit_price, 
+    oi.quantity, 
+    oi.total_price
+FROM order_items oi
+LEFT JOIN products p ON oi.product_id = p.id
+WHERE oi.order_id = $1;
 
 -- name: UpdateOrderStatus :one
 UPDATE orders 

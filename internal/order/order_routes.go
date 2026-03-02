@@ -64,6 +64,7 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler, rdb *redis.Client, log
 	adminOrders.Use(middleware.RateLimitByIP(10, 20))
 	{
 		adminOrders.GET("", handler.ListAdmin)
+		adminOrders.GET("/:id", handler.Detail)
 
 		// Update status order oleh admin
 		// limit 2 rps untuk mencegah perubahan status massal yang tidak sengaja via script.

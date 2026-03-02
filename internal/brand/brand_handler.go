@@ -39,7 +39,7 @@ func (h *Handler) ListPublic(c *gin.Context) {
 		Total:      total,
 		TotalPages: totalPages,
 		Page:       page,
-		PageSize:   limit,
+		Limit:      limit,
 	})
 }
 
@@ -76,7 +76,7 @@ func (h *Handler) ListAdmin(c *gin.Context) {
 		Total:      total,
 		TotalPages: totalPages,
 		Page:       int(req.Page),
-		PageSize:   int(req.Limit),
+		Limit:      int(req.Limit),
 	})
 }
 

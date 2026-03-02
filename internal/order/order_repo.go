@@ -26,6 +26,7 @@ type Repository interface {
 	UpdateOrderPaymentStatus(ctx context.Context, arg dbgen.UpdateOrderPaymentStatusParams) (dbgen.Order, error)
 	GetOrderSummaryByOrderNumber(ctx context.Context, orderNumber string) (dbgen.GetOrderSummaryByOrderNumberRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (dbgen.GetUserByIDRow, error)
+	GetAddressByID(ctx context.Context, arg dbgen.GetAddressByIDParams) (dbgen.GetAddressByIDRow, error)
 }
 
 type repository struct {
@@ -99,4 +100,8 @@ func (r *repository) GetOrderSummaryByOrderNumber(ctx context.Context, orderNumb
 
 func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (dbgen.GetUserByIDRow, error) {
 	return r.queries.GetUserByID(ctx, id)
+}
+
+func (r *repository) GetAddressByID(ctx context.Context, arg dbgen.GetAddressByIDParams) (dbgen.GetAddressByIDRow, error) {
+	return r.queries.GetAddressByID(ctx, arg)
 }

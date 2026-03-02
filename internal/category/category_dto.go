@@ -21,7 +21,7 @@ type UpdateCategoryRequest struct {
 
 type ListCategoryRequest struct {
 	Page   int32  `form:"page"`
-	Limit  int32  `form:"pageSize"`
+	Limit  int32  `form:"limit"`
 	Search string `form:"search"`
 	Sort   string `form:"sort"`
 }

@@ -351,6 +351,6 @@ func (h *Handler) makePagination(page, limit int, total int64) *response.Paginat
 		Total:      total,
 		TotalPages: totalPages,
 		Page:       page,
-		PageSize:   limit,
+		Limit:      limit,
 	}
 }

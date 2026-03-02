@@ -8,7 +8,7 @@ type PaginationMeta struct {
 	Total      int64 `json:"total,omitempty"`
 	TotalPages int   `json:"totalPages,omitempty"`
 	Page       int   `json:"page,omitempty"`
-	PageSize   int   `json:"pageSize,omitempty"`
+	Limit      int   `json:"limit,omitempty"`
 }
 
 func NewPaginationMeta(total int64, page, limit int) PaginationMeta {
@@ -22,7 +22,7 @@ func NewPaginationMeta(total int64, page, limit int) PaginationMeta {
 		Total:      total,
 		TotalPages: totalPages,
 		Page:       page,
-		PageSize:   limit,
+		Limit:      limit,
 	}
 }
 

@@ -1,0 +1,677 @@
+{
+    "info": {
+        "_postman_id": "8d6e9f2b-4748-4f2b-9f2b-82f790f8d410",
+        "name": "Go Gadget API",
+        "description": "API collection for Go Gadget portfolio project.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Register",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"user@example.com\",\n    \"name\": \"John Doe\",\n    \"password\": \"password123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/auth/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Refresh Token",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"refreshToken\": \"your_refresh_token\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/auth/refresh",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "refresh"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Me",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/auth/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/auth/logout",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "logout"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Products",
+            "item": [
+                {
+                    "name": "List Public",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/products?page=1&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/products/:slug",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "products",
+                                ":slug"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "slug",
+                                    "value": "product-slug"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Carts",
+            "item": [
+                {
+                    "name": "Detail",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/carts/detail",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "carts",
+                                "detail"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Add Item",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"qty\": 1\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/carts/items/:productId",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "carts",
+                                "items",
+                                ":productId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "productId",
+                                    "value": "product-uuid"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Addresses",
+            "item": [
+                {
+                    "name": "List My Addresses",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/addresses",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "addresses"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Address",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"label\": \"Home\",\n    \"recipientName\": \"John Doe\",\n    \"recipientPhone\": \"08123456789\",\n    \"street\": \"Jl. Merdeka No. 1\",\n    \"city\": \"Jakarta\",\n    \"isPrimary\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/addresses",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "addresses"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Orders",
+            "item": [
+                {
+                    "name": "Checkout",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"addressId\": \"your_address_uuid\",\n    \"note\": \"Please handle with care\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/orders/checkout",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "orders",
+                                "checkout"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List My Orders",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/orders?page=1&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Detail",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/orders/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "orders",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "order-uuid"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Wishlists",
+            "item": [
+                {
+                    "name": "Get My Items",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{access_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/wishlists/items",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "wishlists",
+                                "items"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin",
+            "item": [
+                {
+                    "name": "Brands",
+                    "item": [
+                        {
+                            "name": "List Admin",
+                            "request": {
+                                "auth": {
+                                    "type": "bearer",
+                                    "bearer": [
+                                        {
+                                            "key": "token",
+                                            "value": "{{access_token}}",
+                                            "type": "string"
+                                        }
+                                    ]
+                                },
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/v1/admin/brands",
+                                    "host": [
+                                        "{{base_url}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "admin",
+                                        "brands"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Categories",
+                    "item": [
+                        {
+                            "name": "List Admin",
+                            "request": {
+                                "auth": {
+                                    "type": "bearer",
+                                    "bearer": [
+                                        {
+                                            "key": "token",
+                                            "value": "{{access_token}}",
+                                            "type": "string"
+                                        }
+                                    ]
+                                },
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/v1/admin/categories",
+                                    "host": [
+                                        "{{base_url}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "admin",
+                                        "categories"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Products",
+                    "item": [
+                        {
+                            "name": "List Admin",
+                            "request": {
+                                "auth": {
+                                    "type": "bearer",
+                                    "bearer": [
+                                        {
+                                            "key": "token",
+                                            "value": "{{access_token}}",
+                                            "type": "string"
+                                        }
+                                    ]
+                                },
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/v1/admin/products",
+                                    "host": [
+                                        "{{base_url}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "admin",
+                                        "products"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Orders",
+                    "item": [
+                        {
+                            "name": "List All",
+                            "request": {
+                                "auth": {
+                                    "type": "bearer",
+                                    "bearer": [
+                                        {
+                                            "key": "token",
+                                            "value": "{{access_token}}",
+                                            "type": "string"
+                                        }
+                                    ]
+                                },
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/v1/admin/orders?page=1&limit=10",
+                                    "host": [
+                                        "{{base_url}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "admin",
+                                        "orders"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "page",
+                                            "value": "1"
+                                        },
+                                        {
+                                            "key": "limit",
+                                            "value": "10"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

@@ -72,6 +72,21 @@ func (mr *MockRepositoryMockRecorder) CreateOrderItem(ctx, arg any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrderItem", reflect.TypeOf((*MockRepository)(nil).CreateOrderItem), ctx, arg)
 }
 
+// GetAddressByID mocks base method.
+func (m *MockRepository) GetAddressByID(ctx context.Context, arg dbgen.GetAddressByIDParams) (dbgen.GetAddressByIDRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAddressByID", ctx, arg)
+	ret0, _ := ret[0].(dbgen.GetAddressByIDRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAddressByID indicates an expected call of GetAddressByID.
+func (mr *MockRepositoryMockRecorder) GetAddressByID(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressByID", reflect.TypeOf((*MockRepository)(nil).GetAddressByID), ctx, arg)
+}
+
 // GetByID mocks base method.
 func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetOrderByIDRow, error) {
 	m.ctrl.T.Helper()

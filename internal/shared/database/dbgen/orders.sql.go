@@ -134,12 +134,19 @@ SELECT
     o.snap_token,
     o.snap_redirect_url,
     o.snap_token_expired_at,
+    -- Tambahkan objek customer di sini
+    jsonb_build_object(
+        'email', u.email,
+        'name', u.name
+    ) AS customer_json,
     (
         SELECT COALESCE(
             jsonb_agg(
                 jsonb_build_object(
                     'id', oi.id,
                     'productId', oi.product_id,
+                    'productSlug', p.slug,
+                    'productImageUrl', p.image_url,
                     'nameSnapshot', oi.name_snapshot,
                     'unitPrice', oi.unit_price,
                     'quantity', oi.quantity,
@@ -149,9 +156,11 @@ SELECT
             '[]'::jsonb
         )
         FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
         WHERE oi.order_id = o.id
     )::jsonb AS items_json
 FROM orders o
+INNER JOIN users u ON o.user_id = u.id
 WHERE o.id = $1 
   AND o.deleted_at IS NULL
 LIMIT 1
@@ -179,9 +188,11 @@ type GetOrderByIDRow struct {
 	SnapToken          sql.NullString  `json:"snap_token"`
 	SnapRedirectUrl    sql.NullString  `json:"snap_redirect_url"`
 	SnapTokenExpiredAt sql.NullTime    `json:"snap_token_expired_at"`
+	CustomerJson       json.RawMessage `json:"customer_json"`
 	ItemsJson          json.RawMessage `json:"items_json"`
 }
 
+// Join ke tabel users
 func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (GetOrderByIDRow, error) {
 	row := q.queryRow(ctx, q.getOrderByIDStmt, getOrderByID, id)
 	var i GetOrderByIDRow
@@ -207,6 +218,7 @@ func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (GetOrderByIDR
 		&i.SnapToken,
 		&i.SnapRedirectUrl,
 		&i.SnapTokenExpiredAt,
+		&i.CustomerJson,
 		&i.ItemsJson,
 	)
 	return i, err
@@ -214,25 +226,30 @@ func (q *Queries) GetOrderByID(ctx context.Context, id uuid.UUID) (GetOrderByIDR
 
 const getOrderItems = `-- name: GetOrderItems :many
 SELECT 
-    id, 
-    order_id, 
-    product_id, 
-    name_snapshot, 
-    unit_price, 
-    quantity, 
-    total_price
-FROM order_items 
-WHERE order_id = $1
+    oi.id, 
+    oi.order_id, 
+    oi.product_id, 
+    p.slug as productSlug,
+    p.image_url as productImageUrl,
+    oi.name_snapshot, 
+    oi.unit_price, 
+    oi.quantity, 
+    oi.total_price
+FROM order_items oi
+LEFT JOIN products p ON oi.product_id = p.id
+WHERE oi.order_id = $1
 `
 
 type GetOrderItemsRow struct {
-	ID           uuid.UUID `json:"id"`
-	OrderID      uuid.UUID `json:"order_id"`
-	ProductID    uuid.UUID `json:"product_id"`
-	NameSnapshot string    `json:"name_snapshot"`
-	UnitPrice    string    `json:"unit_price"`
-	Quantity     int32     `json:"quantity"`
-	TotalPrice   string    `json:"total_price"`
+	ID              uuid.UUID      `json:"id"`
+	OrderID         uuid.UUID      `json:"order_id"`
+	ProductID       uuid.UUID      `json:"product_id"`
+	Productslug     sql.NullString `json:"productslug"`
+	Productimageurl sql.NullString `json:"productimageurl"`
+	NameSnapshot    string         `json:"name_snapshot"`
+	UnitPrice       string         `json:"unit_price"`
+	Quantity        int32          `json:"quantity"`
+	TotalPrice      string         `json:"total_price"`
 }
 
 func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]GetOrderItemsRow, error) {
@@ -248,6 +265,8 @@ func (q *Queries) GetOrderItems(ctx context.Context, orderID uuid.UUID) ([]GetOr
 			&i.ID,
 			&i.OrderID,
 			&i.ProductID,
+			&i.Productslug,
+			&i.Productimageurl,
 			&i.NameSnapshot,
 			&i.UnitPrice,
 			&i.Quantity,
@@ -401,15 +420,18 @@ SELECT
                 jsonb_build_object(
                     'id', oi.id,
                     'productId', oi.product_id,
+                    'productSlug', p.slug,
+                    'productImageUrl', p.image_url,
                     'nameSnapshot', oi.name_snapshot,
-                    'unitPrice', oi.total_price,
+                    'unitPrice', oi.unit_price,
                     'quantity', oi.quantity,
-                    'subtotal', oi.total_price * oi.quantity
+                    'subtotal', oi.total_price
                 )
             ),
             '[]'::jsonb
         )
         FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id -- Join ke tabel produk
         WHERE oi.order_id = o.id
     )::jsonb AS items_json
 FROM orders o
@@ -478,12 +500,22 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 }
 
 const listOrdersAdmin = `-- name: ListOrdersAdmin :many
-SELECT o.id, o.order_number, o.user_id, o.status, o.payment_method, o.payment_status, o.address_snapshot, o.subtotal_price, o.discount_price, o.shipping_price, o.total_price, o.note, o.placed_at, o.paid_at, o.cancelled_at, o.cancel_reason, o.completed_at, o.receipt_no, o.snap_token, o.snap_redirect_url, o.created_at, o.updated_at, o.deleted_at, o.address_id, o.snap_token_expired_at, count(*) OVER() AS total_count
+SELECT 
+    o.id, 
+    o.order_number, 
+    o.total_price, 
+    o.status, 
+    o.created_at, 
+    o.placed_at,
+    o.user_id,
+    u.name AS user_name,
+    COUNT(*) OVER() AS total_count
 FROM orders o
+INNER JOIN users u ON o.user_id = u.id
 WHERE o.deleted_at IS NULL
   AND ($3::text IS NULL OR o.status = $3::text)
   AND ($4::text IS NULL OR o.order_number ILIKE '%' || $4::text || '%')
-ORDER BY o.placed_at DESC
+ORDER BY o.created_at DESC
 LIMIT $1 OFFSET $2
 `
 
@@ -495,32 +527,15 @@ type ListOrdersAdminParams struct {
 }
 
 type ListOrdersAdminRow struct {
-	ID                 uuid.UUID       `json:"id"`
-	OrderNumber        string          `json:"order_number"`
-	UserID             uuid.UUID       `json:"user_id"`
-	Status             string          `json:"status"`
-	PaymentMethod      sql.NullString  `json:"payment_method"`
-	PaymentStatus      string          `json:"payment_status"`
-	AddressSnapshot    json.RawMessage `json:"address_snapshot"`
-	SubtotalPrice      string          `json:"subtotal_price"`
-	DiscountPrice      string          `json:"discount_price"`
-	ShippingPrice      string          `json:"shipping_price"`
-	TotalPrice         string          `json:"total_price"`
-	Note               sql.NullString  `json:"note"`
-	PlacedAt           time.Time       `json:"placed_at"`
-	PaidAt             sql.NullTime    `json:"paid_at"`
-	CancelledAt        sql.NullTime    `json:"cancelled_at"`
-	CancelReason       sql.NullString  `json:"cancel_reason"`
-	CompletedAt        sql.NullTime    `json:"completed_at"`
-	ReceiptNo          sql.NullString  `json:"receipt_no"`
-	SnapToken          sql.NullString  `json:"snap_token"`
-	SnapRedirectUrl    sql.NullString  `json:"snap_redirect_url"`
-	CreatedAt          time.Time       `json:"created_at"`
-	UpdatedAt          time.Time       `json:"updated_at"`
-	DeletedAt          sql.NullTime    `json:"deleted_at"`
-	AddressID          uuid.NullUUID   `json:"address_id"`
-	SnapTokenExpiredAt sql.NullTime    `json:"snap_token_expired_at"`
-	TotalCount         int64           `json:"total_count"`
+	ID          uuid.UUID `json:"id"`
+	OrderNumber string    `json:"order_number"`
+	TotalPrice  string    `json:"total_price"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	PlacedAt    time.Time `json:"placed_at"`
+	UserID      uuid.UUID `json:"user_id"`
+	UserName    string    `json:"user_name"`
+	TotalCount  int64     `json:"total_count"`
 }
 
 func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams) ([]ListOrdersAdminRow, error) {
@@ -540,29 +555,12 @@ func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderNumber,
-			&i.UserID,
-			&i.Status,
-			&i.PaymentMethod,
-			&i.PaymentStatus,
-			&i.AddressSnapshot,
-			&i.SubtotalPrice,
-			&i.DiscountPrice,
-			&i.ShippingPrice,
 			&i.TotalPrice,
-			&i.Note,
-			&i.PlacedAt,
-			&i.PaidAt,
-			&i.CancelledAt,
-			&i.CancelReason,
-			&i.CompletedAt,
-			&i.ReceiptNo,
-			&i.SnapToken,
-			&i.SnapRedirectUrl,
+			&i.Status,
 			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.DeletedAt,
-			&i.AddressID,
-			&i.SnapTokenExpiredAt,
+			&i.PlacedAt,
+			&i.UserID,
+			&i.UserName,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
