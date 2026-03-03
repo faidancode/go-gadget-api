@@ -38,6 +38,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, st
 		return "", "", AuthResponse{}, autherrors.ErrInvalidCredentials
 	}
 
+	if !user.EmailConfirmed {
+		return "", "", AuthResponse{}, autherrors.ErrEmailNotVerified
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return "", "", AuthResponse{}, autherrors.ErrInvalidCredentials
 	}

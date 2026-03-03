@@ -68,6 +68,12 @@ var (
 		http.StatusUnauthorized,
 	)
 
+	ErrEmailNotVerified = apperror.New(
+		"EMAIL_NOT_VERIFIED",
+		"Your account has not been verified. Please check your email for the verification link.",
+		http.StatusForbidden,
+	)
+
 	ErrEmailAlreadyRegistered = apperror.New(
 		apperror.CodeConflict,
 		"Email already registered",

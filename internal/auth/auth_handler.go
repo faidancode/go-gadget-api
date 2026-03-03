@@ -2,6 +2,7 @@ package auth
 
 import (
 	autherrors "go-gadget-api/internal/auth/errors"
+	"go-gadget-api/internal/pkg/apperror"
 	platform "go-gadget-api/internal/pkg/request"
 	"go-gadget-api/internal/pkg/response"
 	"log"
@@ -28,7 +29,6 @@ func NewHandler(s *Service, logger ...*zap.Logger) *Handler {
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// Response Error Seragam
 		response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Input tidak valid", err.Error())
 		return
 	}
@@ -39,34 +39,19 @@ func (h *Handler) Login(c *gin.Context) {
 
 	token, refreshToken, userResp, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		// Response Error Seragam
-		response.Error(c, http.StatusUnauthorized, "AUTH_FAILED", "Email atau password salah", nil)
+
+		h.logger.Warn("login failed", zap.String("email", req.Email), zap.Error(err))
+
+		httpErr := apperror.ToHTTP(err)
+		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
 	}
+
 	isProd := os.Getenv("APP_ENV") == "production"
 
+	// Logic Set Cookie (Tetap sama)
 	if platform.IsWebClient(clientType) {
-		// Set access_token cookie
-		http.SetCookie(c.Writer, &http.Cookie{
-			Name:     "access_token",
-			Value:    token,
-			Path:     "/",
-			MaxAge:   86400, // 1 hari
-			HttpOnly: true,
-			Secure:   isProd,
-			SameSite: http.SameSiteLaxMode, // ✅ Explicit SameSite
-		})
-
-		// Set refresh_token cookie
-		http.SetCookie(c.Writer, &http.Cookie{
-			Name:     "refresh_token",
-			Value:    refreshToken,
-			Path:     "/",
-			MaxAge:   3600 * 24 * 7, // 7 hari
-			HttpOnly: true,
-			Secure:   isProd,
-			SameSite: http.SameSiteLaxMode, // ✅ Explicit SameSite
-		})
+		h.setAuthCookies(c, token, refreshToken, isProd)
 	}
 
 	responseData := gin.H{
@@ -76,6 +61,30 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, responseData, nil)
+}
+
+// Helper internal agar kode login lebih bersih
+func (h *Handler) setAuthCookies(c *gin.Context, token, refreshToken string, isProd bool) {
+	// Access Token
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   86400,
+		HttpOnly: true,
+		Secure:   isProd,
+		SameSite: http.SameSiteLaxMode,
+	})
+	// Refresh Token
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/",
+		MaxAge:   3600 * 24 * 7,
+		HttpOnly: true,
+		Secure:   isProd,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func (h *Handler) Me(c *gin.Context) {
