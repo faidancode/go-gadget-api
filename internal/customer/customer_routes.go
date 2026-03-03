@@ -1,15 +1,18 @@
 package customer
 
 import (
-	"go-gadget-api/internal/middleware"
-
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
-	customers := r.Group("/customers")
-	customers.Use(middleware.AuthMiddleware())
+func RegisterRoutes(r *gin.RouterGroup, h *Handler) {
+	customerGroup := r.Group("/customers")
 	{
-		customers.PATCH("/profile", handler.UpdateProfile)
+		// Customer self profile
+		customerGroup.PATCH("/profile", h.UpdateProfile)
+
+		// Admin only (assuming these should be protected)
+		customerGroup.GET("", h.List)
+		customerGroup.GET("/:id", h.GetDetails)
+		customerGroup.PATCH("/:id/status", h.ToggleStatus)
 	}
 }

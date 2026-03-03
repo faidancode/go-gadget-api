@@ -228,6 +228,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listCategoriesPublicStmt, err = db.PrepareContext(ctx, listCategoriesPublic); err != nil {
 		return nil, fmt.Errorf("error preparing query ListCategoriesPublic: %w", err)
 	}
+	if q.listCustomersStmt, err = db.PrepareContext(ctx, listCustomers); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCustomers: %w", err)
+	}
 	if q.listOrdersStmt, err = db.PrepareContext(ctx, listOrders); err != nil {
 		return nil, fmt.Errorf("error preparing query ListOrders: %w", err)
 	}
@@ -296,6 +299,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateCustomerProfileStmt, err = db.PrepareContext(ctx, updateCustomerProfile); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCustomerProfile: %w", err)
+	}
+	if q.updateCustomerStatusStmt, err = db.PrepareContext(ctx, updateCustomerStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCustomerStatus: %w", err)
 	}
 	if q.updateOrderPaymentStatusStmt, err = db.PrepareContext(ctx, updateOrderPaymentStatus); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateOrderPaymentStatus: %w", err)
@@ -663,6 +669,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listCategoriesPublicStmt: %w", cerr)
 		}
 	}
+	if q.listCustomersStmt != nil {
+		if cerr := q.listCustomersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCustomersStmt: %w", cerr)
+		}
+	}
 	if q.listOrdersStmt != nil {
 		if cerr := q.listOrdersStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listOrdersStmt: %w", cerr)
@@ -776,6 +787,11 @@ func (q *Queries) Close() error {
 	if q.updateCustomerProfileStmt != nil {
 		if cerr := q.updateCustomerProfileStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCustomerProfileStmt: %w", cerr)
+		}
+	}
+	if q.updateCustomerStatusStmt != nil {
+		if cerr := q.updateCustomerStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCustomerStatusStmt: %w", cerr)
 		}
 	}
 	if q.updateOrderPaymentStatusStmt != nil {
@@ -920,6 +936,7 @@ type Queries struct {
 	listBrandsPublicStmt                        *sql.Stmt
 	listCategoriesAdminStmt                     *sql.Stmt
 	listCategoriesPublicStmt                    *sql.Stmt
+	listCustomersStmt                           *sql.Stmt
 	listOrdersStmt                              *sql.Stmt
 	listOrdersAdminStmt                         *sql.Stmt
 	listPendingOutboxStmt                       *sql.Stmt
@@ -943,6 +960,7 @@ type Queries struct {
 	updateCategoryStmt                          *sql.Stmt
 	updateCustomerPasswordStmt                  *sql.Stmt
 	updateCustomerProfileStmt                   *sql.Stmt
+	updateCustomerStatusStmt                    *sql.Stmt
 	updateOrderPaymentStatusStmt                *sql.Stmt
 	updateOrderSnapTokenStmt                    *sql.Stmt
 	updateOrderStatusStmt                       *sql.Stmt
@@ -1024,6 +1042,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listBrandsPublicStmt:                        q.listBrandsPublicStmt,
 		listCategoriesAdminStmt:                     q.listCategoriesAdminStmt,
 		listCategoriesPublicStmt:                    q.listCategoriesPublicStmt,
+		listCustomersStmt:                           q.listCustomersStmt,
 		listOrdersStmt:                              q.listOrdersStmt,
 		listOrdersAdminStmt:                         q.listOrdersAdminStmt,
 		listPendingOutboxStmt:                       q.listPendingOutboxStmt,
@@ -1047,6 +1066,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateCategoryStmt:                          q.updateCategoryStmt,
 		updateCustomerPasswordStmt:                  q.updateCustomerPasswordStmt,
 		updateCustomerProfileStmt:                   q.updateCustomerProfileStmt,
+		updateCustomerStatusStmt:                    q.updateCustomerStatusStmt,
 		updateOrderPaymentStatusStmt:                q.updateOrderPaymentStatusStmt,
 		updateOrderSnapTokenStmt:                    q.updateOrderSnapTokenStmt,
 		updateOrderStatusStmt:                       q.updateOrderStatusStmt,

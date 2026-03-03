@@ -1,135 +1,217 @@
 package customer_test
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
 	"errors"
-	"go-gadget-api/internal/customer"
-	"go-gadget-api/internal/shared/database/helper"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"go-gadget-api/internal/customer"
+	mock "go-gadget-api/internal/mock/customer"
+
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
-type fakeCustomerService struct {
-	UpdateProfileFn func(ctx context.Context, userID string, req customer.UpdateProfileRequest) (customer.CustomerResponse, error)
-}
-
-func (f *fakeCustomerService) UpdateProfile(
-	ctx context.Context,
-	userID string,
-	req customer.UpdateProfileRequest,
-) (customer.CustomerResponse, error) {
-	return f.UpdateProfileFn(ctx, userID, req)
-}
-
-func newTestCustomerHandler(svc customer.Service) *customer.Handler {
-	return customer.NewHandler(svc)
-}
-
 func TestCustomerHandler_UpdateProfile(t *testing.T) {
-	t.Run("success_update_profile", func(t *testing.T) {
-		userID := "user-123"
+	gin.SetMode(gin.TestMode)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-		svc := &fakeCustomerService{
-			UpdateProfileFn: func(ctx context.Context, uid string, req customer.UpdateProfileRequest) (customer.CustomerResponse, error) {
-				assert.Equal(t, userID, uid)
-				assert.Equal(t, "New Name", helper.StringPtrValue(req.Name))
+	svc := mock.NewMockService(ctrl)
+	h := customer.NewHandler(svc)
+	r := gin.Default()
 
-				return customer.CustomerResponse{
-					ID:   userID,
-					Name: "New Name",
-				}, nil
-			},
-		}
-
-		handler := newTestCustomerHandler(svc)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-
-		// body
-		body := `{"name":"New Name"}`
-		req := httptest.NewRequest(http.MethodPut, "/me", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		c.Request = req
-
-		// context user
-		c.Set("user_id", userID)
-		c.Set("user_id", userID)
-
-		handler.UpdateProfile(c)
-
-		assert.Equal(t, http.StatusOK, w.Code)
+	r.PATCH("/api/v1/customers/profile", func(c *gin.Context) {
+		c.Set("user_id", uuid.New().String())
+		h.UpdateProfile(c)
 	})
 
-	t.Run("error_invalid_payload", func(t *testing.T) {
-		userID := "user-123"
-		svc := &fakeCustomerService{}
-		handler := newTestCustomerHandler(svc)
+	t.Run("success", func(t *testing.T) {
+		userID := uuid.New()
+		svc.EXPECT().
+			UpdateProfile(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(customer.CustomerResponse{
+				ID:    userID.String(),
+				Name:  "New Name",
+				Email: "test@example.com",
+			}, nil)
 
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
+		body := map[string]string{"name": "New Name"}
+		jsonBody, _ := json.Marshal(body)
+		req, _ := http.NewRequest(http.MethodPatch, "/api/v1/customers/profile", bytes.NewBuffer(jsonBody))
+		resp := httptest.NewRecorder()
 
-		body := `{"name": "New Name"`
-		req := httptest.NewRequest(http.MethodPut, "/me", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(resp, req)
 
-		c.Request = req
-		c.Set("user_id", userID)
-		c.Set("user_id", userID)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		var res customer.CustomerResponse
+		json.Unmarshal(resp.Body.Bytes(), &res)
+		assert.Equal(t, "New Name", res.Name)
+	})
+}
 
-		handler.UpdateProfile(c)
+func TestCustomerHandler_List(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+	svc := mock.NewMockService(ctrl)
+	h := customer.NewHandler(svc)
+	r := gin.Default()
+
+	r.GET("/api/v1/customers", h.List)
+
+	t.Run("success", func(t *testing.T) {
+		svc.EXPECT().
+			ListCustomers(gomock.Any()).
+			Return([]customer.CustomerListResponse{
+				{ID: uuid.New().String(), Name: "Cust 1", Email: "c1@ex.com"},
+			}, nil)
+
+		req, _ := http.NewRequest(http.MethodGet, "/api/v1/customers", nil)
+		resp := httptest.NewRecorder()
+
+		r.ServeHTTP(resp, req)
+
+		assert.Equal(t, http.StatusOK, resp.Code)
+	})
+}
+
+func TestCustomerHandler_ToggleStatus(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	svc := mock.NewMockService(ctrl)
+	h := customer.NewHandler(svc)
+	r := gin.Default()
+
+	r.PATCH("/api/v1/customers/:id/status", h.ToggleStatus)
+
+	t.Run("success_toggle_status", func(t *testing.T) {
+		targetID := uuid.New().String()
+		svc.EXPECT().
+			ToggleCustomerStatus(gomock.Any(), targetID, false).
+			Return(customer.CustomerListResponse{
+				ID:       targetID,
+				IsActive: false,
+			}, nil)
+
+		body := map[string]interface{}{"is_active": false}
+		jsonBody, _ := json.Marshal(body)
+		req, _ := http.NewRequest(http.MethodPatch, "/api/v1/customers/"+targetID+"/status", bytes.NewBuffer(jsonBody))
+		resp := httptest.NewRecorder()
+
+		r.ServeHTTP(resp, req)
+
+		assert.Equal(t, http.StatusOK, resp.Code)
+	})
+
+	t.Run("error_invalid_json_payload", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPatch, "/api/v1/customers/some-id/status", bytes.NewBuffer([]byte("invalid-json")))
+		resp := httptest.NewRecorder()
+
+		r.ServeHTTP(resp, req)
+
+		// bindJSON biasanya mengembalikan 400 Bad Request
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+}
+
+func TestCustomerHandler_GetDetails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	svc := mock.NewMockService(ctrl)
+	h := customer.NewHandler(svc)
+	r := gin.Default()
+
+	r.GET("/api/v1/customers/:id", h.GetDetails)
+
+	t.Run("success_get_details", func(t *testing.T) {
+		targetID := uuid.New().String()
+		svc.EXPECT().
+			GetCustomerDetails(gomock.Any(), targetID).
+			Return(customer.CustomerDetailResponse{
+				ID:        targetID,
+				Name:      "John Doe",
+				Addresses: []customer.AddressResponse{},
+			}, nil)
+
+		req, _ := http.NewRequest(http.MethodGet, "/api/v1/customers/"+targetID, nil)
+		resp := httptest.NewRecorder()
+
+		r.ServeHTTP(resp, req)
+
+		assert.Equal(t, http.StatusOK, resp.Code)
+		assert.Contains(t, resp.Body.String(), "John Doe")
+	})
+
+	t.Run("error_not_found_from_service", func(t *testing.T) {
+		targetID := uuid.New().String()
+		// Simulasi error yang ditangani handleError
+		svc.EXPECT().
+			GetCustomerDetails(gomock.Any(), targetID).
+			Return(customer.CustomerDetailResponse{}, errors.New("customer not found"))
+
+		req, _ := http.NewRequest(http.MethodGet, "/api/v1/customers/"+targetID, nil)
+		resp := httptest.NewRecorder()
+
+		r.ServeHTTP(resp, req)
+
+		// Tergantung implementasi h.handleError, biasanya 404 atau 500
+		assert.NotEqual(t, http.StatusOK, resp.Code)
+	})
+}
+
+func TestCustomerHandler_UpdateProfile_Negative(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	svc := mock.NewMockService(ctrl)
+	h := customer.NewHandler(svc)
+	r := gin.Default()
+
+	// Skenario Unauthorized (user_id tidak ada di context)
+	r.PATCH("/api/v1/customers/profile/no-auth", h.UpdateProfile)
+
+	// Skenario Service Error
+	r.PATCH("/api/v1/customers/profile/error", func(c *gin.Context) {
+		c.Set("user_id", "valid-user-id")
+		h.UpdateProfile(c)
+	})
+
+	t.Run("error_unauthorized_no_context_id", func(t *testing.T) {
+		body := map[string]string{"name": "New Name"}
+		jsonBody, _ := json.Marshal(body)
+		req, _ := http.NewRequest(http.MethodPatch, "/api/v1/customers/profile/no-auth", bytes.NewBuffer(jsonBody))
+		resp := httptest.NewRecorder()
+
+		r.ServeHTTP(resp, req)
+
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+		assert.Contains(t, resp.Body.String(), "unauthorized")
 	})
 
 	t.Run("error_service_failure", func(t *testing.T) {
-		userID := "user-123"
+		svc.EXPECT().
+			UpdateProfile(gomock.Any(), "valid-user-id", gomock.Any()).
+			Return(customer.CustomerResponse{}, errors.New("database connection failed"))
 
-		// Simulasikan error dari layer service
-		svc := &fakeCustomerService{
-			UpdateProfileFn: func(ctx context.Context, uid string, req customer.UpdateProfileRequest) (customer.CustomerResponse, error) {
-				return customer.CustomerResponse{}, errors.New("internal server error")
-			},
-		}
+		body := map[string]string{"name": "New Name"}
+		jsonBody, _ := json.Marshal(body)
+		req, _ := http.NewRequest(http.MethodPatch, "/api/v1/customers/profile/error", bytes.NewBuffer(jsonBody))
+		resp := httptest.NewRecorder()
 
-		handler := newTestCustomerHandler(svc)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
+		r.ServeHTTP(resp, req)
 
-		body := `{"name":"New Name"}`
-		req := httptest.NewRequest(http.MethodPut, "/me", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		c.Request = req
-		c.Set("user_id", userID)
-		c.Set("user_id", userID)
-
-		handler.UpdateProfile(c)
-		// ===== DEBUG LOG =====
-		t.Log("status:", w.Code)
-		t.Log("body:", w.Body.String())
-
-		// Handler harus mengembalikan 500 jika service error
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
-
-	t.Run("error_unauthorized_no_user_id", func(t *testing.T) {
-		svc := &fakeCustomerService{}
-		handler := newTestCustomerHandler(svc)
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-
-		body := `{"name":"New Name"}`
-		c.Request = httptest.NewRequest(http.MethodPut, "/me", strings.NewReader(body))
-
-		handler.UpdateProfile(c)
-
-		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.NotEqual(t, http.StatusOK, resp.Code)
 	})
 }

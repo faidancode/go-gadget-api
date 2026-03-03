@@ -68,7 +68,7 @@ func registerModules(
 		CartSvc:     cartService,
 		MidtransSvc: midtransService,
 	})
-	customerService := customer.NewService(db, customerRepo)
+	customerService := customer.NewService(db, customerRepo, addressRepo, orderRepo)
 	wishlistService := wishlist.NewService(db, wishlistRepo)
 
 	// --- Adapters ---

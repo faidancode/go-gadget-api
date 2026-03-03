@@ -51,3 +51,23 @@ WHERE id = $1
 SELECT EXISTS (
     SELECT 1 FROM users WHERE phone = $1
 ) AS exists;
+
+-- name: ListCustomers :many
+SELECT 
+    id, 
+    name, 
+    email, 
+    phone, 
+    is_active, 
+    created_at
+FROM users
+WHERE role = 'CUSTOMER'
+ORDER BY created_at DESC;
+
+-- name: UpdateCustomerStatus :one
+UPDATE users
+SET 
+    is_active = $2,
+    updated_at = NOW()
+WHERE id = $1 AND role = 'CUSTOMER'
+RETURNING id, name, email, phone, is_active, updated_at;

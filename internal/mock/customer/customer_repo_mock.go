@@ -58,6 +58,21 @@ func (mr *MockRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockRepository)(nil).GetByID), ctx, id)
 }
 
+// ListCustomers mocks base method.
+func (m *MockRepository) ListCustomers(ctx context.Context) ([]dbgen.ListCustomersRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCustomers", ctx)
+	ret0, _ := ret[0].([]dbgen.ListCustomersRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCustomers indicates an expected call of ListCustomers.
+func (mr *MockRepositoryMockRecorder) ListCustomers(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomers", reflect.TypeOf((*MockRepository)(nil).ListCustomers), ctx)
+}
+
 // UpdatePassword mocks base method.
 func (m *MockRepository) UpdatePassword(ctx context.Context, arg dbgen.UpdateCustomerPasswordParams) error {
 	m.ctrl.T.Helper()
@@ -85,6 +100,21 @@ func (m *MockRepository) UpdateProfile(ctx context.Context, arg dbgen.UpdateCust
 func (mr *MockRepositoryMockRecorder) UpdateProfile(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfile", reflect.TypeOf((*MockRepository)(nil).UpdateProfile), ctx, arg)
+}
+
+// UpdateStatus mocks base method.
+func (m *MockRepository) UpdateStatus(ctx context.Context, arg dbgen.UpdateCustomerStatusParams) (dbgen.UpdateCustomerStatusRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStatus", ctx, arg)
+	ret0, _ := ret[0].(dbgen.UpdateCustomerStatusRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateStatus indicates an expected call of UpdateStatus.
+func (mr *MockRepositoryMockRecorder) UpdateStatus(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockRepository)(nil).UpdateStatus), ctx, arg)
 }
 
 // WithTx mocks base method.

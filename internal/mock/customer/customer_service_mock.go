@@ -41,6 +41,51 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
+// GetCustomerDetails mocks base method.
+func (m *MockService) GetCustomerDetails(ctx context.Context, customerID string) (customer.CustomerDetailResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCustomerDetails", ctx, customerID)
+	ret0, _ := ret[0].(customer.CustomerDetailResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCustomerDetails indicates an expected call of GetCustomerDetails.
+func (mr *MockServiceMockRecorder) GetCustomerDetails(ctx, customerID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCustomerDetails", reflect.TypeOf((*MockService)(nil).GetCustomerDetails), ctx, customerID)
+}
+
+// ListCustomers mocks base method.
+func (m *MockService) ListCustomers(ctx context.Context) ([]customer.CustomerListResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCustomers", ctx)
+	ret0, _ := ret[0].([]customer.CustomerListResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCustomers indicates an expected call of ListCustomers.
+func (mr *MockServiceMockRecorder) ListCustomers(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomers", reflect.TypeOf((*MockService)(nil).ListCustomers), ctx)
+}
+
+// ToggleCustomerStatus mocks base method.
+func (m *MockService) ToggleCustomerStatus(ctx context.Context, customerID string, active bool) (customer.CustomerListResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ToggleCustomerStatus", ctx, customerID, active)
+	ret0, _ := ret[0].(customer.CustomerListResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ToggleCustomerStatus indicates an expected call of ToggleCustomerStatus.
+func (mr *MockServiceMockRecorder) ToggleCustomerStatus(ctx, customerID, active any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToggleCustomerStatus", reflect.TypeOf((*MockService)(nil).ToggleCustomerStatus), ctx, customerID, active)
+}
+
 // UpdateProfile mocks base method.
 func (m *MockService) UpdateProfile(ctx context.Context, customerID string, req customer.UpdateProfileRequest) (customer.CustomerResponse, error) {
 	m.ctrl.T.Helper()

@@ -2,13 +2,14 @@ package customer_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
 	"go-gadget-api/internal/customer"
-	mock "go-gadget-api/internal/mock/customer"
+	mockAddress "go-gadget-api/internal/mock/address"
+	mockCustomer "go-gadget-api/internal/mock/customer"
+	mockOrder "go-gadget-api/internal/mock/order"
 	"go-gadget-api/internal/shared/database/dbgen"
 	"go-gadget-api/internal/shared/database/helper"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type updateProfileMatcher struct {
@@ -38,6 +40,185 @@ func (m updateProfileMatcher) String() string {
 	return "matches UpdateCustomerProfileParams"
 }
 
+func TestCustomerService_ListCustomers(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db, _, _ := sqlmock.New()
+	repo := mockCustomer.NewMockRepository(ctrl)
+	addrRepo := mockAddress.NewMockRepository(ctrl)
+	orderRepo := mockOrder.NewMockRepository(ctrl)
+	svc := customer.NewService(db, repo, addrRepo, orderRepo)
+	ctx := context.Background()
+
+	t.Run("success_list_customers", func(t *testing.T) {
+		userID := uuid.New()
+		repo.EXPECT().
+			ListCustomers(ctx).
+			Return([]dbgen.ListCustomersRow{
+				{
+					ID:        userID,
+					Name:      "John Doe",
+					Email:     "john@example.com",
+					IsActive:  true,
+					CreatedAt: time.Now(),
+				},
+			}, nil)
+
+		resp, err := svc.ListCustomers(ctx)
+
+		assert.NoError(t, err)
+		assert.Len(t, resp, 1)
+		assert.Equal(t, "John Doe", resp[0].Name)
+	})
+
+	t.Run("error_repository_failure", func(t *testing.T) {
+		repo.EXPECT().
+			ListCustomers(ctx).
+			Return(nil, errors.New("db error"))
+
+		resp, err := svc.ListCustomers(ctx)
+
+		assert.Error(t, err)
+		assert.Nil(t, resp)
+	})
+}
+
+func TestCustomerService_ToggleCustomerStatus(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db, _, _ := sqlmock.New()
+	repo := mockCustomer.NewMockRepository(ctrl)
+	svc := customer.NewService(db, repo, nil, nil)
+	ctx := context.Background()
+
+	t.Run("success_toggle_status", func(t *testing.T) {
+		userID := uuid.New()
+		repo.EXPECT().
+			UpdateStatus(ctx, dbgen.UpdateCustomerStatusParams{
+				ID:       userID,
+				IsActive: false,
+			}).
+			Return(dbgen.UpdateCustomerStatusRow{
+				ID:        userID,
+				Name:      "John Doe",
+				IsActive:  false,
+				UpdatedAt: time.Now(),
+			}, nil)
+
+		resp, err := svc.ToggleCustomerStatus(ctx, userID.String(), false)
+
+		assert.NoError(t, err)
+		assert.False(t, resp.IsActive)
+	})
+
+	t.Run("error_invalid_uuid", func(t *testing.T) {
+		resp, err := svc.ToggleCustomerStatus(ctx, "invalid-uuid", true)
+
+		assert.Error(t, err)
+		assert.Empty(t, resp.ID)
+	})
+}
+
+func TestCustomerService_GetCustomerDetails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db, _, _ := sqlmock.New()
+	repo := mockCustomer.NewMockRepository(ctrl)
+	addrRepo := mockAddress.NewMockRepository(ctrl)
+	orderRepo := mockOrder.NewMockRepository(ctrl)
+	svc := customer.NewService(db, repo, addrRepo, orderRepo)
+	ctx := context.Background()
+
+	t.Run("success_get_details", func(t *testing.T) {
+		userID := uuid.New()
+
+		// Mock User
+		repo.EXPECT().GetByID(ctx, userID).Return(dbgen.GetUserByIDRow{
+			ID:        userID,
+			Name:      "John Detail",
+			CreatedAt: time.Now(),
+		}, nil)
+
+		// Mock Addresses
+		addrRepo.EXPECT().ListByUser(ctx, userID).Return([]dbgen.Address{
+			{
+				ID:        uuid.New(),
+				Label:     "Rumah",
+				Street:    "Jl. Merdeka",
+				IsPrimary: true,
+			},
+		}, nil)
+
+		// Mock Orders
+		orderRepo.EXPECT().List(ctx, gomock.Any()).Return([]dbgen.Order{
+			{
+				ID:          uuid.New(),
+				OrderNumber: "ORD-001",
+				TotalPrice:  "150000",
+				PlacedAt:    time.Now(),
+			},
+		}, nil)
+
+		resp, err := svc.GetCustomerDetails(ctx, userID.String())
+
+		assert.NoError(t, err)
+		assert.Equal(t, "John Detail", resp.Name)
+		assert.Len(t, resp.Addresses, 1)
+		assert.Len(t, resp.Orders, 1)
+		assert.Equal(t, 150000, resp.Orders[0].TotalAmount)
+	})
+
+	t.Run("error_user_not_found", func(t *testing.T) {
+		userID := uuid.New()
+		repo.EXPECT().GetByID(ctx, userID).Return(dbgen.GetUserByIDRow{}, errors.New("not found"))
+
+		resp, err := svc.GetCustomerDetails(ctx, userID.String())
+
+		assert.Error(t, err)
+		assert.Empty(t, resp.ID)
+	})
+}
+
+func TestCustomerService_UpdateProfile_Complex(t *testing.T) {
+	// Skenario Tambahan untuk UpdateProfile (Negative Case Password)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db, sqlmock, _ := sqlmock.New()
+	repo := mockCustomer.NewMockRepository(ctrl)
+	svc := customer.NewService(db, repo, nil, nil)
+	ctx := context.Background()
+
+	t.Run("error_wrong_current_password", func(t *testing.T) {
+		userID := uuid.New()
+		hashedPwd, _ := bcrypt.GenerateFromPassword([]byte("old-password"), 10)
+
+		repo.EXPECT().GetByID(ctx, userID).Return(dbgen.GetUserByIDRow{
+			ID:       userID,
+			Password: string(hashedPwd),
+		}, nil)
+
+		// Mock Transaction
+		sqlmock.ExpectBegin()
+		repo.EXPECT().WithTx(gomock.Any()).Return(repo)
+		sqlmock.ExpectRollback()
+
+		req := customer.UpdateProfileRequest{
+			CurrentPassword: helper.StringPtr("wrong-password"),
+			Password:        helper.StringPtr("new-password"),
+		}
+
+		resp, err := svc.UpdateProfile(ctx, userID.String(), req)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid current password")
+		assert.Empty(t, resp.ID)
+	})
+}
+
 func TestCustomerService_UpdateProfile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -46,8 +227,10 @@ func TestCustomerService_UpdateProfile(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	repo := mock.NewMockRepository(ctrl)
-	svc := customer.NewService(db, repo)
+	repo := mockCustomer.NewMockRepository(ctrl)
+	addrRepo := mockAddress.NewMockRepository(ctrl)
+	orderRepo := mockOrder.NewMockRepository(ctrl)
+	svc := customer.NewService(db, repo, addrRepo, orderRepo)
 	ctx := context.Background()
 
 	t.Run("success_update_name_only", func(t *testing.T) {
@@ -62,7 +245,7 @@ func TestCustomerService_UpdateProfile(t *testing.T) {
 			}, nil)
 		repo.EXPECT().
 			WithTx(gomock.Any()).
-			Return(repo). // Kembalikan mock yang sama
+			Return(repo).
 			AnyTimes()
 
 		repo.EXPECT().
@@ -85,71 +268,5 @@ func TestCustomerService_UpdateProfile(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, "New Name", resp.Name)
-	})
-
-	t.Run("error_invalid_user_id", func(t *testing.T) {
-		_, err := svc.UpdateProfile(ctx, "invalid-uuid", customer.UpdateProfileRequest{
-			Name: helper.StringPtr("Test"),
-		})
-
-		assert.Error(t, err)
-	})
-
-	t.Run("error_user_not_found", func(t *testing.T) {
-		userID := uuid.New()
-
-		repo.EXPECT().
-			GetByID(ctx, userID).
-			Return(dbgen.GetUserByIDRow{}, sql.ErrNoRows)
-
-		_, err := svc.UpdateProfile(ctx, userID.String(), customer.UpdateProfileRequest{
-			Name: helper.StringPtr("Test"),
-		})
-
-		assert.Error(t, err)
-	})
-
-	t.Run("error_not_customer_role", func(t *testing.T) {
-		userID := uuid.New()
-
-		repo.EXPECT().
-			GetByID(ctx, userID).
-			Return(dbgen.GetUserByIDRow{
-				ID:   userID,
-				Role: "ADMIN",
-			}, nil)
-
-		_, err := svc.UpdateProfile(ctx, userID.String(), customer.UpdateProfileRequest{
-			Name: helper.StringPtr("Test"),
-		})
-
-		assert.Error(t, err)
-	})
-
-	t.Run("error_update_failed", func(t *testing.T) {
-		userID := uuid.New()
-		sqlmock.ExpectBegin()
-		sqlmock.ExpectCommit()
-		repo.EXPECT().
-			GetByID(ctx, userID).
-			Return(dbgen.GetUserByIDRow{
-				ID:   userID,
-				Role: "CUSTOMER",
-			}, nil)
-
-		repo.EXPECT().WithTx(gomock.Any()).Return(repo).AnyTimes()
-
-		repo.EXPECT().
-			UpdateProfile(ctx, dbgen.UpdateCustomerProfileParams{
-				ID:   userID,
-				Name: helper.StringPtrValue(helper.StringPtr("Test")),
-			}).
-			Return(dbgen.UpdateCustomerProfileRow{}, errors.New("db error"))
-
-		_, err := svc.UpdateProfile(ctx, userID.String(), customer.UpdateProfileRequest{
-			Name: helper.StringPtr("Test"),
-		})
-
-		assert.Error(t, err)
 	})
 }

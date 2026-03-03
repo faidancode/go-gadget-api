@@ -148,6 +148,58 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 	return i, err
 }
 
+const listCustomers = `-- name: ListCustomers :many
+SELECT 
+    id, 
+    name, 
+    email, 
+    phone, 
+    is_active, 
+    created_at
+FROM users
+WHERE role = 'CUSTOMER'
+ORDER BY created_at DESC
+`
+
+type ListCustomersRow struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      string         `json:"name"`
+	Email     string         `json:"email"`
+	Phone     sql.NullString `json:"phone"`
+	IsActive  bool           `json:"is_active"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) ListCustomers(ctx context.Context) ([]ListCustomersRow, error) {
+	rows, err := q.query(ctx, q.listCustomersStmt, listCustomers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCustomersRow
+	for rows.Next() {
+		var i ListCustomersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.Phone,
+			&i.IsActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateCustomerPassword = `-- name: UpdateCustomerPassword :exec
 UPDATE users
 SET
@@ -212,6 +264,43 @@ func (q *Queries) UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerP
 		&i.Role,
 		&i.EmailConfirmed,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateCustomerStatus = `-- name: UpdateCustomerStatus :one
+UPDATE users
+SET 
+    is_active = $2,
+    updated_at = NOW()
+WHERE id = $1 AND role = 'CUSTOMER'
+RETURNING id, name, email, phone, is_active, updated_at
+`
+
+type UpdateCustomerStatusParams struct {
+	ID       uuid.UUID `json:"id"`
+	IsActive bool      `json:"is_active"`
+}
+
+type UpdateCustomerStatusRow struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      string         `json:"name"`
+	Email     string         `json:"email"`
+	Phone     sql.NullString `json:"phone"`
+	IsActive  bool           `json:"is_active"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) UpdateCustomerStatus(ctx context.Context, arg UpdateCustomerStatusParams) (UpdateCustomerStatusRow, error) {
+	row := q.queryRow(ctx, q.updateCustomerStatusStmt, updateCustomerStatus, arg.ID, arg.IsActive)
+	var i UpdateCustomerStatusRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Phone,
+		&i.IsActive,
 		&i.UpdatedAt,
 	)
 	return i, err

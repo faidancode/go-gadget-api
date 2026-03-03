@@ -182,6 +182,7 @@ type User struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 	EmailConfirmed bool           `json:"email_confirmed"`
 	Phone          sql.NullString `json:"phone"`
+	IsActive       bool           `json:"is_active"`
 }
 
 type Wishlist struct {
