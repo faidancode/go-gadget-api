@@ -138,8 +138,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCategoryBySlugStmt, err = db.PrepareContext(ctx, getCategoryBySlug); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoryBySlug: %w", err)
 	}
+	if q.getCategoryDistributionStmt, err = db.PrepareContext(ctx, getCategoryDistribution); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryDistribution: %w", err)
+	}
 	if q.getCompletedOrderForReviewStmt, err = db.PrepareContext(ctx, getCompletedOrderForReview); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCompletedOrderForReview: %w", err)
+	}
+	if q.getDashboardStatsStmt, err = db.PrepareContext(ctx, getDashboardStats); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDashboardStats: %w", err)
 	}
 	if q.getEmailConfirmationTokenByTokenStmt, err = db.PrepareContext(ctx, getEmailConfirmationTokenByToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEmailConfirmationTokenByToken: %w", err)
@@ -248,6 +254,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.listProductsPublicStmt, err = db.PrepareContext(ctx, listProductsPublic); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductsPublic: %w", err)
+	}
+	if q.listRecentOrdersStmt, err = db.PrepareContext(ctx, listRecentOrders); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRecentOrders: %w", err)
 	}
 	if q.markOutboxEventFailedStmt, err = db.PrepareContext(ctx, markOutboxEventFailed); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkOutboxEventFailed: %w", err)
@@ -519,9 +528,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCategoryBySlugStmt: %w", cerr)
 		}
 	}
+	if q.getCategoryDistributionStmt != nil {
+		if cerr := q.getCategoryDistributionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryDistributionStmt: %w", cerr)
+		}
+	}
 	if q.getCompletedOrderForReviewStmt != nil {
 		if cerr := q.getCompletedOrderForReviewStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCompletedOrderForReviewStmt: %w", cerr)
+		}
+	}
+	if q.getDashboardStatsStmt != nil {
+		if cerr := q.getDashboardStatsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDashboardStatsStmt: %w", cerr)
 		}
 	}
 	if q.getEmailConfirmationTokenByTokenStmt != nil {
@@ -702,6 +721,11 @@ func (q *Queries) Close() error {
 	if q.listProductsPublicStmt != nil {
 		if cerr := q.listProductsPublicStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listProductsPublicStmt: %w", cerr)
+		}
+	}
+	if q.listRecentOrdersStmt != nil {
+		if cerr := q.listRecentOrdersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRecentOrdersStmt: %w", cerr)
 		}
 	}
 	if q.markOutboxEventFailedStmt != nil {
@@ -906,7 +930,9 @@ type Queries struct {
 	getCartItemByCartAndProductStmt             *sql.Stmt
 	getCategoryByIDStmt                         *sql.Stmt
 	getCategoryBySlugStmt                       *sql.Stmt
+	getCategoryDistributionStmt                 *sql.Stmt
 	getCompletedOrderForReviewStmt              *sql.Stmt
+	getDashboardStatsStmt                       *sql.Stmt
 	getEmailConfirmationTokenByTokenStmt        *sql.Stmt
 	getIDsBySlugsStmt                           *sql.Stmt
 	getLatestEmailConfirmationTokenByUserIDStmt *sql.Stmt
@@ -943,6 +969,7 @@ type Queries struct {
 	listProductsAdminStmt                       *sql.Stmt
 	listProductsForInternalStmt                 *sql.Stmt
 	listProductsPublicStmt                      *sql.Stmt
+	listRecentOrdersStmt                        *sql.Stmt
 	markOutboxEventFailedStmt                   *sql.Stmt
 	markOutboxEventSentStmt                     *sql.Stmt
 	restoreBrandStmt                            *sql.Stmt
@@ -1012,7 +1039,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCartItemByCartAndProductStmt:             q.getCartItemByCartAndProductStmt,
 		getCategoryByIDStmt:                         q.getCategoryByIDStmt,
 		getCategoryBySlugStmt:                       q.getCategoryBySlugStmt,
+		getCategoryDistributionStmt:                 q.getCategoryDistributionStmt,
 		getCompletedOrderForReviewStmt:              q.getCompletedOrderForReviewStmt,
+		getDashboardStatsStmt:                       q.getDashboardStatsStmt,
 		getEmailConfirmationTokenByTokenStmt:        q.getEmailConfirmationTokenByTokenStmt,
 		getIDsBySlugsStmt:                           q.getIDsBySlugsStmt,
 		getLatestEmailConfirmationTokenByUserIDStmt: q.getLatestEmailConfirmationTokenByUserIDStmt,
@@ -1049,6 +1078,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listProductsAdminStmt:                       q.listProductsAdminStmt,
 		listProductsForInternalStmt:                 q.listProductsForInternalStmt,
 		listProductsPublicStmt:                      q.listProductsPublicStmt,
+		listRecentOrdersStmt:                        q.listRecentOrdersStmt,
 		markOutboxEventFailedStmt:                   q.markOutboxEventFailedStmt,
 		markOutboxEventSentStmt:                     q.markOutboxEventSentStmt,
 		restoreBrandStmt:                            q.restoreBrandStmt,

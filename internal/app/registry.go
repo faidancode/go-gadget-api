@@ -10,6 +10,7 @@ import (
 	"go-gadget-api/internal/category"
 	"go-gadget-api/internal/cloudinary"
 	"go-gadget-api/internal/customer"
+	"go-gadget-api/internal/dashboard"
 	"go-gadget-api/internal/email"
 	"go-gadget-api/internal/midtrans"
 	"go-gadget-api/internal/order"
@@ -46,6 +47,7 @@ func registerModules(
 	outboxRepo := outbox.NewRepository(queries)
 	customerRepo := customer.NewRepository(queries)
 	wishlistRepo := wishlist.NewRepository(queries)
+	dashboardRepo := dashboard.NewRepository(queries)
 
 	// --- Services ---
 	emailService, err := email.NewResendServiceFromEnv()
@@ -70,6 +72,7 @@ func registerModules(
 	})
 	customerService := customer.NewService(db, customerRepo, addressRepo, orderRepo)
 	wishlistService := wishlist.NewService(db, wishlistRepo)
+	dashboardService := dashboard.NewService(dashboardRepo)
 
 	// --- Adapters ---
 	reviewEligibilityAdapter := adapters.NewReviewEligibilityAdapter(reviewService)
@@ -85,6 +88,7 @@ func registerModules(
 	orderHandler := order.NewHandler(orderService, rdb)
 	customerHandler := customer.NewHandler(customerService)
 	wishlistHandler := wishlist.NewHandler(wishlistService)
+	dashboardHandler := dashboard.NewHandler(dashboardService)
 
 	// --- Routes Registration ---
 	api := router.Group("/api/v1")
@@ -99,5 +103,6 @@ func registerModules(
 		order.RegisterRoutes(api, orderHandler, rdb, logger)
 		customer.RegisterRoutes(api, customerHandler)
 		wishlist.RegisterRoutes(api, wishlistHandler, logger)
+		dashboard.RegisterRoutes(api, dashboardHandler)
 	}
 }
