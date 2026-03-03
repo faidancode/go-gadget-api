@@ -7,43 +7,62 @@ package dbgen
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
+const checkPhoneExists = `-- name: CheckPhoneExists :one
+SELECT EXISTS (
+    SELECT 1 FROM users WHERE phone = $1
+) AS exists
+`
+
+func (q *Queries) CheckPhoneExists(ctx context.Context, phone sql.NullString) (bool, error) {
+	row := q.queryRow(ctx, q.checkPhoneExistsStmt, checkPhoneExists, phone)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
     email,
     name,
+    phone,
     password,
     role
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
-RETURNING id, name, email, password, role, created_at
+RETURNING id, name, email, phone, password, role, email_confirmed, created_at
 `
 
 type CreateUserParams struct {
-	Email    string `json:"email"`
-	Name     string `json:"name"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+	Email    string         `json:"email"`
+	Name     string         `json:"name"`
+	Phone    sql.NullString `json:"phone"`
+	Password string         `json:"password"`
+	Role     string         `json:"role"`
 }
 
 type CreateUserRow struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Password  string    `json:"password"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID             uuid.UUID      `json:"id"`
+	Name           string         `json:"name"`
+	Email          string         `json:"email"`
+	Phone          sql.NullString `json:"phone"`
+	Password       string         `json:"password"`
+	Role           string         `json:"role"`
+	EmailConfirmed bool           `json:"email_confirmed"`
+	CreatedAt      time.Time      `json:"created_at"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
 	row := q.queryRow(ctx, q.createUserStmt, createUser,
 		arg.Email,
 		arg.Name,
+		arg.Phone,
 		arg.Password,
 		arg.Role,
 	)
@@ -52,27 +71,31 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.ID,
 		&i.Name,
 		&i.Email,
+		&i.Phone,
 		&i.Password,
 		&i.Role,
+		&i.EmailConfirmed,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, password, role, created_at 
+SELECT id, email, name, phone, password, role, email_confirmed, created_at 
 FROM users 
 WHERE email = $1 
 LIMIT 1
 `
 
 type GetUserByEmailRow struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	Password  string    `json:"password"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID             uuid.UUID      `json:"id"`
+	Email          string         `json:"email"`
+	Name           string         `json:"name"`
+	Phone          sql.NullString `json:"phone"`
+	Password       string         `json:"password"`
+	Role           string         `json:"role"`
+	EmailConfirmed bool           `json:"email_confirmed"`
+	CreatedAt      time.Time      `json:"created_at"`
 }
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
@@ -82,27 +105,31 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.ID,
 		&i.Email,
 		&i.Name,
+		&i.Phone,
 		&i.Password,
 		&i.Role,
+		&i.EmailConfirmed,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, password, role, created_at 
+SELECT id, email, name, phone, password, role, email_confirmed, created_at 
 FROM users 
 WHERE id = $1 
 LIMIT 1
 `
 
 type GetUserByIDRow struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	Password  string    `json:"password"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID             uuid.UUID      `json:"id"`
+	Email          string         `json:"email"`
+	Name           string         `json:"name"`
+	Phone          sql.NullString `json:"phone"`
+	Password       string         `json:"password"`
+	Role           string         `json:"role"`
+	EmailConfirmed bool           `json:"email_confirmed"`
+	CreatedAt      time.Time      `json:"created_at"`
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
@@ -112,8 +139,10 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.ID,
 		&i.Email,
 		&i.Name,
+		&i.Phone,
 		&i.Password,
 		&i.Role,
+		&i.EmailConfirmed,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -149,7 +178,9 @@ RETURNING
     id,
     name,
     email,
+    phone,
     role,
+    email_confirmed,
     created_at,
     updated_at
 `
@@ -160,12 +191,14 @@ type UpdateCustomerProfileParams struct {
 }
 
 type UpdateCustomerProfileRow struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             uuid.UUID      `json:"id"`
+	Name           string         `json:"name"`
+	Email          string         `json:"email"`
+	Phone          sql.NullString `json:"phone"`
+	Role           string         `json:"role"`
+	EmailConfirmed bool           `json:"email_confirmed"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerProfileParams) (UpdateCustomerProfileRow, error) {
@@ -175,7 +208,9 @@ func (q *Queries) UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerP
 		&i.ID,
 		&i.Name,
 		&i.Email,
+		&i.Phone,
 		&i.Role,
+		&i.EmailConfirmed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

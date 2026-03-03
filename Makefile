@@ -135,7 +135,7 @@ sqlc:
 # =========================
 .PHONY: test
 test:
-	$(GO) test ./... -v
+	$(GO) test $(if $(module),./internal/$(module)/...,./...) -v
 
 # =========================
 # RUN

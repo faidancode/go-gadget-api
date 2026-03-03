@@ -508,6 +508,8 @@ SELECT
     o.created_at, 
     o.placed_at,
     o.user_id,
+    o.subtotal_price,
+    o.shipping_price,
     u.name AS user_name,
     COUNT(*) OVER() AS total_count
 FROM orders o
@@ -527,15 +529,17 @@ type ListOrdersAdminParams struct {
 }
 
 type ListOrdersAdminRow struct {
-	ID          uuid.UUID `json:"id"`
-	OrderNumber string    `json:"order_number"`
-	TotalPrice  string    `json:"total_price"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	PlacedAt    time.Time `json:"placed_at"`
-	UserID      uuid.UUID `json:"user_id"`
-	UserName    string    `json:"user_name"`
-	TotalCount  int64     `json:"total_count"`
+	ID            uuid.UUID `json:"id"`
+	OrderNumber   string    `json:"order_number"`
+	TotalPrice    string    `json:"total_price"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	PlacedAt      time.Time `json:"placed_at"`
+	UserID        uuid.UUID `json:"user_id"`
+	SubtotalPrice string    `json:"subtotal_price"`
+	ShippingPrice string    `json:"shipping_price"`
+	UserName      string    `json:"user_name"`
+	TotalCount    int64     `json:"total_count"`
 }
 
 func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams) ([]ListOrdersAdminRow, error) {
@@ -560,6 +564,8 @@ func (q *Queries) ListOrdersAdmin(ctx context.Context, arg ListOrdersAdminParams
 			&i.CreatedAt,
 			&i.PlacedAt,
 			&i.UserID,
+			&i.SubtotalPrice,
+			&i.ShippingPrice,
 			&i.UserName,
 			&i.TotalCount,
 		); err != nil {

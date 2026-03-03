@@ -74,6 +74,12 @@ var (
 		http.StatusConflict,
 	)
 
+	ErrPhoneAlreadyRegistered = apperror.New(
+		apperror.CodeConflict,
+		"Phone number already registered",
+		http.StatusConflict,
+	)
+
 	ErrTokenGenerationFailed = apperror.New(
 		apperror.CodeInternalError,
 		"Failed to generate authentication token",

@@ -20,6 +20,7 @@ import (
 // ==================== FAKE SERVICE ====================
 
 type fakeOrderService struct {
+	order.Service
 	checkoutFunc                         func(ctx context.Context, userID string, req order.CheckoutRequest) (order.OrderResponse, error)
 	listFunc                             func(ctx context.Context, userID string, status string, page, limit int) ([]order.OrderResponse, int64, error)
 	detailFunc                           func(ctx context.Context, orderID string) (order.OrderResponse, error)
@@ -356,7 +357,7 @@ func TestOrderHandler_UpdateStatusByAdmin(t *testing.T) {
 		r := setupTestRouter()
 		r.PATCH("/admin/orders/:id/status", ctrl.UpdateStatusByAdmin)
 
-		body := `{"status": "SHIPPED", "receiptNo": "RESI-123"}`
+		body := `{"nextStatus": "SHIPPED", "receiptNo": "RESI-123"}`
 		req := httptest.NewRequest(http.MethodPatch, "/admin/orders/"+orderID+"/status", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		addAuthCookie(req)
@@ -380,7 +381,7 @@ func TestOrderHandler_UpdateStatusByAdmin(t *testing.T) {
 		req := httptest.NewRequest(
 			http.MethodPatch,
 			"/admin/orders/none/status",
-			strings.NewReader(`{"status":"SHIPPED","receiptNo":"RESI-1"}`),
+			strings.NewReader(`{"nextStatus":"SHIPPED","receiptNo":"RESI-1"}`),
 		)
 		req.Header.Set("Content-Type", "application/json")
 

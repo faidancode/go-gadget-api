@@ -173,14 +173,15 @@ type Review struct {
 }
 
 type User struct {
-	ID             uuid.UUID `json:"id"`
-	Email          string    `json:"email"`
-	Name           string    `json:"name"`
-	Password       string    `json:"password"`
-	Role           string    `json:"role"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	EmailConfirmed bool      `json:"email_confirmed"`
+	ID             uuid.UUID      `json:"id"`
+	Email          string         `json:"email"`
+	Name           string         `json:"name"`
+	Password       string         `json:"password"`
+	Role           string         `json:"role"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	EmailConfirmed bool           `json:"email_confirmed"`
+	Phone          sql.NullString `json:"phone"`
 }
 
 type Wishlist struct {

@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strings"
 	"time"
 
 	autherrors "go-gadget-api/internal/auth/errors"
 	"go-gadget-api/internal/email"
 	platform "go-gadget-api/internal/pkg/request"
 	"go-gadget-api/internal/shared/database/dbgen"
+	"go-gadget-api/internal/shared/database/helper"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -56,6 +56,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, st
 		ID:    user.ID.String(),
 		Email: user.Email,
 		Name:  user.Name,
+		Phone: user.Phone.String,
 		Role:  user.Role,
 	}, nil
 }
@@ -106,6 +107,7 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (string
 		ID:    user.ID.String(),
 		Email: user.Email,
 		Name:  user.Name,
+		Phone: user.Phone.String,
 		Role:  user.Role,
 	}, nil
 }
@@ -125,21 +127,30 @@ func (s *Service) GetMe(ctx context.Context, userID string) (*AuthResponse, erro
 		ID:    u.ID.String(),
 		Email: u.Email,
 		Name:  u.Name,
+		Phone: u.Phone.String,
 		Role:  u.Role,
 	}, nil
 }
 
 func (s *Service) Register(ctx context.Context, req RegisterRequest) (AuthResponse, error) {
+	// Check for unique phone number
+	phoneExists, err := s.repo.CheckPhoneExists(ctx, helper.RawStringToNull(req.Phone))
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	if phoneExists {
+		return AuthResponse{}, autherrors.ErrPhoneAlreadyRegistered
+	}
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return AuthResponse{}, autherrors.ErrTokenGenerationFailed
 	}
 
-	fullName := strings.TrimSpace(req.FirstName + " " + req.LastName)
-
 	user, err := s.repo.Create(ctx, dbgen.CreateUserParams{
 		Email:    req.Email,
-		Name:     fullName,
+		Name:     req.Name,
+		Phone:    helper.RawStringToNull(req.Phone),
 		Password: string(hashed),
 		Role:     "CUSTOMER",
 	})
@@ -151,6 +162,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (AuthRespon
 		ID:    user.ID.String(),
 		Email: user.Email,
 		Name:  user.Name,
+		Phone: user.Phone.String,
 		Role:  user.Role,
 	}, nil
 }
@@ -172,7 +184,7 @@ func (s *Service) GetCustomerByEmail(ctx context.Context, email string) (map[str
 }
 
 func (s *Service) RequestPasswordReset(ctx context.Context, email string) (ActionStatusResponse, error) {
-	user, err := s.repo.GetUserProfileByEmail(ctx, email)
+	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ActionStatusResponse{Success: true, EmailSent: false}, nil
@@ -198,7 +210,12 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) (Actio
 	resetToken := uuid.NewString()
 	expiresAt := now.Add(30 * time.Minute)
 
-	if err := s.repo.UpsertPasswordResetToken(ctx, user.ID, resetToken, expiresAt, now); err != nil {
+	if err := s.repo.UpsertPasswordResetToken(ctx, dbgen.UpsertPasswordResetTokenParams{
+		UserID:    user.ID,
+		Token:     resetToken,
+		ExpiresAt: expiresAt,
+		CreatedAt: now,
+	}); err != nil {
 		return ActionStatusResponse{}, err
 	}
 
@@ -249,7 +266,7 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 }
 
 func (s *Service) RequestEmailConfirmation(ctx context.Context, email string, clientType platform.ClientType) (ActionStatusResponse, error) {
-	user, err := s.repo.GetUserProfileByEmail(ctx, email)
+	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ActionStatusResponse{Success: true, EmailSent: false}, nil
@@ -287,7 +304,13 @@ func (s *Service) RequestEmailConfirmation(ctx context.Context, email string, cl
 	}
 	expiresAt := now.Add(60 * time.Minute)
 
-	if err := s.repo.UpsertEmailConfirmationToken(ctx, user.ID, token, pin, expiresAt, now); err != nil {
+	if err := s.repo.UpsertEmailConfirmationToken(ctx, dbgen.UpsertEmailConfirmationTokenParams{
+		UserID:    user.ID,
+		Token:     token,
+		Pin:       pin,
+		ExpiresAt: expiresAt,
+		CreatedAt: now,
+	}); err != nil {
 		return ActionStatusResponse{}, err
 	}
 
@@ -311,7 +334,7 @@ func (s *Service) RequestEmailConfirmation(ctx context.Context, email string, cl
 }
 
 func (s *Service) ResendEmailConfirmation(ctx context.Context, email string, clientType platform.ClientType) (ActionStatusResponse, error) {
-	user, err := s.repo.GetUserProfileByEmail(ctx, email)
+	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ActionStatusResponse{Success: true, EmailSent: false}, nil
@@ -353,7 +376,13 @@ func (s *Service) ResendEmailConfirmation(ctx context.Context, email string, cli
 	}
 	expiresAt := now.Add(60 * time.Minute)
 
-	if err := s.repo.UpsertEmailConfirmationToken(ctx, user.ID, token, pin, expiresAt, now); err != nil {
+	if err := s.repo.UpsertEmailConfirmationToken(ctx, dbgen.UpsertEmailConfirmationTokenParams{
+		UserID:    user.ID,
+		Token:     token,
+		Pin:       pin,
+		ExpiresAt: expiresAt,
+		CreatedAt: now,
+	}); err != nil {
 		return ActionStatusResponse{}, err
 	}
 
@@ -405,7 +434,7 @@ func (s *Service) ConfirmEmailByToken(ctx context.Context, token string) (Action
 }
 
 func (s *Service) ConfirmEmailByPin(ctx context.Context, email, pin string) (ActionStatusResponse, error) {
-	user, err := s.repo.GetUserProfileByEmail(ctx, email)
+	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ActionStatusResponse{}, autherrors.ErrUserNotFound

@@ -371,13 +371,15 @@ func TestOrderService_List(t *testing.T) {
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
+	midtransSvc := midtransMock.NewMockService(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
 	svc := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartSvc,
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartSvc,
+		MidtransSvc: midtransSvc,
 	})
 
 	ctx := context.Background()
@@ -422,13 +424,15 @@ func TestOrderService_ListAdmin(t *testing.T) {
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
+	midtransSvc := midtransMock.NewMockService(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
 	svc := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartSvc,
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartSvc,
+		MidtransSvc: midtransSvc,
 	})
 
 	ctx := context.Background()
@@ -457,13 +461,15 @@ func TestOrderService_Detail(t *testing.T) {
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
+	midtransSvc := midtransMock.NewMockService(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
 	svc := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartSvc,
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartSvc,
+		MidtransSvc: midtransSvc,
 	})
 	ctx := context.Background()
 
@@ -495,13 +501,15 @@ func TestOrderService_Cancel(t *testing.T) {
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
+	midtransSvc := midtransMock.NewMockService(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
 	svc := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartSvc,
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartSvc,
+		MidtransSvc: midtransSvc,
 	})
 	ctx := context.Background()
 
@@ -556,13 +564,15 @@ func TestOrderService_Complete(t *testing.T) {
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
+	midtransSvc := midtransMock.NewMockService(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
 	svc := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartSvc,
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartSvc,
+		MidtransSvc: midtransSvc,
 	})
 	ctx := context.Background()
 
@@ -602,13 +612,15 @@ func TestOrderService_UpdateStatusByAdmin(t *testing.T) {
 	orderRepo := orderMock.NewMockRepository(ctrl)
 	cartSvc := cartMock.NewMockService(ctrl)
 	outboxRepo := outboxMock.NewMockRepository(ctrl)
+	midtransSvc := midtransMock.NewMockService(ctrl)
 
 	// Sekarang menyertakan DB untuk keperluan transaksi
 	svc := order.NewService(order.Deps{
-		DB:         db,
-		Repo:       orderRepo,
-		OutboxRepo: outboxRepo,
-		CartSvc:    cartSvc,
+		DB:          db,
+		Repo:        orderRepo,
+		OutboxRepo:  outboxRepo,
+		CartSvc:     cartSvc,
+		MidtransSvc: midtransSvc,
 	})
 	ctx := context.Background()
 

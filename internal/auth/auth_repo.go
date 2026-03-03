@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"go-gadget-api/internal/shared/database/dbgen"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -14,44 +13,19 @@ type Repository interface {
 	Create(ctx context.Context, params dbgen.CreateUserParams) (dbgen.CreateUserRow, error)
 	GetByEmail(ctx context.Context, email string) (dbgen.GetUserByEmailRow, error)
 	GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetUserByIDRow, error)
-	GetUserProfileByEmail(ctx context.Context, email string) (UserProfile, error)
-	GetLatestPasswordResetTokenByUserID(ctx context.Context, userID uuid.UUID) (PasswordResetTokenRecord, error)
-	UpsertPasswordResetToken(ctx context.Context, userID uuid.UUID, token string, expiresAt, createdAt time.Time) error
-	GetPasswordResetToken(ctx context.Context, token string) (PasswordResetTokenRecord, error)
+	CheckPhoneExists(ctx context.Context, phone sql.NullString) (bool, error)
+	GetLatestPasswordResetTokenByUserID(ctx context.Context, userID uuid.UUID) (dbgen.PasswordResetToken, error)
+	UpsertPasswordResetToken(ctx context.Context, params dbgen.UpsertPasswordResetTokenParams) error
+	GetPasswordResetToken(ctx context.Context, token string) (dbgen.PasswordResetToken, error)
 	DeletePasswordResetTokenByToken(ctx context.Context, token string) error
 	UpdateUserPassword(ctx context.Context, userID uuid.UUID, password string) error
-	GetLatestEmailConfirmationTokenByUserID(ctx context.Context, userID uuid.UUID) (EmailConfirmationTokenRecord, error)
-	UpsertEmailConfirmationToken(ctx context.Context, userID uuid.UUID, token, pin string, expiresAt, createdAt time.Time) error
+	GetLatestEmailConfirmationTokenByUserID(ctx context.Context, userID uuid.UUID) (dbgen.EmailConfirmationToken, error)
+	UpsertEmailConfirmationToken(ctx context.Context, params dbgen.UpsertEmailConfirmationTokenParams) error
 	DeleteEmailConfirmationTokensByUserID(ctx context.Context, userID uuid.UUID) error
-	GetEmailConfirmationTokenByToken(ctx context.Context, token string) (EmailConfirmationTokenRecord, error)
+	GetEmailConfirmationTokenByToken(ctx context.Context, token string) (dbgen.EmailConfirmationToken, error)
 	DeleteEmailConfirmationTokenByToken(ctx context.Context, token string) error
 	DeleteEmailConfirmationTokenByPin(ctx context.Context, pin string) error
 	SetUserEmailConfirmed(ctx context.Context, userID uuid.UUID) error
-}
-
-type UserProfile struct {
-	ID             uuid.UUID
-	Email          string
-	Name           string
-	Role           string
-	EmailConfirmed bool
-}
-
-type PasswordResetTokenRecord struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	Token     string
-	CreatedAt time.Time
-	ExpiresAt time.Time
-}
-
-type EmailConfirmationTokenRecord struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	Token     string
-	Pin       string
-	CreatedAt time.Time
-	ExpiresAt time.Time
 }
 
 type repository struct {
@@ -78,79 +52,24 @@ func (r *repository) Create(ctx context.Context, params dbgen.CreateUserParams) 
 	return r.queries.CreateUser(ctx, params)
 }
 
-func (r *repository) GetUserProfileByEmail(ctx context.Context, email string) (UserProfile, error) {
-	const query = `
-		SELECT id, email, name, role, email_confirmed
-		FROM users
-		WHERE email = $1
-		LIMIT 1
-	`
-
-	var out UserProfile
-	err := r.db.QueryRowContext(ctx, query, email).Scan(
-		&out.ID,
-		&out.Email,
-		&out.Name,
-		&out.Role,
-		&out.EmailConfirmed,
-	)
-	return out, err
+func (r *repository) CheckPhoneExists(ctx context.Context, phone sql.NullString) (bool, error) {
+	return r.queries.CheckPhoneExists(ctx, phone)
 }
 
-func (r *repository) GetLatestPasswordResetTokenByUserID(ctx context.Context, userID uuid.UUID) (PasswordResetTokenRecord, error) {
-	const query = `
-		SELECT id, user_id, token, created_at, expires_at
-		FROM password_reset_tokens
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-		LIMIT 1
-	`
-
-	var out PasswordResetTokenRecord
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&out.ID,
-		&out.UserID,
-		&out.Token,
-		&out.CreatedAt,
-		&out.ExpiresAt,
-	)
-	return out, err
+func (r *repository) GetLatestPasswordResetTokenByUserID(ctx context.Context, userID uuid.UUID) (dbgen.PasswordResetToken, error) {
+	return r.queries.GetLatestPasswordResetTokenByUserID(ctx, userID)
 }
 
-func (r *repository) UpsertPasswordResetToken(ctx context.Context, userID uuid.UUID, token string, expiresAt, createdAt time.Time) error {
-	const query = `
-		INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (user_id)
-		DO UPDATE SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at, created_at = EXCLUDED.created_at
-	`
-	_, err := r.db.ExecContext(ctx, query, userID, token, expiresAt, createdAt)
-	return err
+func (r *repository) UpsertPasswordResetToken(ctx context.Context, params dbgen.UpsertPasswordResetTokenParams) error {
+	return r.queries.UpsertPasswordResetToken(ctx, params)
 }
 
-func (r *repository) GetPasswordResetToken(ctx context.Context, token string) (PasswordResetTokenRecord, error) {
-	const query = `
-		SELECT id, user_id, token, created_at, expires_at
-		FROM password_reset_tokens
-		WHERE token = $1
-		LIMIT 1
-	`
-
-	var out PasswordResetTokenRecord
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&out.ID,
-		&out.UserID,
-		&out.Token,
-		&out.CreatedAt,
-		&out.ExpiresAt,
-	)
-	return out, err
+func (r *repository) GetPasswordResetToken(ctx context.Context, token string) (dbgen.PasswordResetToken, error) {
+	return r.queries.GetPasswordResetToken(ctx, token)
 }
 
 func (r *repository) DeletePasswordResetTokenByToken(ctx context.Context, token string) error {
-	const query = `DELETE FROM password_reset_tokens WHERE token = $1`
-	_, err := r.db.ExecContext(ctx, query, token)
-	return err
+	return r.queries.DeletePasswordResetTokenByToken(ctx, token)
 }
 
 func (r *repository) UpdateUserPassword(ctx context.Context, userID uuid.UUID, password string) error {
@@ -160,82 +79,30 @@ func (r *repository) UpdateUserPassword(ctx context.Context, userID uuid.UUID, p
 	})
 }
 
-func (r *repository) GetLatestEmailConfirmationTokenByUserID(ctx context.Context, userID uuid.UUID) (EmailConfirmationTokenRecord, error) {
-	const query = `
-		SELECT id, user_id, token, pin, created_at, expires_at
-		FROM email_confirmation_tokens
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-		LIMIT 1
-	`
-
-	var out EmailConfirmationTokenRecord
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&out.ID,
-		&out.UserID,
-		&out.Token,
-		&out.Pin,
-		&out.CreatedAt,
-		&out.ExpiresAt,
-	)
-	return out, err
+func (r *repository) GetLatestEmailConfirmationTokenByUserID(ctx context.Context, userID uuid.UUID) (dbgen.EmailConfirmationToken, error) {
+	return r.queries.GetLatestEmailConfirmationTokenByUserID(ctx, userID)
 }
 
-func (r *repository) UpsertEmailConfirmationToken(ctx context.Context, userID uuid.UUID, token, pin string, expiresAt, createdAt time.Time) error {
-	const query = `
-		INSERT INTO email_confirmation_tokens (user_id, token, pin, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (user_id)
-		DO UPDATE SET token = EXCLUDED.token, pin = EXCLUDED.pin, expires_at = EXCLUDED.expires_at, created_at = EXCLUDED.created_at
-	`
-	_, err := r.db.ExecContext(ctx, query, userID, token, pin, expiresAt, createdAt)
-	return err
+func (r *repository) UpsertEmailConfirmationToken(ctx context.Context, params dbgen.UpsertEmailConfirmationTokenParams) error {
+	return r.queries.UpsertEmailConfirmationToken(ctx, params)
 }
 
 func (r *repository) DeleteEmailConfirmationTokensByUserID(ctx context.Context, userID uuid.UUID) error {
-	const query = `DELETE FROM email_confirmation_tokens WHERE user_id = $1`
-	_, err := r.db.ExecContext(ctx, query, userID)
-	return err
+	return r.queries.DeleteEmailConfirmationTokensByUserID(ctx, userID)
 }
 
-func (r *repository) GetEmailConfirmationTokenByToken(ctx context.Context, token string) (EmailConfirmationTokenRecord, error) {
-	const query = `
-		SELECT id, user_id, token, pin, created_at, expires_at
-		FROM email_confirmation_tokens
-		WHERE token = $1
-		LIMIT 1
-	`
-
-	var out EmailConfirmationTokenRecord
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&out.ID,
-		&out.UserID,
-		&out.Token,
-		&out.Pin,
-		&out.CreatedAt,
-		&out.ExpiresAt,
-	)
-	return out, err
+func (r *repository) GetEmailConfirmationTokenByToken(ctx context.Context, token string) (dbgen.EmailConfirmationToken, error) {
+	return r.queries.GetEmailConfirmationTokenByToken(ctx, token)
 }
 
 func (r *repository) DeleteEmailConfirmationTokenByToken(ctx context.Context, token string) error {
-	const query = `DELETE FROM email_confirmation_tokens WHERE token = $1`
-	_, err := r.db.ExecContext(ctx, query, token)
-	return err
+	return r.queries.DeleteEmailConfirmationTokenByToken(ctx, token)
 }
 
 func (r *repository) DeleteEmailConfirmationTokenByPin(ctx context.Context, pin string) error {
-	const query = `DELETE FROM email_confirmation_tokens WHERE pin = $1`
-	_, err := r.db.ExecContext(ctx, query, pin)
-	return err
+	return r.queries.DeleteEmailConfirmationTokenByPin(ctx, pin)
 }
 
 func (r *repository) SetUserEmailConfirmed(ctx context.Context, userID uuid.UUID) error {
-	const query = `
-		UPDATE users
-		SET email_confirmed = true, updated_at = NOW()
-		WHERE id = $1
-	`
-	_, err := r.db.ExecContext(ctx, query, userID)
-	return err
+	return r.queries.SetUserEmailConfirmed(ctx, userID)
 }

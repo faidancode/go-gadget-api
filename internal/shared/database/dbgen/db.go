@@ -30,6 +30,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.addWishlistItemStmt, err = db.PrepareContext(ctx, addWishlistItem); err != nil {
 		return nil, fmt.Errorf("error preparing query AddWishlistItem: %w", err)
 	}
+	if q.checkPhoneExistsStmt, err = db.PrepareContext(ctx, checkPhoneExists); err != nil {
+		return nil, fmt.Errorf("error preparing query CheckPhoneExists: %w", err)
+	}
 	if q.checkReviewExistsStmt, err = db.PrepareContext(ctx, checkReviewExists); err != nil {
 		return nil, fmt.Errorf("error preparing query CheckReviewExists: %w", err)
 	}
@@ -90,6 +93,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteCartItemStmt, err = db.PrepareContext(ctx, deleteCartItem); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCartItem: %w", err)
 	}
+	if q.deleteEmailConfirmationTokenByPinStmt, err = db.PrepareContext(ctx, deleteEmailConfirmationTokenByPin); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteEmailConfirmationTokenByPin: %w", err)
+	}
+	if q.deleteEmailConfirmationTokenByTokenStmt, err = db.PrepareContext(ctx, deleteEmailConfirmationTokenByToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteEmailConfirmationTokenByToken: %w", err)
+	}
+	if q.deleteEmailConfirmationTokensByUserIDStmt, err = db.PrepareContext(ctx, deleteEmailConfirmationTokensByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteEmailConfirmationTokensByUserID: %w", err)
+	}
+	if q.deletePasswordResetTokenByTokenStmt, err = db.PrepareContext(ctx, deletePasswordResetTokenByToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeletePasswordResetTokenByToken: %w", err)
+	}
 	if q.deleteReviewStmt, err = db.PrepareContext(ctx, deleteReview); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteReview: %w", err)
 	}
@@ -126,8 +141,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCompletedOrderForReviewStmt, err = db.PrepareContext(ctx, getCompletedOrderForReview); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCompletedOrderForReview: %w", err)
 	}
+	if q.getEmailConfirmationTokenByTokenStmt, err = db.PrepareContext(ctx, getEmailConfirmationTokenByToken); err != nil {
+		return nil, fmt.Errorf("error preparing query GetEmailConfirmationTokenByToken: %w", err)
+	}
 	if q.getIDsBySlugsStmt, err = db.PrepareContext(ctx, getIDsBySlugs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetIDsBySlugs: %w", err)
+	}
+	if q.getLatestEmailConfirmationTokenByUserIDStmt, err = db.PrepareContext(ctx, getLatestEmailConfirmationTokenByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLatestEmailConfirmationTokenByUserID: %w", err)
+	}
+	if q.getLatestPasswordResetTokenByUserIDStmt, err = db.PrepareContext(ctx, getLatestPasswordResetTokenByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLatestPasswordResetTokenByUserID: %w", err)
 	}
 	if q.getOrCreateWishlistStmt, err = db.PrepareContext(ctx, getOrCreateWishlist); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOrCreateWishlist: %w", err)
@@ -146,6 +170,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getOrderSummaryByOrderNumberStmt, err = db.PrepareContext(ctx, getOrderSummaryByOrderNumber); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOrderSummaryByOrderNumber: %w", err)
+	}
+	if q.getPasswordResetTokenStmt, err = db.PrepareContext(ctx, getPasswordResetToken); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPasswordResetToken: %w", err)
 	}
 	if q.getProductByIDStmt, err = db.PrepareContext(ctx, getProductByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductByID: %w", err)
@@ -234,6 +261,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.restoreProductStmt, err = db.PrepareContext(ctx, restoreProduct); err != nil {
 		return nil, fmt.Errorf("error preparing query RestoreProduct: %w", err)
 	}
+	if q.setUserEmailConfirmedStmt, err = db.PrepareContext(ctx, setUserEmailConfirmed); err != nil {
+		return nil, fmt.Errorf("error preparing query SetUserEmailConfirmed: %w", err)
+	}
 	if q.softDeleteAddressStmt, err = db.PrepareContext(ctx, softDeleteAddress); err != nil {
 		return nil, fmt.Errorf("error preparing query SoftDeleteAddress: %w", err)
 	}
@@ -282,6 +312,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateReviewStmt, err = db.PrepareContext(ctx, updateReview); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateReview: %w", err)
 	}
+	if q.upsertEmailConfirmationTokenStmt, err = db.PrepareContext(ctx, upsertEmailConfirmationToken); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertEmailConfirmationToken: %w", err)
+	}
+	if q.upsertPasswordResetTokenStmt, err = db.PrepareContext(ctx, upsertPasswordResetToken); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertPasswordResetToken: %w", err)
+	}
 	return &q, nil
 }
 
@@ -295,6 +331,11 @@ func (q *Queries) Close() error {
 	if q.addWishlistItemStmt != nil {
 		if cerr := q.addWishlistItemStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing addWishlistItemStmt: %w", cerr)
+		}
+	}
+	if q.checkPhoneExistsStmt != nil {
+		if cerr := q.checkPhoneExistsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing checkPhoneExistsStmt: %w", cerr)
 		}
 	}
 	if q.checkReviewExistsStmt != nil {
@@ -397,6 +438,26 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteCartItemStmt: %w", cerr)
 		}
 	}
+	if q.deleteEmailConfirmationTokenByPinStmt != nil {
+		if cerr := q.deleteEmailConfirmationTokenByPinStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteEmailConfirmationTokenByPinStmt: %w", cerr)
+		}
+	}
+	if q.deleteEmailConfirmationTokenByTokenStmt != nil {
+		if cerr := q.deleteEmailConfirmationTokenByTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteEmailConfirmationTokenByTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteEmailConfirmationTokensByUserIDStmt != nil {
+		if cerr := q.deleteEmailConfirmationTokensByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteEmailConfirmationTokensByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.deletePasswordResetTokenByTokenStmt != nil {
+		if cerr := q.deletePasswordResetTokenByTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deletePasswordResetTokenByTokenStmt: %w", cerr)
+		}
+	}
 	if q.deleteReviewStmt != nil {
 		if cerr := q.deleteReviewStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteReviewStmt: %w", cerr)
@@ -457,9 +518,24 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCompletedOrderForReviewStmt: %w", cerr)
 		}
 	}
+	if q.getEmailConfirmationTokenByTokenStmt != nil {
+		if cerr := q.getEmailConfirmationTokenByTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getEmailConfirmationTokenByTokenStmt: %w", cerr)
+		}
+	}
 	if q.getIDsBySlugsStmt != nil {
 		if cerr := q.getIDsBySlugsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getIDsBySlugsStmt: %w", cerr)
+		}
+	}
+	if q.getLatestEmailConfirmationTokenByUserIDStmt != nil {
+		if cerr := q.getLatestEmailConfirmationTokenByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLatestEmailConfirmationTokenByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getLatestPasswordResetTokenByUserIDStmt != nil {
+		if cerr := q.getLatestPasswordResetTokenByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLatestPasswordResetTokenByUserIDStmt: %w", cerr)
 		}
 	}
 	if q.getOrCreateWishlistStmt != nil {
@@ -490,6 +566,11 @@ func (q *Queries) Close() error {
 	if q.getOrderSummaryByOrderNumberStmt != nil {
 		if cerr := q.getOrderSummaryByOrderNumberStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getOrderSummaryByOrderNumberStmt: %w", cerr)
+		}
+	}
+	if q.getPasswordResetTokenStmt != nil {
+		if cerr := q.getPasswordResetTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPasswordResetTokenStmt: %w", cerr)
 		}
 	}
 	if q.getProductByIDStmt != nil {
@@ -637,6 +718,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing restoreProductStmt: %w", cerr)
 		}
 	}
+	if q.setUserEmailConfirmedStmt != nil {
+		if cerr := q.setUserEmailConfirmedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setUserEmailConfirmedStmt: %w", cerr)
+		}
+	}
 	if q.softDeleteAddressStmt != nil {
 		if cerr := q.softDeleteAddressStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing softDeleteAddressStmt: %w", cerr)
@@ -717,6 +803,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateReviewStmt: %w", cerr)
 		}
 	}
+	if q.upsertEmailConfirmationTokenStmt != nil {
+		if cerr := q.upsertEmailConfirmationTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertEmailConfirmationTokenStmt: %w", cerr)
+		}
+	}
+	if q.upsertPasswordResetTokenStmt != nil {
+		if cerr := q.upsertPasswordResetTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertPasswordResetTokenStmt: %w", cerr)
+		}
+	}
 	return err
 }
 
@@ -754,185 +850,209 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                        DBTX
-	tx                                        *sql.Tx
-	addCartItemStmt                           *sql.Stmt
-	addWishlistItemStmt                       *sql.Stmt
-	checkReviewExistsStmt                     *sql.Stmt
-	checkUserPurchasedProductStmt             *sql.Stmt
-	checkWishlistItemExistsStmt               *sql.Stmt
-	countCartItemsStmt                        *sql.Stmt
-	countReviewsByProductIDStmt               *sql.Stmt
-	countReviewsByUserIDStmt                  *sql.Stmt
-	createAddressStmt                         *sql.Stmt
-	createBrandStmt                           *sql.Stmt
-	createCartStmt                            *sql.Stmt
-	createCategoryStmt                        *sql.Stmt
-	createOrderStmt                           *sql.Stmt
-	createOrderItemStmt                       *sql.Stmt
-	createOutboxEventStmt                     *sql.Stmt
-	createProductStmt                         *sql.Stmt
-	createReviewStmt                          *sql.Stmt
-	createUserStmt                            *sql.Stmt
-	decrementCartItemQtyStmt                  *sql.Stmt
-	deleteAllCartItemsStmt                    *sql.Stmt
-	deleteCartStmt                            *sql.Stmt
-	deleteCartItemStmt                        *sql.Stmt
-	deleteReviewStmt                          *sql.Stmt
-	deleteWishlistItemStmt                    *sql.Stmt
-	getAddressByIDStmt                        *sql.Stmt
-	getAverageRatingByProductIDStmt           *sql.Stmt
-	getBrandByIDStmt                          *sql.Stmt
-	getBrandBySlugStmt                        *sql.Stmt
-	getCartByUserIDStmt                       *sql.Stmt
-	getCartDetailStmt                         *sql.Stmt
-	getCartItemByCartAndProductStmt           *sql.Stmt
-	getCategoryByIDStmt                       *sql.Stmt
-	getCategoryBySlugStmt                     *sql.Stmt
-	getCompletedOrderForReviewStmt            *sql.Stmt
-	getIDsBySlugsStmt                         *sql.Stmt
-	getOrCreateWishlistStmt                   *sql.Stmt
-	getOrderByIDStmt                          *sql.Stmt
-	getOrderItemsStmt                         *sql.Stmt
-	getOrderPaymentForUpdateByIDStmt          *sql.Stmt
-	getOrderPaymentForUpdateByOrderNumberStmt *sql.Stmt
-	getOrderSummaryByOrderNumberStmt          *sql.Stmt
-	getProductByIDStmt                        *sql.Stmt
-	getProductBySlugStmt                      *sql.Stmt
-	getReviewByIDStmt                         *sql.Stmt
-	getReviewsByProductIDStmt                 *sql.Stmt
-	getReviewsByUserIDStmt                    *sql.Stmt
-	getUserByEmailStmt                        *sql.Stmt
-	getUserByIDStmt                           *sql.Stmt
-	getUserRatingBreakdownStmt                *sql.Stmt
-	getWishlistByUserIDStmt                   *sql.Stmt
-	getWishlistItemsStmt                      *sql.Stmt
-	getWishlistWithItemsStmt                  *sql.Stmt
-	incrementCartItemQtyStmt                  *sql.Stmt
-	listAddressesAdminStmt                    *sql.Stmt
-	listAddressesByUserStmt                   *sql.Stmt
-	listBrandsAdminStmt                       *sql.Stmt
-	listBrandsPublicStmt                      *sql.Stmt
-	listCategoriesAdminStmt                   *sql.Stmt
-	listCategoriesPublicStmt                  *sql.Stmt
-	listOrdersStmt                            *sql.Stmt
-	listOrdersAdminStmt                       *sql.Stmt
-	listPendingOutboxStmt                     *sql.Stmt
-	listProductsAdminStmt                     *sql.Stmt
-	listProductsForInternalStmt               *sql.Stmt
-	listProductsPublicStmt                    *sql.Stmt
-	markOutboxEventFailedStmt                 *sql.Stmt
-	markOutboxEventSentStmt                   *sql.Stmt
-	restoreBrandStmt                          *sql.Stmt
-	restoreCategoryStmt                       *sql.Stmt
-	restoreProductStmt                        *sql.Stmt
-	softDeleteAddressStmt                     *sql.Stmt
-	softDeleteBrandStmt                       *sql.Stmt
-	softDeleteCategoryStmt                    *sql.Stmt
-	softDeleteProductStmt                     *sql.Stmt
-	unsetPrimaryAddressByUserStmt             *sql.Stmt
-	updateAddressStmt                         *sql.Stmt
-	updateBrandStmt                           *sql.Stmt
-	updateCartItemQtyStmt                     *sql.Stmt
-	updateCategoryStmt                        *sql.Stmt
-	updateCustomerPasswordStmt                *sql.Stmt
-	updateCustomerProfileStmt                 *sql.Stmt
-	updateOrderPaymentStatusStmt              *sql.Stmt
-	updateOrderSnapTokenStmt                  *sql.Stmt
-	updateOrderStatusStmt                     *sql.Stmt
-	updateProductStmt                         *sql.Stmt
-	updateReviewStmt                          *sql.Stmt
+	db                                          DBTX
+	tx                                          *sql.Tx
+	addCartItemStmt                             *sql.Stmt
+	addWishlistItemStmt                         *sql.Stmt
+	checkPhoneExistsStmt                        *sql.Stmt
+	checkReviewExistsStmt                       *sql.Stmt
+	checkUserPurchasedProductStmt               *sql.Stmt
+	checkWishlistItemExistsStmt                 *sql.Stmt
+	countCartItemsStmt                          *sql.Stmt
+	countReviewsByProductIDStmt                 *sql.Stmt
+	countReviewsByUserIDStmt                    *sql.Stmt
+	createAddressStmt                           *sql.Stmt
+	createBrandStmt                             *sql.Stmt
+	createCartStmt                              *sql.Stmt
+	createCategoryStmt                          *sql.Stmt
+	createOrderStmt                             *sql.Stmt
+	createOrderItemStmt                         *sql.Stmt
+	createOutboxEventStmt                       *sql.Stmt
+	createProductStmt                           *sql.Stmt
+	createReviewStmt                            *sql.Stmt
+	createUserStmt                              *sql.Stmt
+	decrementCartItemQtyStmt                    *sql.Stmt
+	deleteAllCartItemsStmt                      *sql.Stmt
+	deleteCartStmt                              *sql.Stmt
+	deleteCartItemStmt                          *sql.Stmt
+	deleteEmailConfirmationTokenByPinStmt       *sql.Stmt
+	deleteEmailConfirmationTokenByTokenStmt     *sql.Stmt
+	deleteEmailConfirmationTokensByUserIDStmt   *sql.Stmt
+	deletePasswordResetTokenByTokenStmt         *sql.Stmt
+	deleteReviewStmt                            *sql.Stmt
+	deleteWishlistItemStmt                      *sql.Stmt
+	getAddressByIDStmt                          *sql.Stmt
+	getAverageRatingByProductIDStmt             *sql.Stmt
+	getBrandByIDStmt                            *sql.Stmt
+	getBrandBySlugStmt                          *sql.Stmt
+	getCartByUserIDStmt                         *sql.Stmt
+	getCartDetailStmt                           *sql.Stmt
+	getCartItemByCartAndProductStmt             *sql.Stmt
+	getCategoryByIDStmt                         *sql.Stmt
+	getCategoryBySlugStmt                       *sql.Stmt
+	getCompletedOrderForReviewStmt              *sql.Stmt
+	getEmailConfirmationTokenByTokenStmt        *sql.Stmt
+	getIDsBySlugsStmt                           *sql.Stmt
+	getLatestEmailConfirmationTokenByUserIDStmt *sql.Stmt
+	getLatestPasswordResetTokenByUserIDStmt     *sql.Stmt
+	getOrCreateWishlistStmt                     *sql.Stmt
+	getOrderByIDStmt                            *sql.Stmt
+	getOrderItemsStmt                           *sql.Stmt
+	getOrderPaymentForUpdateByIDStmt            *sql.Stmt
+	getOrderPaymentForUpdateByOrderNumberStmt   *sql.Stmt
+	getOrderSummaryByOrderNumberStmt            *sql.Stmt
+	getPasswordResetTokenStmt                   *sql.Stmt
+	getProductByIDStmt                          *sql.Stmt
+	getProductBySlugStmt                        *sql.Stmt
+	getReviewByIDStmt                           *sql.Stmt
+	getReviewsByProductIDStmt                   *sql.Stmt
+	getReviewsByUserIDStmt                      *sql.Stmt
+	getUserByEmailStmt                          *sql.Stmt
+	getUserByIDStmt                             *sql.Stmt
+	getUserRatingBreakdownStmt                  *sql.Stmt
+	getWishlistByUserIDStmt                     *sql.Stmt
+	getWishlistItemsStmt                        *sql.Stmt
+	getWishlistWithItemsStmt                    *sql.Stmt
+	incrementCartItemQtyStmt                    *sql.Stmt
+	listAddressesAdminStmt                      *sql.Stmt
+	listAddressesByUserStmt                     *sql.Stmt
+	listBrandsAdminStmt                         *sql.Stmt
+	listBrandsPublicStmt                        *sql.Stmt
+	listCategoriesAdminStmt                     *sql.Stmt
+	listCategoriesPublicStmt                    *sql.Stmt
+	listOrdersStmt                              *sql.Stmt
+	listOrdersAdminStmt                         *sql.Stmt
+	listPendingOutboxStmt                       *sql.Stmt
+	listProductsAdminStmt                       *sql.Stmt
+	listProductsForInternalStmt                 *sql.Stmt
+	listProductsPublicStmt                      *sql.Stmt
+	markOutboxEventFailedStmt                   *sql.Stmt
+	markOutboxEventSentStmt                     *sql.Stmt
+	restoreBrandStmt                            *sql.Stmt
+	restoreCategoryStmt                         *sql.Stmt
+	restoreProductStmt                          *sql.Stmt
+	setUserEmailConfirmedStmt                   *sql.Stmt
+	softDeleteAddressStmt                       *sql.Stmt
+	softDeleteBrandStmt                         *sql.Stmt
+	softDeleteCategoryStmt                      *sql.Stmt
+	softDeleteProductStmt                       *sql.Stmt
+	unsetPrimaryAddressByUserStmt               *sql.Stmt
+	updateAddressStmt                           *sql.Stmt
+	updateBrandStmt                             *sql.Stmt
+	updateCartItemQtyStmt                       *sql.Stmt
+	updateCategoryStmt                          *sql.Stmt
+	updateCustomerPasswordStmt                  *sql.Stmt
+	updateCustomerProfileStmt                   *sql.Stmt
+	updateOrderPaymentStatusStmt                *sql.Stmt
+	updateOrderSnapTokenStmt                    *sql.Stmt
+	updateOrderStatusStmt                       *sql.Stmt
+	updateProductStmt                           *sql.Stmt
+	updateReviewStmt                            *sql.Stmt
+	upsertEmailConfirmationTokenStmt            *sql.Stmt
+	upsertPasswordResetTokenStmt                *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                                        tx,
-		tx:                                        tx,
-		addCartItemStmt:                           q.addCartItemStmt,
-		addWishlistItemStmt:                       q.addWishlistItemStmt,
-		checkReviewExistsStmt:                     q.checkReviewExistsStmt,
-		checkUserPurchasedProductStmt:             q.checkUserPurchasedProductStmt,
-		checkWishlistItemExistsStmt:               q.checkWishlistItemExistsStmt,
-		countCartItemsStmt:                        q.countCartItemsStmt,
-		countReviewsByProductIDStmt:               q.countReviewsByProductIDStmt,
-		countReviewsByUserIDStmt:                  q.countReviewsByUserIDStmt,
-		createAddressStmt:                         q.createAddressStmt,
-		createBrandStmt:                           q.createBrandStmt,
-		createCartStmt:                            q.createCartStmt,
-		createCategoryStmt:                        q.createCategoryStmt,
-		createOrderStmt:                           q.createOrderStmt,
-		createOrderItemStmt:                       q.createOrderItemStmt,
-		createOutboxEventStmt:                     q.createOutboxEventStmt,
-		createProductStmt:                         q.createProductStmt,
-		createReviewStmt:                          q.createReviewStmt,
-		createUserStmt:                            q.createUserStmt,
-		decrementCartItemQtyStmt:                  q.decrementCartItemQtyStmt,
-		deleteAllCartItemsStmt:                    q.deleteAllCartItemsStmt,
-		deleteCartStmt:                            q.deleteCartStmt,
-		deleteCartItemStmt:                        q.deleteCartItemStmt,
-		deleteReviewStmt:                          q.deleteReviewStmt,
-		deleteWishlistItemStmt:                    q.deleteWishlistItemStmt,
-		getAddressByIDStmt:                        q.getAddressByIDStmt,
-		getAverageRatingByProductIDStmt:           q.getAverageRatingByProductIDStmt,
-		getBrandByIDStmt:                          q.getBrandByIDStmt,
-		getBrandBySlugStmt:                        q.getBrandBySlugStmt,
-		getCartByUserIDStmt:                       q.getCartByUserIDStmt,
-		getCartDetailStmt:                         q.getCartDetailStmt,
-		getCartItemByCartAndProductStmt:           q.getCartItemByCartAndProductStmt,
-		getCategoryByIDStmt:                       q.getCategoryByIDStmt,
-		getCategoryBySlugStmt:                     q.getCategoryBySlugStmt,
-		getCompletedOrderForReviewStmt:            q.getCompletedOrderForReviewStmt,
-		getIDsBySlugsStmt:                         q.getIDsBySlugsStmt,
-		getOrCreateWishlistStmt:                   q.getOrCreateWishlistStmt,
-		getOrderByIDStmt:                          q.getOrderByIDStmt,
-		getOrderItemsStmt:                         q.getOrderItemsStmt,
-		getOrderPaymentForUpdateByIDStmt:          q.getOrderPaymentForUpdateByIDStmt,
-		getOrderPaymentForUpdateByOrderNumberStmt: q.getOrderPaymentForUpdateByOrderNumberStmt,
-		getOrderSummaryByOrderNumberStmt:          q.getOrderSummaryByOrderNumberStmt,
-		getProductByIDStmt:                        q.getProductByIDStmt,
-		getProductBySlugStmt:                      q.getProductBySlugStmt,
-		getReviewByIDStmt:                         q.getReviewByIDStmt,
-		getReviewsByProductIDStmt:                 q.getReviewsByProductIDStmt,
-		getReviewsByUserIDStmt:                    q.getReviewsByUserIDStmt,
-		getUserByEmailStmt:                        q.getUserByEmailStmt,
-		getUserByIDStmt:                           q.getUserByIDStmt,
-		getUserRatingBreakdownStmt:                q.getUserRatingBreakdownStmt,
-		getWishlistByUserIDStmt:                   q.getWishlistByUserIDStmt,
-		getWishlistItemsStmt:                      q.getWishlistItemsStmt,
-		getWishlistWithItemsStmt:                  q.getWishlistWithItemsStmt,
-		incrementCartItemQtyStmt:                  q.incrementCartItemQtyStmt,
-		listAddressesAdminStmt:                    q.listAddressesAdminStmt,
-		listAddressesByUserStmt:                   q.listAddressesByUserStmt,
-		listBrandsAdminStmt:                       q.listBrandsAdminStmt,
-		listBrandsPublicStmt:                      q.listBrandsPublicStmt,
-		listCategoriesAdminStmt:                   q.listCategoriesAdminStmt,
-		listCategoriesPublicStmt:                  q.listCategoriesPublicStmt,
-		listOrdersStmt:                            q.listOrdersStmt,
-		listOrdersAdminStmt:                       q.listOrdersAdminStmt,
-		listPendingOutboxStmt:                     q.listPendingOutboxStmt,
-		listProductsAdminStmt:                     q.listProductsAdminStmt,
-		listProductsForInternalStmt:               q.listProductsForInternalStmt,
-		listProductsPublicStmt:                    q.listProductsPublicStmt,
-		markOutboxEventFailedStmt:                 q.markOutboxEventFailedStmt,
-		markOutboxEventSentStmt:                   q.markOutboxEventSentStmt,
-		restoreBrandStmt:                          q.restoreBrandStmt,
-		restoreCategoryStmt:                       q.restoreCategoryStmt,
-		restoreProductStmt:                        q.restoreProductStmt,
-		softDeleteAddressStmt:                     q.softDeleteAddressStmt,
-		softDeleteBrandStmt:                       q.softDeleteBrandStmt,
-		softDeleteCategoryStmt:                    q.softDeleteCategoryStmt,
-		softDeleteProductStmt:                     q.softDeleteProductStmt,
-		unsetPrimaryAddressByUserStmt:             q.unsetPrimaryAddressByUserStmt,
-		updateAddressStmt:                         q.updateAddressStmt,
-		updateBrandStmt:                           q.updateBrandStmt,
-		updateCartItemQtyStmt:                     q.updateCartItemQtyStmt,
-		updateCategoryStmt:                        q.updateCategoryStmt,
-		updateCustomerPasswordStmt:                q.updateCustomerPasswordStmt,
-		updateCustomerProfileStmt:                 q.updateCustomerProfileStmt,
-		updateOrderPaymentStatusStmt:              q.updateOrderPaymentStatusStmt,
-		updateOrderSnapTokenStmt:                  q.updateOrderSnapTokenStmt,
-		updateOrderStatusStmt:                     q.updateOrderStatusStmt,
-		updateProductStmt:                         q.updateProductStmt,
-		updateReviewStmt:                          q.updateReviewStmt,
+		db:                                          tx,
+		tx:                                          tx,
+		addCartItemStmt:                             q.addCartItemStmt,
+		addWishlistItemStmt:                         q.addWishlistItemStmt,
+		checkPhoneExistsStmt:                        q.checkPhoneExistsStmt,
+		checkReviewExistsStmt:                       q.checkReviewExistsStmt,
+		checkUserPurchasedProductStmt:               q.checkUserPurchasedProductStmt,
+		checkWishlistItemExistsStmt:                 q.checkWishlistItemExistsStmt,
+		countCartItemsStmt:                          q.countCartItemsStmt,
+		countReviewsByProductIDStmt:                 q.countReviewsByProductIDStmt,
+		countReviewsByUserIDStmt:                    q.countReviewsByUserIDStmt,
+		createAddressStmt:                           q.createAddressStmt,
+		createBrandStmt:                             q.createBrandStmt,
+		createCartStmt:                              q.createCartStmt,
+		createCategoryStmt:                          q.createCategoryStmt,
+		createOrderStmt:                             q.createOrderStmt,
+		createOrderItemStmt:                         q.createOrderItemStmt,
+		createOutboxEventStmt:                       q.createOutboxEventStmt,
+		createProductStmt:                           q.createProductStmt,
+		createReviewStmt:                            q.createReviewStmt,
+		createUserStmt:                              q.createUserStmt,
+		decrementCartItemQtyStmt:                    q.decrementCartItemQtyStmt,
+		deleteAllCartItemsStmt:                      q.deleteAllCartItemsStmt,
+		deleteCartStmt:                              q.deleteCartStmt,
+		deleteCartItemStmt:                          q.deleteCartItemStmt,
+		deleteEmailConfirmationTokenByPinStmt:       q.deleteEmailConfirmationTokenByPinStmt,
+		deleteEmailConfirmationTokenByTokenStmt:     q.deleteEmailConfirmationTokenByTokenStmt,
+		deleteEmailConfirmationTokensByUserIDStmt:   q.deleteEmailConfirmationTokensByUserIDStmt,
+		deletePasswordResetTokenByTokenStmt:         q.deletePasswordResetTokenByTokenStmt,
+		deleteReviewStmt:                            q.deleteReviewStmt,
+		deleteWishlistItemStmt:                      q.deleteWishlistItemStmt,
+		getAddressByIDStmt:                          q.getAddressByIDStmt,
+		getAverageRatingByProductIDStmt:             q.getAverageRatingByProductIDStmt,
+		getBrandByIDStmt:                            q.getBrandByIDStmt,
+		getBrandBySlugStmt:                          q.getBrandBySlugStmt,
+		getCartByUserIDStmt:                         q.getCartByUserIDStmt,
+		getCartDetailStmt:                           q.getCartDetailStmt,
+		getCartItemByCartAndProductStmt:             q.getCartItemByCartAndProductStmt,
+		getCategoryByIDStmt:                         q.getCategoryByIDStmt,
+		getCategoryBySlugStmt:                       q.getCategoryBySlugStmt,
+		getCompletedOrderForReviewStmt:              q.getCompletedOrderForReviewStmt,
+		getEmailConfirmationTokenByTokenStmt:        q.getEmailConfirmationTokenByTokenStmt,
+		getIDsBySlugsStmt:                           q.getIDsBySlugsStmt,
+		getLatestEmailConfirmationTokenByUserIDStmt: q.getLatestEmailConfirmationTokenByUserIDStmt,
+		getLatestPasswordResetTokenByUserIDStmt:     q.getLatestPasswordResetTokenByUserIDStmt,
+		getOrCreateWishlistStmt:                     q.getOrCreateWishlistStmt,
+		getOrderByIDStmt:                            q.getOrderByIDStmt,
+		getOrderItemsStmt:                           q.getOrderItemsStmt,
+		getOrderPaymentForUpdateByIDStmt:            q.getOrderPaymentForUpdateByIDStmt,
+		getOrderPaymentForUpdateByOrderNumberStmt:   q.getOrderPaymentForUpdateByOrderNumberStmt,
+		getOrderSummaryByOrderNumberStmt:            q.getOrderSummaryByOrderNumberStmt,
+		getPasswordResetTokenStmt:                   q.getPasswordResetTokenStmt,
+		getProductByIDStmt:                          q.getProductByIDStmt,
+		getProductBySlugStmt:                        q.getProductBySlugStmt,
+		getReviewByIDStmt:                           q.getReviewByIDStmt,
+		getReviewsByProductIDStmt:                   q.getReviewsByProductIDStmt,
+		getReviewsByUserIDStmt:                      q.getReviewsByUserIDStmt,
+		getUserByEmailStmt:                          q.getUserByEmailStmt,
+		getUserByIDStmt:                             q.getUserByIDStmt,
+		getUserRatingBreakdownStmt:                  q.getUserRatingBreakdownStmt,
+		getWishlistByUserIDStmt:                     q.getWishlistByUserIDStmt,
+		getWishlistItemsStmt:                        q.getWishlistItemsStmt,
+		getWishlistWithItemsStmt:                    q.getWishlistWithItemsStmt,
+		incrementCartItemQtyStmt:                    q.incrementCartItemQtyStmt,
+		listAddressesAdminStmt:                      q.listAddressesAdminStmt,
+		listAddressesByUserStmt:                     q.listAddressesByUserStmt,
+		listBrandsAdminStmt:                         q.listBrandsAdminStmt,
+		listBrandsPublicStmt:                        q.listBrandsPublicStmt,
+		listCategoriesAdminStmt:                     q.listCategoriesAdminStmt,
+		listCategoriesPublicStmt:                    q.listCategoriesPublicStmt,
+		listOrdersStmt:                              q.listOrdersStmt,
+		listOrdersAdminStmt:                         q.listOrdersAdminStmt,
+		listPendingOutboxStmt:                       q.listPendingOutboxStmt,
+		listProductsAdminStmt:                       q.listProductsAdminStmt,
+		listProductsForInternalStmt:                 q.listProductsForInternalStmt,
+		listProductsPublicStmt:                      q.listProductsPublicStmt,
+		markOutboxEventFailedStmt:                   q.markOutboxEventFailedStmt,
+		markOutboxEventSentStmt:                     q.markOutboxEventSentStmt,
+		restoreBrandStmt:                            q.restoreBrandStmt,
+		restoreCategoryStmt:                         q.restoreCategoryStmt,
+		restoreProductStmt:                          q.restoreProductStmt,
+		setUserEmailConfirmedStmt:                   q.setUserEmailConfirmedStmt,
+		softDeleteAddressStmt:                       q.softDeleteAddressStmt,
+		softDeleteBrandStmt:                         q.softDeleteBrandStmt,
+		softDeleteCategoryStmt:                      q.softDeleteCategoryStmt,
+		softDeleteProductStmt:                       q.softDeleteProductStmt,
+		unsetPrimaryAddressByUserStmt:               q.unsetPrimaryAddressByUserStmt,
+		updateAddressStmt:                           q.updateAddressStmt,
+		updateBrandStmt:                             q.updateBrandStmt,
+		updateCartItemQtyStmt:                       q.updateCartItemQtyStmt,
+		updateCategoryStmt:                          q.updateCategoryStmt,
+		updateCustomerPasswordStmt:                  q.updateCustomerPasswordStmt,
+		updateCustomerProfileStmt:                   q.updateCustomerProfileStmt,
+		updateOrderPaymentStatusStmt:                q.updateOrderPaymentStatusStmt,
+		updateOrderSnapTokenStmt:                    q.updateOrderSnapTokenStmt,
+		updateOrderStatusStmt:                       q.updateOrderStatusStmt,
+		updateProductStmt:                           q.updateProductStmt,
+		updateReviewStmt:                            q.updateReviewStmt,
+		upsertEmailConfirmationTokenStmt:            q.upsertEmailConfirmationTokenStmt,
+		upsertPasswordResetTokenStmt:                q.upsertPasswordResetTokenStmt,
 	}
 }

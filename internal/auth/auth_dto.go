@@ -1,10 +1,10 @@
 package auth
 
 type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
-	Password  string `json:"password" binding:"required,min=6"`
+	Email    string `json:"email" binding:"required,email"`
+	Name     string `json:"name" binding:"required"`
+	Phone    string `json:"phone" binding:"required,numeric,min=10,max=15"`
+	Password string `json:"password" binding:"required,min=8,max=32"`
 }
 
 type LoginRequest struct {
@@ -16,6 +16,7 @@ type AuthResponse struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
 	Name  string `json:"name"`
+	Phone string `json:"phone"`
 	Role  string `json:"role"`
 }
 

@@ -57,11 +57,15 @@ func TestService_Register(t *testing.T) {
 
 	t.Run("Success Register", func(t *testing.T) {
 		req := auth.RegisterRequest{
-			Email:     "user@example.com",
-			FirstName: "John",
-			LastName:  "Doe",
-			Password:  "password123",
+			Email:    "user@example.com",
+			Name:     "John Doe",
+			Phone:    "1234567890",
+			Password: "password123",
 		}
+
+		mockRepo.EXPECT().
+			CheckPhoneExists(ctx, gomock.Any()).
+			Return(false, nil)
 
 		mockRepo.EXPECT().
 			Create(ctx, gomock.Any()).
@@ -79,13 +83,34 @@ func TestService_Register(t *testing.T) {
 		assert.Equal(t, "CUSTOMER", resp.Role)
 	})
 
-	t.Run("Error Register", func(t *testing.T) {
+	t.Run("Error Phone Already Registered", func(t *testing.T) {
 		req := auth.RegisterRequest{
-			Email:     "user@example.com",
-			FirstName: "John",
-			LastName:  "Doe",
-			Password:  "password123",
+			Email:    "user@example.com",
+			Name:     "John Doe",
+			Phone:    "1234567890",
+			Password: "password123",
 		}
+
+		mockRepo.EXPECT().
+			CheckPhoneExists(ctx, gomock.Any()).
+			Return(true, nil)
+
+		_, err := service.Register(ctx, req)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Phone number already registered")
+	})
+
+	t.Run("Error Register Duplicate Email", func(t *testing.T) {
+		req := auth.RegisterRequest{
+			Email:    "user@example.com",
+			Name:     "John Doe",
+			Phone:    "1234567890",
+			Password: "password123",
+		}
+
+		mockRepo.EXPECT().
+			CheckPhoneExists(ctx, gomock.Any()).
+			Return(false, nil)
 
 		mockRepo.EXPECT().
 			Create(ctx, gomock.Any()).
