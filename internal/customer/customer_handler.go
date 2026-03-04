@@ -2,7 +2,9 @@ package customer
 
 import (
 	"fmt"
+	"go-gadget-api/internal/pkg/response"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,13 +39,17 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	res, err := h.service.ListCustomers(c.Request.Context())
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.DefaultQuery("search", "")
+	res, total, err := h.service.ListCustomers(c.Request.Context(), page, limit, search)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, res)
+	meta := response.NewPaginationMeta(total, page, limit)
+	response.Success(c, http.StatusOK, res, &meta)
 }
 
 func (h *Handler) ToggleStatus(c *gin.Context) {
@@ -53,7 +59,7 @@ func (h *Handler) ToggleStatus(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.ToggleCustomerStatus(c.Request.Context(), id, req.IsActive)
+	res, err := h.service.ToggleCustomerStatus(c.Request.Context(), id, *req.IsActive)
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -64,13 +70,61 @@ func (h *Handler) ToggleStatus(c *gin.Context) {
 
 func (h *Handler) GetDetails(c *gin.Context) {
 	id := c.Param("id")
-	res, err := h.service.GetCustomerDetails(c.Request.Context(), id)
+	req := CustomerDetailsRequest{
+		CustomerID: id,
+	}
+
+	res, err := h.service.GetCustomerByID(c.Request.Context(), req)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, res)
+	response.Success(c, http.StatusOK, res, nil)
+}
+
+func (h *Handler) GetAddresses(c *gin.Context) {
+	id := c.Param("id")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.DefaultQuery("search", "")
+
+	req := CustomerAddressesRequest{
+		CustomerID: id,
+		Page:       page,
+		Limit:      limit,
+		Search:     search,
+	}
+
+	res, err := h.service.ListCustomerAddresses(c.Request.Context(), req)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res.Data, &res.Meta)
+}
+
+func (h *Handler) GetOrders(c *gin.Context) {
+	id := c.Param("id")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.DefaultQuery("search", "")
+
+	req := CustomerOrdersRequest{
+		CustomerID: id,
+		Page:       page,
+		Limit:      limit,
+		Search:     search,
+	}
+
+	res, err := h.service.ListCustomerOrders(c.Request.Context(), req)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, res.Data, &res.Meta)
 }
 
 func (h *Handler) bindJSON(c *gin.Context, req interface{}) error {

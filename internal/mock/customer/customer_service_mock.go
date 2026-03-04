@@ -41,34 +41,65 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
-// GetCustomerDetails mocks base method.
-func (m *MockService) GetCustomerDetails(ctx context.Context, customerID string) (customer.CustomerDetailResponse, error) {
+// GetCustomerByID mocks base method.
+func (m *MockService) GetCustomerByID(ctx context.Context, req customer.CustomerDetailsRequest) (customer.CustomerDetailResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCustomerDetails", ctx, customerID)
+	ret := m.ctrl.Call(m, "GetCustomerByID", ctx, req)
 	ret0, _ := ret[0].(customer.CustomerDetailResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetCustomerDetails indicates an expected call of GetCustomerDetails.
-func (mr *MockServiceMockRecorder) GetCustomerDetails(ctx, customerID any) *gomock.Call {
+// GetCustomerByID indicates an expected call of GetCustomerByID.
+func (mr *MockServiceMockRecorder) GetCustomerByID(ctx, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCustomerDetails", reflect.TypeOf((*MockService)(nil).GetCustomerDetails), ctx, customerID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCustomerByID", reflect.TypeOf((*MockService)(nil).GetCustomerByID), ctx, req)
 }
 
-// ListCustomers mocks base method.
-func (m *MockService) ListCustomers(ctx context.Context) ([]customer.CustomerListResponse, error) {
+// ListCustomerAddresses mocks base method.
+func (m *MockService) ListCustomerAddresses(ctx context.Context, req customer.CustomerAddressesRequest) (customer.PaginatedAddressResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCustomers", ctx)
-	ret0, _ := ret[0].([]customer.CustomerListResponse)
+	ret := m.ctrl.Call(m, "ListCustomerAddresses", ctx, req)
+	ret0, _ := ret[0].(customer.PaginatedAddressResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListCustomers indicates an expected call of ListCustomers.
-func (mr *MockServiceMockRecorder) ListCustomers(ctx any) *gomock.Call {
+// ListCustomerAddresses indicates an expected call of ListCustomerAddresses.
+func (mr *MockServiceMockRecorder) ListCustomerAddresses(ctx, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomers", reflect.TypeOf((*MockService)(nil).ListCustomers), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomerAddresses", reflect.TypeOf((*MockService)(nil).ListCustomerAddresses), ctx, req)
+}
+
+// ListCustomerOrders mocks base method.
+func (m *MockService) ListCustomerOrders(ctx context.Context, req customer.CustomerOrdersRequest) (customer.PaginatedOrderResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCustomerOrders", ctx, req)
+	ret0, _ := ret[0].(customer.PaginatedOrderResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCustomerOrders indicates an expected call of ListCustomerOrders.
+func (mr *MockServiceMockRecorder) ListCustomerOrders(ctx, req any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomerOrders", reflect.TypeOf((*MockService)(nil).ListCustomerOrders), ctx, req)
+}
+
+// ListCustomers mocks base method.
+func (m *MockService) ListCustomers(ctx context.Context, page, limit int, search string) ([]customer.CustomerListResponse, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCustomers", ctx, page, limit, search)
+	ret0, _ := ret[0].([]customer.CustomerListResponse)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListCustomers indicates an expected call of ListCustomers.
+func (mr *MockServiceMockRecorder) ListCustomers(ctx, page, limit, search any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomers", reflect.TypeOf((*MockService)(nil).ListCustomers), ctx, page, limit, search)
 }
 
 // ToggleCustomerStatus mocks base method.

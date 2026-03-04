@@ -27,7 +27,7 @@ func TestService_Login(t *testing.T) {
 	t.Run("Success Login", func(t *testing.T) {
 		mockRepo.EXPECT().
 			GetByEmail(ctx, "admin").
-			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw)}, nil)
+			Return(dbgen.GetUserByEmailRow{Email: "admin", Password: string(pw), EmailConfirmed: true}, nil)
 
 		token, refreshToken, resp, err := service.Login(ctx, "admin", "password123")
 

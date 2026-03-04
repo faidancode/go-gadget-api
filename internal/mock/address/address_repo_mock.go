@@ -103,18 +103,18 @@ func (mr *MockRepositoryMockRecorder) ListAdmin(ctx, limit, offset any) *gomock.
 }
 
 // ListByUser mocks base method.
-func (m *MockRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]dbgen.ListAddressesByUserRow, error) {
+func (m *MockRepository) ListByUser(ctx context.Context, arg dbgen.ListAddressesByUserParams) ([]dbgen.ListAddressesByUserRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListByUser", ctx, userID)
+	ret := m.ctrl.Call(m, "ListByUser", ctx, arg)
 	ret0, _ := ret[0].([]dbgen.ListAddressesByUserRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListByUser indicates an expected call of ListByUser.
-func (mr *MockRepositoryMockRecorder) ListByUser(ctx, userID any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListByUser(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByUser", reflect.TypeOf((*MockRepository)(nil).ListByUser), ctx, userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByUser", reflect.TypeOf((*MockRepository)(nil).ListByUser), ctx, arg)
 }
 
 // UnsetPrimaryByUser mocks base method.

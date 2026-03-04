@@ -25,7 +25,11 @@ func TestAddressService_List(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		repo.EXPECT().
-			ListByUser(gomock.Any(), userID).
+			ListByUser(gomock.Any(), dbgen.ListAddressesByUserParams{
+				UserID: userID,
+				Limit:  100,
+				Offset: 0,
+			}).
 			Return([]dbgen.ListAddressesByUserRow{
 				{
 					ID:        uuid.New(),

@@ -59,18 +59,18 @@ func (mr *MockRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
 }
 
 // ListCustomers mocks base method.
-func (m *MockRepository) ListCustomers(ctx context.Context) ([]dbgen.ListCustomersRow, error) {
+func (m *MockRepository) ListCustomers(ctx context.Context, params dbgen.ListCustomersParams) ([]dbgen.ListCustomersRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCustomers", ctx)
+	ret := m.ctrl.Call(m, "ListCustomers", ctx, params)
 	ret0, _ := ret[0].([]dbgen.ListCustomersRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListCustomers indicates an expected call of ListCustomers.
-func (mr *MockRepositoryMockRecorder) ListCustomers(ctx any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListCustomers(ctx, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomers", reflect.TypeOf((*MockRepository)(nil).ListCustomers), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomers", reflect.TypeOf((*MockRepository)(nil).ListCustomers), ctx, params)
 }
 
 // UpdatePassword mocks base method.

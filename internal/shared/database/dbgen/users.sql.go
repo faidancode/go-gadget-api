@@ -115,7 +115,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, phone, password, role, email_confirmed, created_at 
+SELECT id, email, name, phone, password, role, is_active, email_confirmed, created_at 
 FROM users 
 WHERE id = $1 
 LIMIT 1
@@ -128,6 +128,7 @@ type GetUserByIDRow struct {
 	Phone          sql.NullString `json:"phone"`
 	Password       string         `json:"password"`
 	Role           string         `json:"role"`
+	IsActive       bool           `json:"is_active"`
 	EmailConfirmed bool           `json:"email_confirmed"`
 	CreatedAt      time.Time      `json:"created_at"`
 }
@@ -142,6 +143,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.Phone,
 		&i.Password,
 		&i.Role,
+		&i.IsActive,
 		&i.EmailConfirmed,
 		&i.CreatedAt,
 	)
@@ -155,23 +157,37 @@ SELECT
     email, 
     phone, 
     is_active, 
-    created_at
+    created_at,
+    COUNT(*) OVER() AS total_count
 FROM users
 WHERE role = 'CUSTOMER'
+  AND (
+      $3::text IS NULL 
+      OR name ILIKE '%' || $3::text || '%'
+      OR email ILIKE '%' || $3::text || '%'
+  )
 ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
 `
 
-type ListCustomersRow struct {
-	ID        uuid.UUID      `json:"id"`
-	Name      string         `json:"name"`
-	Email     string         `json:"email"`
-	Phone     sql.NullString `json:"phone"`
-	IsActive  bool           `json:"is_active"`
-	CreatedAt time.Time      `json:"created_at"`
+type ListCustomersParams struct {
+	Limit  int32          `json:"limit"`
+	Offset int32          `json:"offset"`
+	Search sql.NullString `json:"search"`
 }
 
-func (q *Queries) ListCustomers(ctx context.Context) ([]ListCustomersRow, error) {
-	rows, err := q.query(ctx, q.listCustomersStmt, listCustomers)
+type ListCustomersRow struct {
+	ID         uuid.UUID      `json:"id"`
+	Name       string         `json:"name"`
+	Email      string         `json:"email"`
+	Phone      sql.NullString `json:"phone"`
+	IsActive   bool           `json:"is_active"`
+	CreatedAt  time.Time      `json:"created_at"`
+	TotalCount int64          `json:"total_count"`
+}
+
+func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([]ListCustomersRow, error) {
+	rows, err := q.query(ctx, q.listCustomersStmt, listCustomers, arg.Limit, arg.Offset, arg.Search)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +202,7 @@ func (q *Queries) ListCustomers(ctx context.Context) ([]ListCustomersRow, error)
 			&i.Phone,
 			&i.IsActive,
 			&i.CreatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

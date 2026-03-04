@@ -9,6 +9,7 @@ import (
 
 	"go-gadget-api/internal/dashboard"
 	mock "go-gadget-api/internal/mock/dashboard"
+	"go-gadget-api/internal/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -43,8 +44,13 @@ func TestDashboardHandler_GetDashboard(t *testing.T) {
 		r.ServeHTTP(resp, req)
 
 		assert.Equal(t, http.StatusOK, resp.Code)
+		var envelope response.ApiEnvelope
+		json.Unmarshal(resp.Body.Bytes(), &envelope)
+
+		dataBytes, _ := json.Marshal(envelope.Data)
 		var res dashboard.DashboardResponse
-		json.Unmarshal(resp.Body.Bytes(), &res)
+		json.Unmarshal(dataBytes, &res)
+
 		assert.Equal(t, int64(10), res.Stats.TotalProducts)
 	})
 

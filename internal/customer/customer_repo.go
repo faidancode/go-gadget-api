@@ -15,7 +15,7 @@ type Repository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (dbgen.GetUserByIDRow, error)
 	UpdateProfile(ctx context.Context, arg dbgen.UpdateCustomerProfileParams) (dbgen.UpdateCustomerProfileRow, error)
 	UpdatePassword(ctx context.Context, arg dbgen.UpdateCustomerPasswordParams) error
-	ListCustomers(ctx context.Context) ([]dbgen.ListCustomersRow, error)
+	ListCustomers(ctx context.Context, params dbgen.ListCustomersParams) ([]dbgen.ListCustomersRow, error)
 	UpdateStatus(ctx context.Context, arg dbgen.UpdateCustomerStatusParams) (dbgen.UpdateCustomerStatusRow, error)
 }
 
@@ -54,8 +54,8 @@ func (r *repository) UpdatePassword(
 	return r.queries.UpdateCustomerPassword(ctx, arg)
 }
 
-func (r *repository) ListCustomers(ctx context.Context) ([]dbgen.ListCustomersRow, error) {
-	return r.queries.ListCustomers(ctx)
+func (r *repository) ListCustomers(ctx context.Context, params dbgen.ListCustomersParams) ([]dbgen.ListCustomersRow, error) {
+	return r.queries.ListCustomers(ctx, params)
 }
 
 func (r *repository) UpdateStatus(

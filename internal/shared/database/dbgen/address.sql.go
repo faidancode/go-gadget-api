@@ -234,8 +234,22 @@ SELECT
 FROM addresses
 WHERE user_id = $1
   AND deleted_at IS NULL
+  AND (
+      $4::text IS NULL 
+      OR label ILIKE '%' || $4::text || '%'
+      OR recipient_name ILIKE '%' || $4::text || '%'
+      OR street ILIKE '%' || $4::text || '%'
+  )
 ORDER BY is_primary DESC, created_at DESC
+LIMIT $2 OFFSET $3
 `
+
+type ListAddressesByUserParams struct {
+	UserID uuid.UUID      `json:"user_id"`
+	Limit  int32          `json:"limit"`
+	Offset int32          `json:"offset"`
+	Search sql.NullString `json:"search"`
+}
 
 type ListAddressesByUserRow struct {
 	ID             uuid.UUID      `json:"id"`
@@ -255,8 +269,13 @@ type ListAddressesByUserRow struct {
 	TotalCount     int64          `json:"total_count"`
 }
 
-func (q *Queries) ListAddressesByUser(ctx context.Context, userID uuid.UUID) ([]ListAddressesByUserRow, error) {
-	rows, err := q.query(ctx, q.listAddressesByUserStmt, listAddressesByUser, userID)
+func (q *Queries) ListAddressesByUser(ctx context.Context, arg ListAddressesByUserParams) ([]ListAddressesByUserRow, error) {
+	rows, err := q.query(ctx, q.listAddressesByUserStmt, listAddressesByUser,
+		arg.UserID,
+		arg.Limit,
+		arg.Offset,
+		arg.Search,
+	)
 	if err != nil {
 		return nil, err
 	}

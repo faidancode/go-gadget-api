@@ -18,7 +18,14 @@ SELECT
 FROM addresses
 WHERE user_id = $1
   AND deleted_at IS NULL
-ORDER BY is_primary DESC, created_at DESC;
+  AND (
+      sqlc.narg('search')::text IS NULL 
+      OR label ILIKE '%' || sqlc.narg('search')::text || '%'
+      OR recipient_name ILIKE '%' || sqlc.narg('search')::text || '%'
+      OR street ILIKE '%' || sqlc.narg('search')::text || '%'
+  )
+ORDER BY is_primary DESC, created_at DESC
+LIMIT $2 OFFSET $3;
 
 -- name: GetAddressByID :one
 SELECT 

@@ -17,7 +17,7 @@ WHERE email = $1
 LIMIT 1;
 
 -- name: GetUserByID :one
-SELECT id, email, name, phone, password, role, email_confirmed, created_at 
+SELECT id, email, name, phone, password, role, is_active, email_confirmed, created_at 
 FROM users 
 WHERE id = $1 
 LIMIT 1;
@@ -59,10 +59,17 @@ SELECT
     email, 
     phone, 
     is_active, 
-    created_at
+    created_at,
+    COUNT(*) OVER() AS total_count
 FROM users
 WHERE role = 'CUSTOMER'
-ORDER BY created_at DESC;
+  AND (
+      sqlc.narg('search')::text IS NULL 
+      OR name ILIKE '%' || sqlc.narg('search')::text || '%'
+      OR email ILIKE '%' || sqlc.narg('search')::text || '%'
+  )
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;
 
 -- name: UpdateCustomerStatus :one
 UPDATE users

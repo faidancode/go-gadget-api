@@ -46,6 +46,10 @@ WHERE o.user_id = sqlc.arg('user_id')
       sqlc.narg('status')::text IS NULL
       OR o.status = sqlc.narg('status')::text
   )
+  AND (
+      sqlc.narg('search')::text IS NULL
+      OR o.order_number ILIKE '%' || sqlc.narg('search')::text || '%'
+  )
 ORDER BY o.placed_at DESC
 LIMIT $1 OFFSET $2;
 

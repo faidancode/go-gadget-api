@@ -11,7 +11,7 @@ import (
 //go:generate mockgen -source=address_repo.go -destination=../mock/address/address_repo_mock.go -package=mock
 type Repository interface {
 	WithTx(tx dbgen.DBTX) Repository
-	ListByUser(ctx context.Context, userID uuid.UUID) ([]dbgen.ListAddressesByUserRow, error)
+	ListByUser(ctx context.Context, arg dbgen.ListAddressesByUserParams) ([]dbgen.ListAddressesByUserRow, error)
 	GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (dbgen.GetAddressByIDRow, error)
 	Create(ctx context.Context, arg dbgen.CreateAddressParams) (dbgen.Address, error)
 	Update(ctx context.Context, arg dbgen.UpdateAddressParams) (dbgen.Address, error)
@@ -42,8 +42,8 @@ func (r *repository) WithTx(tx dbgen.DBTX) Repository {
 	return r
 }
 
-func (r *repository) ListByUser(ctx context.Context, userID uuid.UUID) ([]dbgen.ListAddressesByUserRow, error) {
-	return r.queries.ListAddressesByUser(ctx, userID)
+func (r *repository) ListByUser(ctx context.Context, arg dbgen.ListAddressesByUserParams) ([]dbgen.ListAddressesByUserRow, error) {
+	return r.queries.ListAddressesByUser(ctx, arg)
 }
 
 func (r *repository) GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (dbgen.GetAddressByIDRow, error) {

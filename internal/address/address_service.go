@@ -45,7 +45,11 @@ func (s *service) List(ctx context.Context, userID string) ([]AddressResponse, e
 		return nil, err
 	}
 
-	rows, err := s.repo.ListByUser(ctx, uid)
+	rows, err := s.repo.ListByUser(ctx, dbgen.ListAddressesByUserParams{
+		UserID: uid,
+		Limit:  100, // Default limit for non-paginated service call if needed
+		Offset: 0,
+	})
 	if err != nil {
 		return nil, err
 	}

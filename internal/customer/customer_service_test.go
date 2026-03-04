@@ -2,6 +2,7 @@ package customer_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -54,33 +55,40 @@ func TestCustomerService_ListCustomers(t *testing.T) {
 	t.Run("success_list_customers", func(t *testing.T) {
 		userID := uuid.New()
 		repo.EXPECT().
-			ListCustomers(ctx).
+			ListCustomers(ctx, dbgen.ListCustomersParams{
+				Limit:  10,
+				Offset: 0,
+				Search: sql.NullString{},
+			}).
 			Return([]dbgen.ListCustomersRow{
 				{
-					ID:        userID,
-					Name:      "John Doe",
-					Email:     "john@example.com",
-					IsActive:  true,
-					CreatedAt: time.Now(),
+					ID:         userID,
+					Name:       "John Doe",
+					Email:      "john@example.com",
+					IsActive:   true,
+					CreatedAt:  time.Now(),
+					TotalCount: 1,
 				},
 			}, nil)
 
-		resp, err := svc.ListCustomers(ctx)
+		resp, total, err := svc.ListCustomers(ctx, 1, 10, "")
 
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
+		assert.Equal(t, int64(1), total)
 		assert.Equal(t, "John Doe", resp[0].Name)
 	})
 
 	t.Run("error_repository_failure", func(t *testing.T) {
 		repo.EXPECT().
-			ListCustomers(ctx).
+			ListCustomers(ctx, gomock.Any()).
 			Return(nil, errors.New("db error"))
 
-		resp, err := svc.ListCustomers(ctx)
+		resp, total, err := svc.ListCustomers(ctx, 1, 10, "")
 
 		assert.Error(t, err)
 		assert.Nil(t, resp)
+		assert.Equal(t, int64(0), total)
 	})
 }
 
@@ -121,18 +129,16 @@ func TestCustomerService_ToggleCustomerStatus(t *testing.T) {
 	})
 }
 
-func TestCustomerService_GetCustomerDetails(t *testing.T) {
+func TestCustomerService_GetCustomerByID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	db, _, _ := sqlmock.New()
 	repo := mockCustomer.NewMockRepository(ctrl)
-	addrRepo := mockAddress.NewMockRepository(ctrl)
-	orderRepo := mockOrder.NewMockRepository(ctrl)
-	svc := customer.NewService(db, repo, addrRepo, orderRepo)
+	svc := customer.NewService(db, repo, nil, nil)
 	ctx := context.Background()
 
-	t.Run("success_get_details", func(t *testing.T) {
+	t.Run("success_get_by_id", func(t *testing.T) {
 		userID := uuid.New()
 
 		// Mock User
@@ -142,43 +148,106 @@ func TestCustomerService_GetCustomerDetails(t *testing.T) {
 			CreatedAt: time.Now(),
 		}, nil)
 
-		// Mock Addresses
-		addrRepo.EXPECT().ListByUser(ctx, userID).Return([]dbgen.Address{
-			{
-				ID:        uuid.New(),
-				Label:     "Rumah",
-				Street:    "Jl. Merdeka",
-				IsPrimary: true,
-			},
-		}, nil)
-
-		// Mock Orders
-		orderRepo.EXPECT().List(ctx, gomock.Any()).Return([]dbgen.Order{
-			{
-				ID:          uuid.New(),
-				OrderNumber: "ORD-001",
-				TotalPrice:  "150000",
-				PlacedAt:    time.Now(),
-			},
-		}, nil)
-
-		resp, err := svc.GetCustomerDetails(ctx, userID.String())
+		resp, err := svc.GetCustomerByID(ctx, customer.CustomerDetailsRequest{
+			CustomerID: userID.String(),
+		})
 
 		assert.NoError(t, err)
 		assert.Equal(t, "John Detail", resp.Name)
-		assert.Len(t, resp.Addresses, 1)
-		assert.Len(t, resp.Orders, 1)
-		assert.Equal(t, 150000, resp.Orders[0].TotalAmount)
 	})
 
 	t.Run("error_user_not_found", func(t *testing.T) {
 		userID := uuid.New()
 		repo.EXPECT().GetByID(ctx, userID).Return(dbgen.GetUserByIDRow{}, errors.New("not found"))
 
-		resp, err := svc.GetCustomerDetails(ctx, userID.String())
+		resp, err := svc.GetCustomerByID(ctx, customer.CustomerDetailsRequest{
+			CustomerID: userID.String(),
+		})
 
 		assert.Error(t, err)
 		assert.Empty(t, resp.ID)
+	})
+}
+
+func TestCustomerService_ListCustomerAddresses(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db, _, _ := sqlmock.New()
+	addrRepo := mockAddress.NewMockRepository(ctrl)
+	svc := customer.NewService(db, nil, addrRepo, nil)
+	ctx := context.Background()
+
+	t.Run("success_list_addresses", func(t *testing.T) {
+		userID := uuid.New()
+
+		// Mock Addresses
+		addrRepo.EXPECT().ListByUser(ctx, dbgen.ListAddressesByUserParams{
+			UserID: userID,
+			Limit:  10,
+			Offset: 0,
+			Search: sql.NullString{},
+		}).Return([]dbgen.ListAddressesByUserRow{
+			{
+				ID:         uuid.New(),
+				Label:      "Rumah",
+				Street:     "Jl. Merdeka",
+				IsPrimary:  true,
+				TotalCount: 1,
+			},
+		}, nil)
+
+		resp, err := svc.ListCustomerAddresses(ctx, customer.CustomerAddressesRequest{
+			CustomerID: userID.String(),
+			Page:       1,
+			Limit:      10,
+		})
+
+		assert.NoError(t, err)
+		assert.Len(t, resp.Data, 1)
+		assert.Equal(t, int64(1), resp.Meta.Total)
+		assert.Equal(t, "Rumah", resp.Data[0].AddressName)
+	})
+}
+
+func TestCustomerService_ListCustomerOrders(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db, _, _ := sqlmock.New()
+	orderRepo := mockOrder.NewMockRepository(ctrl)
+	svc := customer.NewService(db, nil, nil, orderRepo)
+	ctx := context.Background()
+
+	t.Run("success_list_orders", func(t *testing.T) {
+		userID := uuid.New()
+
+		// Mock Orders
+		orderRepo.EXPECT().List(ctx, dbgen.ListOrdersParams{
+			UserID: userID,
+			Limit:  10,
+			Offset: 0,
+			Search: sql.NullString{},
+		}).Return([]dbgen.ListOrdersRow{
+			{
+				ID:          uuid.New(),
+				OrderNumber: "ORD-001",
+				TotalPrice:  "150000",
+				PlacedAt:    time.Now(),
+				TotalCount:  1,
+			},
+		}, nil)
+
+		resp, err := svc.ListCustomerOrders(ctx, customer.CustomerOrdersRequest{
+			CustomerID: userID.String(),
+			Page:       1,
+			Limit:      10,
+		})
+
+		assert.NoError(t, err)
+		assert.Len(t, resp.Data, 1)
+		assert.Equal(t, int64(1), resp.Meta.Total)
+		assert.Equal(t, 150000, resp.Data[0].TotalPrice)
 	})
 }
 

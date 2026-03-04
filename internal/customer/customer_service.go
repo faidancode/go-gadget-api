@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"go-gadget-api/internal/address"
 	"go-gadget-api/internal/order"
+	"go-gadget-api/internal/pkg/response"
 	"go-gadget-api/internal/shared/database/dbgen"
+	"strconv"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -16,9 +17,11 @@ import (
 //go:generate mockgen -source=customer_service.go -destination=../mock/customer/customer_service_mock.go -package=mock
 type Service interface {
 	UpdateProfile(ctx context.Context, customerID string, req UpdateProfileRequest) (CustomerResponse, error)
-	ListCustomers(ctx context.Context) ([]CustomerListResponse, error)
+	ListCustomers(ctx context.Context, page, limit int, search string) ([]CustomerListResponse, int64, error)
 	ToggleCustomerStatus(ctx context.Context, customerID string, active bool) (CustomerListResponse, error)
-	GetCustomerDetails(ctx context.Context, customerID string) (CustomerDetailResponse, error)
+	GetCustomerByID(ctx context.Context, req CustomerDetailsRequest) (CustomerDetailResponse, error)
+	ListCustomerAddresses(ctx context.Context, req CustomerAddressesRequest) (PaginatedAddressResponse, error)
+	ListCustomerOrders(ctx context.Context, req CustomerOrdersRequest) (PaginatedOrderResponse, error)
 }
 
 type service struct {
@@ -37,14 +40,32 @@ func NewService(db *sql.DB, r Repository, ar address.Repository, or order.Reposi
 	}
 }
 
-func (s *service) ListCustomers(ctx context.Context) ([]CustomerListResponse, error) {
-	customers, err := s.repo.ListCustomers(ctx)
-	if err != nil {
-		return nil, err
+func (s *service) ListCustomers(ctx context.Context, page, limit int, search string) ([]CustomerListResponse, int64, error) {
+	if limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+	if offset < 0 {
+		offset = 0
 	}
 
+	searchNull := sql.NullString{String: search, Valid: search != ""}
+
+	customers, err := s.repo.ListCustomers(ctx, dbgen.ListCustomersParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+		Search: searchNull,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var total int64 = 0
 	responses := make([]CustomerListResponse, 0, len(customers))
 	for _, c := range customers {
+		if total == 0 {
+			total = c.TotalCount
+		}
 		responses = append(responses, CustomerListResponse{
 			ID:        c.ID.String(),
 			Name:      c.Name,
@@ -55,7 +76,7 @@ func (s *service) ListCustomers(ctx context.Context) ([]CustomerListResponse, er
 		})
 	}
 
-	return responses, nil
+	return responses, total, nil
 }
 
 func (s *service) ToggleCustomerStatus(ctx context.Context, customerID string, active bool) (CustomerListResponse, error) {
@@ -82,25 +103,57 @@ func (s *service) ToggleCustomerStatus(ctx context.Context, customerID string, a
 	}, nil
 }
 
-func (s *service) GetCustomerDetails(ctx context.Context, customerID string) (CustomerDetailResponse, error) {
-	id, err := uuid.Parse(customerID)
+func (s *service) GetCustomerByID(ctx context.Context, req CustomerDetailsRequest) (CustomerDetailResponse, error) {
+	uid, err := uuid.Parse(req.CustomerID)
 	if err != nil {
 		return CustomerDetailResponse{}, err
 	}
 
-	user, err := s.repo.GetByID(ctx, id)
+	user, err := s.repo.GetByID(ctx, uid)
 	if err != nil {
-		return CustomerDetailResponse{}, err
+		return CustomerDetailResponse{}, ErrCustomerNotFound
 	}
 
-	// Fetch addresses
-	addresses, err := s.addressRepo.ListByUser(ctx, id)
+	return CustomerDetailResponse{
+		ID:        user.ID.String(),
+		Name:      user.Name,
+		Email:     user.Email,
+		Phone:     user.Phone.String,
+		IsActive:  user.IsActive,
+		CreatedAt: user.CreatedAt.Format("2006-01-02 15:04:05"),
+	}, nil
+}
+
+func (s *service) ListCustomerAddresses(ctx context.Context, req CustomerAddressesRequest) (PaginatedAddressResponse, error) {
+	uid, err := uuid.Parse(req.CustomerID)
 	if err != nil {
-		return CustomerDetailResponse{}, err
+		return PaginatedAddressResponse{}, err
 	}
 
-	addressResponses := make([]AddressResponse, 0, len(addresses))
-	for _, a := range addresses {
+	if req.Limit < 1 {
+		req.Limit = 10
+	}
+	offset := (req.Page - 1) * req.Limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	addrRows, err := s.addressRepo.ListByUser(ctx, dbgen.ListAddressesByUserParams{
+		UserID: uid,
+		Limit:  int32(req.Limit),
+		Offset: int32(offset),
+		Search: sql.NullString{String: req.Search, Valid: req.Search != ""},
+	})
+	if err != nil {
+		return PaginatedAddressResponse{}, err
+	}
+
+	var addrTotal int64 = 0
+	addressResponses := make([]AddressResponse, 0, len(addrRows))
+	for _, a := range addrRows {
+		if addrTotal == 0 {
+			addrTotal = a.TotalCount
+		}
 		fullAddr := a.Street
 		if a.Subdistrict.Valid {
 			fullAddr += ", " + a.Subdistrict.String
@@ -122,39 +175,55 @@ func (s *service) GetCustomerDetails(ctx context.Context, customerID string) (Cu
 		})
 	}
 
-	// Fetch orders
-	orders, err := s.orderRepo.List(ctx, dbgen.ListOrdersParams{
-		UserID: id,
-		Limit:  10,
-		Offset: 0,
-	})
+	return PaginatedAddressResponse{
+		Data: addressResponses,
+		Meta: response.NewPaginationMeta(addrTotal, req.Page, req.Limit),
+	}, nil
+}
+
+func (s *service) ListCustomerOrders(ctx context.Context, req CustomerOrdersRequest) (PaginatedOrderResponse, error) {
+	uid, err := uuid.Parse(req.CustomerID)
 	if err != nil {
-		return CustomerDetailResponse{}, err
+		return PaginatedOrderResponse{}, err
 	}
 
-	orderResponses := make([]OrderResponse, 0, len(orders))
-	for _, o := range orders {
-		var total int
-		fmt.Sscanf(o.TotalPrice, "%d", &total)
+	if req.Limit < 1 {
+		req.Limit = 10
+	}
+	offset := (req.Page - 1) * req.Limit
+	if offset < 0 {
+		offset = 0
+	}
 
+	orderRows, err := s.orderRepo.List(ctx, dbgen.ListOrdersParams{
+		UserID: uid,
+		Limit:  int32(req.Limit),
+		Offset: int32(offset),
+		Search: sql.NullString{String: req.Search, Valid: req.Search != ""},
+	})
+	if err != nil {
+		return PaginatedOrderResponse{}, err
+	}
+
+	var orderTotal int64 = 0
+	orderResponses := make([]OrderResponse, 0, len(orderRows))
+	for _, o := range orderRows {
+		if orderTotal == 0 {
+			orderTotal = o.TotalCount
+		}
+		totalPrice, _ := strconv.Atoi(o.TotalPrice)
 		orderResponses = append(orderResponses, OrderResponse{
 			ID:          o.ID.String(),
 			OrderNumber: o.OrderNumber,
-			TotalAmount: total,
+			TotalPrice:  totalPrice,
 			Status:      o.Status,
 			CreatedAt:   o.PlacedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 
-	return CustomerDetailResponse{
-		ID:        user.ID.String(),
-		Name:      user.Name,
-		Email:     user.Email,
-		Phone:     user.Phone.String,
-		IsActive:  true, // Default true if not explicitly tracked in GetByIDRow yet
-		CreatedAt: user.CreatedAt.Format("2006-01-02 15:04:05"),
-		Addresses: addressResponses,
-		Orders:    orderResponses,
+	return PaginatedOrderResponse{
+		Data: orderResponses,
+		Meta: response.NewPaginationMeta(orderTotal, req.Page, req.Limit),
 	}, nil
 }
 

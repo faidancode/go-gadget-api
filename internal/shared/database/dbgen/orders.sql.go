@@ -440,6 +440,10 @@ WHERE o.user_id = $3
       $4::text IS NULL
       OR o.status = $4::text
   )
+  AND (
+      $5::text IS NULL
+      OR o.order_number ILIKE '%' || $5::text || '%'
+  )
 ORDER BY o.placed_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -449,6 +453,7 @@ type ListOrdersParams struct {
 	Offset int32          `json:"offset"`
 	UserID uuid.UUID      `json:"user_id"`
 	Status sql.NullString `json:"status"`
+	Search sql.NullString `json:"search"`
 }
 
 type ListOrdersRow struct {
@@ -468,6 +473,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 		arg.Offset,
 		arg.UserID,
 		arg.Status,
+		arg.Search,
 	)
 	if err != nil {
 		return nil, err
