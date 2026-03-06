@@ -75,8 +75,6 @@ func (h *Handler) Checkout(c *gin.Context) {
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
-		// Menggunakan helper writeServiceError jika ada di struct handler Anda
-		// Jika tidak, Anda bisa menggunakan apperror.ToHTTP(err) secara manual
 		httpErr := apperror.ToHTTP(err)
 		response.Error(c, httpErr.Status, httpErr.Code, httpErr.Message, nil)
 		return
@@ -108,7 +106,6 @@ func (h *Handler) Checkout(c *gin.Context) {
 func (h *Handler) List(c *gin.Context) {
 	userID := getUserIDFromContext(c)
 	status := c.Query("status")
-	// Jika Anda ingin defaultnya kosong atau "ALL" agar di SQL nanti jadi NULL
 	if status == "ALL" {
 		status = ""
 	}
@@ -123,7 +120,6 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 
-	// DEBUG: Cek apakah 'orders' punya isi sebelum dikirim
 	log.Printf("[Handler.List] Success fetching %d orders for user %s", len(orders), userID)
 	if len(orders) > 0 && len(orders[0].Items) > 0 {
 		log.Printf("[Handler.List] First order first item NameSnapshot: %s", orders[0].Items[0].NameSnapshot)

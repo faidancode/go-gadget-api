@@ -643,11 +643,26 @@ func (s *service) Complete(ctx context.Context, orderID string, userID string, s
 		return OrderResponse{}, err
 	}
 
-	// --- LOGIKA TAMBAHAN (Opsional di masa depan) ---
-	// Jika status == "SHIPPED", mungkin Anda ingin otomatis kirim email/notifikasi
-	// if status == "SHIPPED" {
-	//    s.notificationSvc.Send(o.UserID, "Pesanan Anda sedang dikirim!")
-	// }
+	if s.outboxRepo != nil {
+		payloadBytes, _ := json.Marshal(OrderStatusChangedPayload{
+			OrderID:     o.ID.String(),
+			OrderNumber: o.OrderNumber,
+			UserID:      o.UserID.String(),
+			OldStatus:   currentOrder.Status,
+			NewStatus:   status,
+			ChangedAt:   time.Now().Format(time.RFC3339),
+		})
+		err = s.outboxRepo.WithTx(tx).CreateOutboxEvent(ctx, dbgen.CreateOutboxEventParams{
+			ID:            uuid.New(),
+			AggregateType: "ORDER",
+			AggregateID:   o.ID,
+			EventType:     "ORDER_STATUS_CHANGED",
+			Payload:       payloadBytes,
+		})
+		if err != nil {
+			return OrderResponse{}, err
+		}
+	}
 
 	// 4. Commit Transaksi
 	if err := tx.Commit(); err != nil {
@@ -703,6 +718,27 @@ func (s *service) UpdateStatusByAdmin(ctx context.Context, orderID string, nextS
 	o, err := qtx.UpdateStatus(ctx, oid, nextStatus)
 	if err != nil {
 		return OrderResponse{}, ErrOrderFailed
+	}
+
+	if s.outboxRepo != nil {
+		payloadBytes, _ := json.Marshal(OrderStatusChangedPayload{
+			OrderID:     o.ID.String(),
+			OrderNumber: o.OrderNumber,
+			UserID:      o.UserID.String(),
+			OldStatus:   order.Status,
+			NewStatus:   nextStatus,
+			ChangedAt:   time.Now().Format(time.RFC3339),
+		})
+		err = s.outboxRepo.WithTx(tx).CreateOutboxEvent(ctx, dbgen.CreateOutboxEventParams{
+			ID:            uuid.New(),
+			AggregateType: "ORDER",
+			AggregateID:   o.ID,
+			EventType:     "ORDER_STATUS_CHANGED",
+			Payload:       payloadBytes,
+		})
+		if err != nil {
+			return OrderResponse{}, err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -944,6 +980,32 @@ func (s *service) updatePaymentStatusWithFilter(ctx context.Context, input Updat
 	})
 	if err != nil {
 		return OrderResponse{}, ErrOrderFailed
+	}
+
+	fullOrder, err := qtx.GetByID(ctx, row.ID)
+	if err != nil {
+		return OrderResponse{}, err
+	}
+
+	if s.outboxRepo != nil {
+		payloadBytes, _ := json.Marshal(OrderPaymentUpdatedPayload{
+			OrderID:     row.ID.String(),
+			OrderNumber: fullOrder.OrderNumber,
+			UserID:      fullOrder.UserID.String(),
+			OldStatus:   currentStatus,
+			NewStatus:   nextStatus,
+			ChangedAt:   time.Now().Format(time.RFC3339),
+		})
+		err = s.outboxRepo.WithTx(tx).CreateOutboxEvent(ctx, dbgen.CreateOutboxEventParams{
+			ID:            uuid.New(),
+			AggregateType: "ORDER",
+			AggregateID:   row.ID,
+			EventType:     "ORDER_PAYMENT_UPDATED",
+			Payload:       payloadBytes,
+		})
+		if err != nil {
+			return OrderResponse{}, err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

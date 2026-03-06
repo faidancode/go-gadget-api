@@ -593,6 +593,9 @@ func TestOrderService_Complete(t *testing.T) {
 			ID: orderID, Status: statusTarget,
 		}, nil)
 
+		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo)
+		outboxRepo.EXPECT().CreateOutboxEvent(ctx, gomock.Any()).Return(nil)
+
 		mock.ExpectCommit()
 
 		res, err := svc.Complete(ctx, orderID.String(), userID.String(), statusTarget)
@@ -640,6 +643,9 @@ func TestOrderService_UpdateStatusByAdmin(t *testing.T) {
 		orderRepo.EXPECT().UpdateStatus(ctx, orderID, statusTarget).Return(dbgen.Order{
 			ID: orderID, Status: statusTarget,
 		}, nil)
+
+		outboxRepo.EXPECT().WithTx(gomock.Any()).Return(outboxRepo)
+		outboxRepo.EXPECT().CreateOutboxEvent(ctx, gomock.Any()).Return(nil)
 
 		mock.ExpectCommit()
 

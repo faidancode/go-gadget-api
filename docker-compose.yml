@@ -153,6 +153,8 @@ services:
     environment:
       - DB_URL=postgres://user:password@postgres:5432/go_gadget_dev?sslmode=disable
       - KAFKA_BROKER=kafka:9092
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL}
     restart: unless-stopped
 volumes:
   postgres_data:

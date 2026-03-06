@@ -41,6 +41,7 @@ func processPendingEvents(ctx context.Context, repo outbox.Repository, writer *k
 	log.Printf("[WORKER] Processing %d pending events", len(events))
 
 	for _, event := range events {
+		log.Printf("[WORKER] Publishing event ID: %s, EventType: '%s', AggregateType: '%s'", event.ID, event.EventType, event.AggregateType)
 		if err := publishEvent(ctx, writer, event); err != nil {
 			log.Printf("[WORKER] Failed to publish event %s: %v", event.ID, err)
 			_ = repo.MarkFailed(ctx, event.ID)

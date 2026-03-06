@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"go-gadget-api/internal/cart"
+	"go-gadget-api/internal/email"
 	"go-gadget-api/internal/messaging/kafka/consumer"
 
 	"go-gadget-api/internal/shared/connection"
@@ -48,7 +49,13 @@ func RunConsumer() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go consumer.ConsumeMessages(ctx, reader, cartService)
+	emailSvc, err := email.NewResendServiceFromEnv()
+	if err != nil {
+		log.Printf("[CONSUMER] Failed to initialize real email service, using Noop: %v", err)
+		emailSvc = email.NewNoopService()
+	}
+
+	go consumer.ConsumeMessages(ctx, reader, cartService, emailSvc, queries)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

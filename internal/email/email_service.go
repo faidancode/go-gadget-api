@@ -16,6 +16,8 @@ type Service interface {
 	SendResetPasswordEmail(ctx context.Context, to, userName, resetLink string) error
 	SendConfirmationLink(ctx context.Context, to, userName, confirmLink string) error
 	SendConfirmationPin(ctx context.Context, to, userName, pin string) error
+	SendOrderStatusEmail(ctx context.Context, to, userName, orderNumber, newStatus string) error
+	SendOrderPaymentEmail(ctx context.Context, to, userName, orderNumber, paymentStatus string) error
 }
 
 type resendService struct {
@@ -73,6 +75,26 @@ func (s *resendService) SendConfirmationPin(ctx context.Context, to, userName, p
 	return s.send(ctx, to, "PIN Konfirmasi Email", html)
 }
 
+func (s *resendService) SendOrderStatusEmail(ctx context.Context, to, userName, orderNumber, newStatus string) error {
+	html := fmt.Sprintf(
+		"<p>Halo %s,</p><p>Status pesanan Anda (<strong>%s</strong>) telah diperbarui menjadi: <strong>%s</strong>.</p>",
+		userName,
+		orderNumber,
+		newStatus,
+	)
+	return s.send(ctx, to, fmt.Sprintf("Update Status Pesanan %s", orderNumber), html)
+}
+
+func (s *resendService) SendOrderPaymentEmail(ctx context.Context, to, userName, orderNumber, paymentStatus string) error {
+	html := fmt.Sprintf(
+		"<p>Halo %s,</p><p>Status pembayaran untuk pesanan Anda (<strong>%s</strong>) telah diperbarui menjadi: <strong>%s</strong>.</p>",
+		userName,
+		orderNumber,
+		paymentStatus,
+	)
+	return s.send(ctx, to, fmt.Sprintf("Update Pembayaran Pesanan %s", orderNumber), html)
+}
+
 func (s *resendService) send(ctx context.Context, to, subject, html string) error {
 	payload := map[string]any{
 		"from":    s.fromEmail,
@@ -126,5 +148,13 @@ func (s *noopService) SendConfirmationLink(_ context.Context, _, _, _ string) er
 }
 
 func (s *noopService) SendConfirmationPin(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
+func (s *noopService) SendOrderStatusEmail(_ context.Context, _, _, _, _ string) error {
+	return nil
+}
+
+func (s *noopService) SendOrderPaymentEmail(_ context.Context, _, _, _, _ string) error {
 	return nil
 }
