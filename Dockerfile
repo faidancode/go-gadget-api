@@ -32,8 +32,6 @@ COPY --from=builder /app/main .
 
 COPY .env .
 
-# COPY --from=builder /app/docs ./docs
-
 EXPOSE 3000
 
 CMD ["./main"]
