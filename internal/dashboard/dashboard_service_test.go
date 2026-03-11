@@ -20,35 +20,44 @@ func TestDashboardService_GetDashboardData(t *testing.T) {
 
 	repo := mock.NewMockRepository(ctrl)
 	svc := dashboard.NewService(repo)
+
+	// Kita tetap pakai ini untuk input awal
 	ctx := context.Background()
 
 	t.Run("success_fetch_dashboard_data", func(t *testing.T) {
-		repo.EXPECT().GetStats(ctx).Return(dbgen.GetDashboardStatsRow{
-			TotalProducts:   10,
-			TotalBrands:     5,
-			TotalCategories: 3,
-			TotalCustomers:  20,
-			TotalOrders:     50,
-			TotalRevenue:    1000000,
-		}, nil)
+		// PERBAIKAN: Gunakan gomock.Any() karena service akan membungkus ctx dengan Timeout
+		repo.EXPECT().
+			GetStats(gomock.Any()).
+			Return(dbgen.GetDashboardStatsRow{
+				TotalProducts:   10,
+				TotalBrands:     5,
+				TotalCategories: 3,
+				TotalCustomers:  20,
+				TotalOrders:     50,
+				TotalRevenue:    1000000,
+			}, nil)
 
-		repo.EXPECT().ListRecentOrders(ctx, int32(5)).Return([]dbgen.ListRecentOrdersRow{
-			{
-				ID:          uuid.New(),
-				OrderNumber: "ORD-001",
-				TotalPrice:  "100000",
-				Status:      "COMPLETED",
-				UserName:    "John Doe",
-				PlacedAt:    time.Now(),
-			},
-		}, nil)
+		repo.EXPECT().
+			ListRecentOrders(gomock.Any(), int32(5)).
+			Return([]dbgen.ListRecentOrdersRow{
+				{
+					ID:          uuid.New(),
+					OrderNumber: "ORD-001",
+					TotalPrice:  "100000",
+					Status:      "COMPLETED",
+					UserName:    "John Doe",
+					PlacedAt:    time.Now(),
+				},
+			}, nil)
 
-		repo.EXPECT().GetCategoryDistribution(ctx).Return([]dbgen.GetCategoryDistributionRow{
-			{
-				CategoryName: "Category A",
-				ProductCount: 5,
-			},
-		}, nil)
+		repo.EXPECT().
+			GetCategoryDistribution(gomock.Any()).
+			Return([]dbgen.GetCategoryDistributionRow{
+				{
+					CategoryName: "Category A",
+					ProductCount: 5,
+				},
+			}, nil)
 
 		res, err := svc.GetDashboardData(ctx)
 
@@ -60,10 +69,17 @@ func TestDashboardService_GetDashboardData(t *testing.T) {
 	})
 
 	t.Run("error_repository_failure", func(t *testing.T) {
-		repo.EXPECT().GetStats(ctx).Return(dbgen.GetDashboardStatsRow{}, errors.New("db error"))
+		// Gunakan gomock.Any() juga di sini
+		repo.EXPECT().GetStats(gomock.Any()).Return(dbgen.GetDashboardStatsRow{}, errors.New("db error"))
+
+		// Karena kita menggunakan goroutine paralel, mock lain mungkin terpanggil
+		// atau tidak tergantung mana yang duluan kena error.
+		// Untuk amannya di test error, kita bisa gunakan .AnyTimes() atau
+		// fokus pada error return-nya saja.
+		repo.EXPECT().ListRecentOrders(gomock.Any(), gomock.Any()).AnyTimes()
+		repo.EXPECT().GetCategoryDistribution(gomock.Any()).AnyTimes()
 
 		_, err := svc.GetDashboardData(ctx)
-
 		assert.Error(t, err)
 	})
 }

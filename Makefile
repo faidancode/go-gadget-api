@@ -9,6 +9,7 @@ MIGRATE=migrate
 MIGRATIONS_PATH=internal/shared/database/migrations
 SQLC=sqlc
 GO=go
+TEST_RESULT := test_result.txt
 
 # =========================
 # HELP
@@ -135,7 +136,14 @@ sqlc:
 # =========================
 .PHONY: test
 test:
-	$(GO) test $(if $(module),./internal/$(module)/...,./...) -v
+	@echo "Running tests..."
+	$(GO) test $(if $(module),./internal/$(module)/...,./...) -v | tee $(TEST_RESULT)
+	@echo "-----------------------------------"
+	@echo "Test completed. Result saved to $(TEST_RESULT)"
+
+.PHONY: test-clean
+test-clean:
+	rm -f $(TEST_RESULT)
 
 # =========================
 # RUN
