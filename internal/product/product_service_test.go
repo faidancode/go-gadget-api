@@ -10,6 +10,7 @@ import (
 
 	"go-gadget-api/internal/pkg/constants"
 	"go-gadget-api/internal/product"
+	producterrors "go-gadget-api/internal/product/errors"
 	"go-gadget-api/internal/shared/database/dbgen"
 
 	categoryMock "go-gadget-api/internal/mock/category"
@@ -434,25 +435,52 @@ func TestProductService_ListAdmin(t *testing.T) {
 
 func TestProductService_GetBySlug(t *testing.T) {
 	deps := setupServiceTest(t)
-	defer deps.db.Close()
+	// Jangan lupa menutup mock controller jika tidak otomatis di setupServiceTest
+	// defer deps.ctrl.Finish()
 
 	ctx := context.Background()
 	id := uuid.New()
 	slug := "iphone-15-abcde"
 
 	t.Run("success", func(t *testing.T) {
-		deps.repo.EXPECT().GetBySlug(ctx, slug).Return(dbgen.GetProductBySlugRow{
-			ID: id, Name: "iPhone 15", Slug: slug, Price: "1500.00",
-		}, nil)
+		// 1. GetBySlug dipanggil pertama kali (Sequential)
+		deps.repo.EXPECT().
+			GetBySlug(gomock.Any(), slug).
+			Return(dbgen.GetProductBySlugRow{
+				ID: id, Name: "iPhone 15", Slug: slug, Price: "1500.00",
+			}, nil)
 
-		deps.reviewRepo.EXPECT().GetByProductID(ctx, id, int32(5), int32(0)).Return(nil, nil)
-		deps.reviewRepo.EXPECT().GetAverageRating(ctx, id).Return(4.5, nil)
-		deps.reviewRepo.EXPECT().CountByProductID(ctx, id).Return(int64(10), nil)
+		// 2. Tiga pemanggilan ini terjadi di dalam Goroutine (Paralel)
+		// Gunakan gomock.Any() untuk context karena ada WithTimeout
+		deps.reviewRepo.EXPECT().
+			GetByProductID(gomock.Any(), id, int32(5), int32(0)).
+			Return(nil, nil)
 
+		deps.reviewRepo.EXPECT().
+			GetAverageRating(gomock.Any(), id).
+			Return(4.5, nil)
+
+		deps.reviewRepo.EXPECT().
+			CountByProductID(gomock.Any(), id).
+			Return(int64(10), nil)
+
+		// Execution
 		res, err := deps.service.GetBySlug(ctx, slug)
+
+		// Assertions
 		assert.NoError(t, err)
 		assert.Equal(t, slug, res.Slug)
 		assert.Equal(t, 4.5, res.AverageRating)
+		assert.Equal(t, int64(10), res.RatingCount)
+	})
+
+	t.Run("product_not_found", func(t *testing.T) {
+		deps.repo.EXPECT().
+			GetBySlug(gomock.Any(), slug).
+			Return(dbgen.GetProductBySlugRow{}, sql.ErrNoRows)
+
+		_, err := deps.service.GetBySlug(ctx, slug)
+		assert.ErrorIs(t, err, producterrors.ErrProductNotFound)
 	})
 }
 

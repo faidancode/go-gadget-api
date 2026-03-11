@@ -25,3 +25,5 @@ gadget-api/main
 Thumbs.db
 
 .gocache
+
+test_result.txt

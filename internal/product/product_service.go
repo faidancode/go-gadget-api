@@ -14,6 +14,7 @@ import (
 	"mime/multipart"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -134,7 +135,7 @@ func (s *service) ListPublic(ctx context.Context, req ListPublicRequest) ([]Prod
 }
 
 func (s *service) GetBySlug(ctx context.Context, slug string) (ProductDetailResponse, error) {
-	// 1. Get product by slug
+	// 1. Get product by slug (Ini harus yang pertama karena kita butuh Product.ID)
 	product, err := s.repo.GetBySlug(ctx, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -143,26 +144,59 @@ func (s *service) GetBySlug(ctx context.Context, slug string) (ProductDetailResp
 		return ProductDetailResponse{}, producterrors.ErrProductFailed
 	}
 
-	// 2. Get reviews (limit 5, newest first)
-	reviews, err := s.reviewRepo.GetByProductID(ctx, product.ID, 5, 0)
-	if err != nil && err != sql.ErrNoRows {
-		reviews = nil // atau bisa nil
-	}
+	// Gunakan Context dengan Timeout agar proses paralel tidak menggantung
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
 
-	// 3. Get average rating
-	avgRating, err := s.reviewRepo.GetAverageRating(ctx, product.ID)
-	if err != nil && err != sql.ErrNoRows {
-		avgRating = 0
-	}
+	var (
+		wg          sync.WaitGroup
+		mu          sync.Mutex
+		reviews     []dbgen.GetReviewsByProductIDRow
+		avgRating   float64
+		ratingCount int64
+	)
 
-	// 4. Get total reviews count
-	ratingCount, err := s.reviewRepo.CountByProductID(ctx, product.ID)
-	if err != nil && err != sql.ErrNoRows {
-		ratingCount = 0
-	}
+	// Jalankan 3 tugas review secara paralel
+	wg.Add(3)
 
-	// 5. Map to response
-	return s.mapToDetailResponse(product, reviews, avgRating, ratingCount), nil
+	//  Get reviews (Goroutine)
+	go func() {
+		defer wg.Done()
+		res, err := s.reviewRepo.GetByProductID(ctx, product.ID, 5, 0)
+		if err == nil {
+			mu.Lock()
+			reviews = res
+			mu.Unlock()
+		}
+	}()
+
+	//  Get average rating (Goroutine)
+	go func() {
+		defer wg.Done()
+		res, err := s.reviewRepo.GetAverageRating(ctx, product.ID)
+		if err == nil {
+			mu.Lock()
+			avgRating = res
+			mu.Unlock()
+		}
+	}()
+
+	// Get total reviews count (Goroutine)
+	go func() {
+		defer wg.Done()
+		res, err := s.reviewRepo.CountByProductID(ctx, product.ID)
+		if err == nil {
+			mu.Lock()
+			ratingCount = res
+			mu.Unlock()
+		}
+	}()
+
+	// Tunggu semua informasi review selesai diambil
+	wg.Wait()
+
+	// 5. Map to response (Gunakan mapper fungsi terpisah agar bersih)
+	return s.mapToDetailResponse(product, reviews, avgRating, int64(ratingCount)), nil
 }
 
 func (s *service) ListAdmin(
